@@ -38,6 +38,70 @@ const BRAND = {
   textMuted: "#9A7A5A",
 };
 
+// ─── Welcome Back Popup ───
+function WelcomeBackPopup({ message, onClose }: {
+  message: { name: string; type: "normal" | "birthday" | "anniversary" };
+  onClose: () => void;
+}) {
+  const configs = {
+    normal: {
+      emoji: "👋",
+      title: `Welcome back, ${message.name}!`,
+      sub: "Great to see you again at Golden Beans ☕",
+      bg: `linear-gradient(135deg, ${BRAND.coffee}, ${BRAND.coffeeMid})`,
+      accent: BRAND.gold,
+    },
+    birthday: {
+      emoji: "🎂",
+      title: `Happy Birthday, ${message.name}! 🎉`,
+      sub: "Wishing you a wonderful day! Enjoy a special treat from us 🎁",
+      bg: "linear-gradient(135deg, #7c2d12, #c2410c)",
+      accent: "#fbbf24",
+    },
+    anniversary: {
+      emoji: "💑",
+      title: `Happy Anniversary, ${message.name}! ❤️`,
+      sub: "Celebrate this special day with us! A surprise awaits you 🌹",
+      bg: "linear-gradient(135deg, #4a0020, #831843)",
+      accent: "#f9a8d4",
+    },
+  };
+
+  const cfg = configs[message.type];
+
+  useEffect(() => {
+    const timer = setTimeout(onClose, 5000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div style={{
+      position: "fixed", top: "80px", left: "50%", transform: "translateX(-50%)",
+      width: "calc(100% - 32px)", maxWidth: "440px",
+      background: cfg.bg, borderRadius: "24px", padding: "20px",
+      zIndex: 35, boxShadow: "0 16px 48px rgba(0,0,0,0.3)",
+      animation: "slideDown 0.4s cubic-bezier(0.34,1.56,0.64,1)",
+      border: `1px solid rgba(255,255,255,0.1)`,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+        <div style={{ fontSize: "44px", animation: message.type !== "normal" ? "bounce-dot 1s infinite" : "float 3s infinite" }}>
+          {cfg.emoji}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontWeight: 900, fontSize: "16px", color: cfg.accent, margin: "0 0 4px", lineHeight: 1.3, fontFamily: "'Playfair Display', serif" }}>{cfg.title}</p>
+          <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.8)", margin: 0, lineHeight: 1.4, fontWeight: 600 }}>{cfg.sub}</p>
+        </div>
+        <button onClick={onClose} style={{ width: "28px", height: "28px", borderRadius: "50%", background: "rgba(255,255,255,0.15)", border: "none", color: "white", cursor: "pointer", fontSize: "14px", flexShrink: 0 }}>✕</button>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ height: "3px", background: "rgba(255,255,255,0.2)", borderRadius: "99px", marginTop: "14px", overflow: "hidden" }}>
+        <div style={{ height: "100%", background: cfg.accent, borderRadius: "99px", animation: "progress-bar 5s linear forwards" }} />
+      </div>
+    </div>
+  );
+}
+
 // ─── Customer Data Popup ───
 function CustomerDataPopup({ onSubmit, onSkip }: {
   onSubmit: (data: { name: string; phone: string; birthdate: string; anniversary: string }) => void;
@@ -578,9 +642,44 @@ export default function CustomerOrderPage() {
   const [showCancellationWindow, setShowCancellationWindow] = useState(false);
   const [pendingOrder, setPendingOrder] = useState<Order | null>(null);
   const [customerData, setCustomerData] = useState<{ name: string; phone: string } | null>(null);
+  const [showWelcomeBack, setShowWelcomeBack] = useState(false);
+  const [welcomeMessage, setWelcomeMessage] = useState<{ name: string; type: "normal" | "birthday" | "anniversary" } | null>(null);
 
   const pollRef = useRef<NodeJS.Timeout | null>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // ── Device Recognition ──
+  useEffect(() => {
+    const saved = localStorage.getItem("gb_customer");
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        setCustomerData({ name: data.name, phone: data.phone });
+
+        // Check birthday
+        const today = new Date();
+        const mm = String(today.getMonth() + 1).padStart(2, "0");
+        const dd = String(today.getDate()).padStart(2, "0");
+        const todayMMDD = `${mm}-${dd}`;
+
+        let msgType: "normal" | "birthday" | "anniversary" = "normal";
+
+        if (data.birthdate) {
+          const bdMMDD = data.birthdate.slice(5); // YYYY-MM-DD → MM-DD
+          if (bdMMDD === todayMMDD) msgType = "birthday";
+        }
+
+        if (data.anniversary && msgType === "normal") {
+          const annMMDD = data.anniversary.slice(5);
+          if (annMMDD === todayMMDD) msgType = "anniversary";
+        }
+
+        setWelcomeMessage({ name: data.name, type: msgType });
+        setShowWelcomeBack(true);
+        setTimeout(() => setShowWelcomeBack(false), 5000);
+      } catch {}
+    }
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -649,6 +748,8 @@ export default function CustomerOrderPage() {
   // ── Customer data submitted ──
   const handleCustomerDataSubmit = (data: { name: string; phone: string; birthdate: string; anniversary: string }) => {
     setCustomerData({ name: data.name, phone: data.phone });
+    // Save to localStorage for future visits
+    localStorage.setItem("gb_customer", JSON.stringify(data));
     setShowCustomerPopup(false);
     placeOrder(data);
   };
@@ -726,12 +827,21 @@ export default function CustomerOrderPage() {
         @keyframes ping { 0%{transform:scale(1);opacity:0.4} 100%{transform:scale(1.4);opacity:0} }
         @keyframes pulse-ring { 0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,0.4)} 50%{box-shadow:0 0 0 8px rgba(220,38,38,0)} }
         @keyframes gold-shine { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        @keyframes slideDown { from{transform:translateX(-50%) translateY(-20px);opacity:0} to{transform:translateX(-50%) translateY(0);opacity:1} }
+        @keyframes progress-bar { from{width:100%} to{width:0%} }
         ::-webkit-scrollbar { display:none; }
         button { font-family:'Nunito',sans-serif; }
         input { font-family:'Nunito',sans-serif; }
       `}</style>
 
       {/* Overlays */}
+      {showWelcomeBack && welcomeMessage && (
+        <WelcomeBackPopup
+          message={welcomeMessage}
+          onClose={() => setShowWelcomeBack(false)}
+        />
+      )}
+
       {showCustomerPopup && (
         <CustomerDataPopup
           onSubmit={handleCustomerDataSubmit}
