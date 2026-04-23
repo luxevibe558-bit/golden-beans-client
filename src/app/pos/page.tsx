@@ -5,6 +5,28 @@ import POSSidebar from "@/components/POSSidebar";
 import { menuApi, orderApi, tableApi } from "@/lib/api";
 import type { MenuCategory, MenuItem, Table, Order, CartItem } from "@/types";
 
+const BRAND = {
+  gold: "#C9A84C",
+  goldLight: "#E8C97A",
+  goldDark: "#A07830",
+  coffee: "#1A0E06",
+  coffeeMid: "#2C1A0E",
+  coffeeLight: "#4A2C1A",
+  coffeeBorder: "#3D2410",
+  cream: "#FDF6E9",
+  creamDark: "#F0E0C0",
+  espresso: "#0D0700",
+  surface: "#231508",
+  surfaceHover: "#2E1B0F",
+  text: "#E8D5B0",
+  textMuted: "#9A7A5A",
+  textDim: "#6A4A2A",
+  success: "#4ade80",
+  warning: "#fbbf24",
+  danger: "#f87171",
+  blue: "#60a5fa",
+};
+
 function formatINR(n: number) {
   return `₹${n.toFixed(0)}`;
 }
@@ -12,11 +34,7 @@ function formatINR(n: number) {
 const TAX_RATE = 0.05;
 
 // ─── Settle Modal ───
-function SettleModal({
-  order,
-  onSettle,
-  onClose,
-}: {
+function SettleModal({ order, onSettle, onClose }: {
   order: Order;
   onSettle: (amountPaid: number, method: string, discount: number) => Promise<void>;
   onClose: () => void;
@@ -30,147 +48,186 @@ function SettleModal({
   const tax = subtotal * TAX_RATE;
   const total = Math.max(0, subtotal + tax - discount);
 
-  useEffect(() => {
-    setAmountPaid(total);
-  }, [total]);
+  useEffect(() => { setAmountPaid(total); }, [total]);
 
   const shortfall = total - amountPaid;
+  const change = amountPaid - total;
 
   const handleSettle = async () => {
     if (amountPaid <= 0) return alert("Enter amount paid");
     setLoading(true);
-    try {
-      await onSettle(amountPaid, method, discount);
-    } finally {
-      setLoading(false);
-    }
+    try { await onSettle(amountPaid, method, discount); }
+    finally { setLoading(false); }
   };
 
+  const payMethods = [
+    { id: "cash", label: "Cash", icon: "💵" },
+    { id: "upi", label: "UPI", icon: "📱" },
+    { id: "card", label: "Card", icon: "💳" },
+    { id: "wallet", label: "Wallet", icon: "👛" },
+  ];
+
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scale-in">
-        <div className="p-5 border-b border-surface-100">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-lg font-bold text-surface-900">
-              Settle Bill — {order.tableNumber}
-            </h2>
-            <button onClick={onClose} className="text-surface-400 hover:text-surface-700 text-xl">✕</button>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", backdropFilter: "blur(8px)" }}>
+      <div style={{ background: BRAND.surface, border: `1px solid ${BRAND.coffeeBorder}`, borderRadius: "28px", width: "100%", maxWidth: "460px", overflow: "hidden", boxShadow: `0 32px 80px rgba(0,0,0,0.5)`, animation: "scaleIn 0.2s ease" }}>
+        {/* Header */}
+        <div style={{ background: `linear-gradient(135deg, ${BRAND.coffeeMid}, ${BRAND.coffeeLight})`, padding: "20px 24px", borderBottom: `1px solid ${BRAND.coffeeBorder}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <h2 style={{ fontWeight: 900, fontSize: "20px", color: BRAND.gold, margin: 0 }}>Settle Bill</h2>
+              <p style={{ fontSize: "13px", color: BRAND.textMuted, margin: "3px 0 0" }}>{order.tableNumber} • #{order.orderNumber}</p>
+            </div>
+            <button onClick={onClose} style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: `1px solid ${BRAND.coffeeBorder}`, color: BRAND.textMuted, cursor: "pointer", fontSize: "16px" }}>✕</button>
           </div>
-          <p className="text-sm text-surface-500 mt-0.5">Order #{order.orderNumber}</p>
         </div>
 
-        <div className="p-5 space-y-4">
-          {/* Items Summary */}
-          <div className="bg-surface-50 rounded-xl p-3 space-y-1 max-h-40 overflow-y-auto">
-            {order.items.map((item) => (
-              <div key={item._id} className="flex justify-between text-sm">
-                <span className="text-surface-700">{item.name} × {item.quantity}</span>
-                <span className="font-medium">{formatINR(item.price * item.quantity)}</span>
+        <div style={{ padding: "20px 24px", maxHeight: "70vh", overflowY: "auto" }}>
+          {/* Items */}
+          <div style={{ background: BRAND.coffeeMid, borderRadius: "16px", padding: "14px", marginBottom: "16px", border: `1px solid ${BRAND.coffeeBorder}`, maxHeight: "160px", overflowY: "auto" }}>
+            {order.items.map(item => (
+              <div key={item._id} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", padding: "4px 0", borderBottom: `1px solid ${BRAND.coffeeBorder}` }}>
+                <span style={{ color: BRAND.text }}>{item.name} <span style={{ color: BRAND.textMuted }}>×{item.quantity}</span></span>
+                <span style={{ color: BRAND.gold, fontWeight: 700 }}>{formatINR(item.price * item.quantity)}</span>
               </div>
             ))}
           </div>
 
           {/* Discount */}
-          <div>
-            <label className="block text-sm font-medium text-surface-700 mb-1">
-              Discount (₹)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max={subtotal}
-              value={discount}
-              onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-              className="input-field"
+          <div style={{ marginBottom: "14px" }}>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: BRAND.textMuted, marginBottom: "6px", letterSpacing: "0.5px", textTransform: "uppercase" }}>Discount (₹)</label>
+            <input type="number" min="0" value={discount}
+              onChange={e => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+              style={{ width: "100%", padding: "10px 14px", borderRadius: "12px", border: `1px solid ${BRAND.coffeeBorder}`, background: BRAND.coffeeMid, color: BRAND.text, fontSize: "14px", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
             />
           </div>
 
-          {/* Bill Breakdown */}
-          <div className="bg-surface-50 rounded-xl p-3 space-y-1.5">
-            <div className="flex justify-between text-sm text-surface-600">
-              <span>Subtotal</span><span>{formatINR(subtotal)}</span>
-            </div>
-            <div className="flex justify-between text-sm text-surface-600">
-              <span>GST (5%)</span><span>{formatINR(tax)}</span>
-            </div>
-            {discount > 0 && (
-              <div className="flex justify-between text-sm text-green-600">
-                <span>Discount</span><span>−{formatINR(discount)}</span>
+          {/* Bill breakdown */}
+          <div style={{ background: BRAND.coffeeMid, borderRadius: "16px", padding: "14px 16px", marginBottom: "16px", border: `1px solid ${BRAND.coffeeBorder}` }}>
+            {[
+              { label: "Subtotal", value: formatINR(subtotal) },
+              { label: "GST (5%)", value: formatINR(tax) },
+              ...(discount > 0 ? [{ label: "Discount", value: `−${formatINR(discount)}` }] : []),
+            ].map(({ label, value }) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", color: BRAND.textMuted, marginBottom: "6px" }}>
+                <span>{label}</span><span>{value}</span>
               </div>
-            )}
-            <div className="flex justify-between font-bold text-surface-900 text-base pt-1.5 border-t border-surface-200">
-              <span>Total</span><span>{formatINR(total)}</span>
+            ))}
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: "18px", paddingTop: "10px", borderTop: `1px solid ${BRAND.coffeeBorder}` }}>
+              <span style={{ color: BRAND.text }}>Total</span>
+              <span style={{ color: BRAND.gold }}>{formatINR(total)}</span>
             </div>
           </div>
 
-          {/* Payment Method */}
-          <div>
-            <label className="block text-sm font-medium text-surface-700 mb-2">
-              Payment Method
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {["cash", "upi", "card", "wallet"].map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMethod(m)}
-                  className={`py-2 rounded-xl text-sm font-semibold border-2 transition-all ${
-                    method === m
-                      ? "border-brand-500 bg-brand-50 text-brand-700"
-                      : "border-surface-200 text-surface-600 hover:border-surface-300"
-                  }`}
-                >
-                  {m === "cash" ? "💵" : m === "upi" ? "📱" : m === "card" ? "💳" : "👛"}
-                  <br />
-                  <span className="capitalize text-xs">{m}</span>
+          {/* Payment method */}
+          <div style={{ marginBottom: "14px" }}>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: BRAND.textMuted, marginBottom: "8px", letterSpacing: "0.5px", textTransform: "uppercase" }}>Payment Method</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "8px" }}>
+              {payMethods.map(m => (
+                <button key={m.id} onClick={() => setMethod(m.id)} style={{
+                  padding: "10px 8px", borderRadius: "14px", cursor: "pointer",
+                  border: `2px solid ${method === m.id ? BRAND.gold : BRAND.coffeeBorder}`,
+                  background: method === m.id ? `rgba(201,168,76,0.15)` : BRAND.coffeeMid,
+                  color: method === m.id ? BRAND.gold : BRAND.textMuted,
+                  fontWeight: 800, fontSize: "11px", transition: "all 0.2s",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: "4px",
+                }}>
+                  <span style={{ fontSize: "20px" }}>{m.icon}</span>
+                  <span>{m.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Amount Paid */}
-          <div>
-            <label className="block text-sm font-medium text-surface-700 mb-1">
-              Amount Paid (₹)
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={amountPaid}
-              onChange={(e) => setAmountPaid(parseFloat(e.target.value) || 0)}
-              className="input-field text-lg font-bold"
+          {/* Amount paid */}
+          <div style={{ marginBottom: "8px" }}>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: BRAND.textMuted, marginBottom: "6px", letterSpacing: "0.5px", textTransform: "uppercase" }}>Amount Paid (₹)</label>
+            <input type="number" min="0" value={amountPaid}
+              onChange={e => setAmountPaid(parseFloat(e.target.value) || 0)}
+              style={{ width: "100%", padding: "14px", borderRadius: "12px", border: `2px solid ${BRAND.gold}`, background: BRAND.coffeeMid, color: BRAND.gold, fontSize: "22px", fontWeight: 900, outline: "none", fontFamily: "inherit", boxSizing: "border-box", textAlign: "right" }}
             />
             {shortfall > 0.5 && (
-              <p className="text-amber-600 text-xs mt-1 font-medium">
-                ⚠️ Shortfall of {formatINR(shortfall)} will be logged to Adjustment Wallet
-              </p>
+              <p style={{ color: BRAND.warning, fontSize: "12px", margin: "6px 0 0", fontWeight: 700 }}>⚠️ Shortfall ₹{shortfall.toFixed(0)} → logged to Adjustment Wallet</p>
             )}
-            {amountPaid > total + 0.5 && (
-              <p className="text-blue-600 text-xs mt-1 font-medium">
-                💵 Change to return: {formatINR(amountPaid - total)}
-              </p>
+            {change > 0.5 && (
+              <p style={{ color: BRAND.success, fontSize: "12px", margin: "6px 0 0", fontWeight: 700 }}>💵 Return change: ₹{change.toFixed(0)}</p>
             )}
           </div>
         </div>
 
-        <div className="p-5 pt-0 flex gap-3">
-          <button onClick={onClose} className="btn-secondary flex-1">
-            Cancel
-          </button>
-          <button
-            onClick={handleSettle}
-            disabled={loading}
-            className="btn-primary flex-1 flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            ) : "✓"} Settle Bill
+        {/* Footer */}
+        <div style={{ padding: "16px 24px 24px", display: "flex", gap: "10px", borderTop: `1px solid ${BRAND.coffeeBorder}` }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "14px", borderRadius: "14px", border: `1px solid ${BRAND.coffeeBorder}`, background: BRAND.coffeeMid, color: BRAND.textMuted, fontWeight: 700, cursor: "pointer", fontSize: "14px", fontFamily: "inherit" }}>Cancel</button>
+          <button onClick={handleSettle} disabled={loading} style={{
+            flex: 2, padding: "14px", borderRadius: "14px", border: "none",
+            background: loading ? BRAND.coffeeBorder : `linear-gradient(135deg, ${BRAND.goldDark}, ${BRAND.gold})`,
+            color: loading ? BRAND.textMuted : BRAND.coffee,
+            fontWeight: 900, cursor: loading ? "not-allowed" : "pointer",
+            fontSize: "15px", fontFamily: "inherit",
+            boxShadow: loading ? "none" : `0 8px 24px rgba(201,168,76,0.35)`,
+          }}>
+            {loading ? "Processing..." : "✓ Settle Bill"}
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Table Button ───
+function TableButton({ table, isSelected, order, onClick }: {
+  table: Table; isSelected: boolean; order?: Order; onClick: () => void;
+}) {
+  const statusColors = {
+    available: { bg: "rgba(74,222,128,0.1)", border: "rgba(74,222,128,0.3)", text: "#4ade80" },
+    occupied: { bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.3)", text: "#f87171" },
+    reserved: { bg: "rgba(96,165,250,0.1)", border: "rgba(96,165,250,0.3)", text: "#60a5fa" },
+    cleaning: { bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.3)", text: "#fbbf24" },
+  };
+  const sc = statusColors[table.status] || statusColors.available;
+
+  return (
+    <button onClick={onClick} style={{
+      position: "relative", width: "64px", height: "64px", borderRadius: "18px",
+      border: `2px solid ${isSelected ? BRAND.gold : sc.border}`,
+      background: isSelected ? `rgba(201,168,76,0.2)` : sc.bg,
+      cursor: "pointer", transition: "all 0.2s ease",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "2px",
+      boxShadow: isSelected ? `0 0 0 3px rgba(201,168,76,0.3), 0 8px 20px rgba(0,0,0,0.3)` : "0 2px 8px rgba(0,0,0,0.2)",
+      transform: isSelected ? "scale(1.08)" : "scale(1)",
+    }}>
+      <span style={{ fontWeight: 900, fontSize: "13px", color: isSelected ? BRAND.gold : sc.text }}>{table.tableNumber}</span>
+      <span style={{ fontSize: "9px", color: isSelected ? BRAND.goldDark : sc.text, opacity: 0.8, fontWeight: 700 }}>{table.capacity}p</span>
+      {order && (
+        <div style={{ position: "absolute", top: "4px", right: "4px", width: "8px", height: "8px", borderRadius: "50%", background: BRAND.gold, border: "1.5px solid " + BRAND.coffee }} />
+      )}
+    </button>
+  );
+}
+
+// ─── Menu Item Tile ───
+function MenuTile({ item, inCart, qty, onClick }: {
+  item: MenuItem; inCart: boolean; qty: number; onClick: () => void;
+}) {
+  return (
+    <button onClick={onClick} disabled={!item.isAvailable} style={{
+      position: "relative", background: inCart ? `rgba(201,168,76,0.15)` : BRAND.surface,
+      border: `2px solid ${inCart ? BRAND.gold : BRAND.coffeeBorder}`,
+      borderRadius: "18px", padding: "12px 10px", textAlign: "left",
+      cursor: item.isAvailable ? "pointer" : "not-allowed",
+      transition: "all 0.18s ease", opacity: item.isAvailable ? 1 : 0.4,
+      boxShadow: inCart ? `0 4px 16px rgba(201,168,76,0.2)` : "0 2px 8px rgba(0,0,0,0.2)",
+      transform: inCart ? "scale(1.02)" : "scale(1)",
+    }}>
+      {/* Veg indicator */}
+      <div style={{ width: "12px", height: "12px", borderRadius: "3px", border: `2px solid ${item.isVeg ? "#4ade80" : "#f87171"}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "6px" }}>
+        <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: item.isVeg ? "#4ade80" : "#f87171" }} />
+      </div>
+      <p style={{ fontWeight: 800, fontSize: "12px", color: BRAND.text, margin: "0 0 4px", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.name}</p>
+      <p style={{ fontWeight: 900, fontSize: "14px", color: BRAND.gold, margin: 0 }}>{formatINR(item.price)}</p>
+      {qty > 0 && (
+        <div style={{ position: "absolute", top: "8px", right: "8px", width: "22px", height: "22px", borderRadius: "50%", background: `linear-gradient(135deg, ${BRAND.goldDark}, ${BRAND.gold})`, color: BRAND.coffee, fontWeight: 900, fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center" }}>{qty}</div>
+      )}
+    </button>
   );
 }
 
@@ -179,26 +236,23 @@ export default function POSPage() {
   const [tables, setTables] = useState<Table[]>([]);
   const [activeOrders, setActiveOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [orderForTable, setOrderForTable] = useState<Order | null>(null);
   const [settleOrder, setSettleOrder] = useState<Order | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [toastMsg, setToastMsg] = useState("");
+  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
-  const showToast = (msg: string) => {
-    setToastMsg(msg);
-    setTimeout(() => setToastMsg(""), 3000);
+  const showToast = (msg: string, type: "success" | "error" = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
   };
 
   const loadData = useCallback(async () => {
     try {
       const [menuRes, tablesRes, ordersRes] = await Promise.all([
-        menuApi.getMenu(),
-        tableApi.getTables(),
-        orderApi.getOrders(),
+        menuApi.getMenu(), tableApi.getTables(), orderApi.getOrders(),
       ]);
       setMenu(menuRes.data.data);
       setTables(tablesRes.data.data);
@@ -206,17 +260,14 @@ export default function POSPage() {
       if (menuRes.data.data.length > 0 && !activeCategory) {
         setActiveCategory(menuRes.data.data[0]._id);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   }, [activeCategory]);
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 10000);
-    return () => clearInterval(interval);
+    const iv = setInterval(loadData, 10000);
+    return () => clearInterval(iv);
   }, [loadData]);
 
   const selectTable = async (table: Table) => {
@@ -225,25 +276,23 @@ export default function POSPage() {
     try {
       const res = await orderApi.getOrderByTable(table._id);
       setOrderForTable(res.data.data);
-    } catch {
-      setOrderForTable(null);
-    }
+    } catch { setOrderForTable(null); }
   };
 
   const addToCart = (item: MenuItem) => {
-    setCart((prev) => {
-      const ex = prev.find((c) => c.menuItemId === item._id);
-      if (ex) return prev.map((c) => c.menuItemId === item._id ? { ...c, quantity: c.quantity + 1 } : c);
+    setCart(prev => {
+      const ex = prev.find(c => c.menuItemId === item._id);
+      if (ex) return prev.map(c => c.menuItemId === item._id ? { ...c, quantity: c.quantity + 1 } : c);
       return [...prev, { menuItemId: item._id, name: item.name, price: item.price, quantity: 1, notes: "", isVeg: item.isVeg }];
     });
   };
 
   const updateCartQty = (itemId: string, delta: number) => {
-    setCart((prev) => {
-      const item = prev.find((c) => c.menuItemId === itemId);
+    setCart(prev => {
+      const item = prev.find(c => c.menuItemId === itemId);
       if (!item) return prev;
-      if (item.quantity + delta <= 0) return prev.filter((c) => c.menuItemId !== itemId);
-      return prev.map((c) => c.menuItemId === itemId ? { ...c, quantity: c.quantity + delta } : c);
+      if (item.quantity + delta <= 0) return prev.filter(c => c.menuItemId !== itemId);
+      return prev.map(c => c.menuItemId === itemId ? { ...c, quantity: c.quantity + delta } : c);
     });
   };
 
@@ -254,20 +303,15 @@ export default function POSPage() {
   const sendKot = async () => {
     if (!selectedTable || cart.length === 0) return;
     try {
-      const res = await orderApi.createOrder({
-        tableId: selectedTable._id,
-        items: cart,
-        createdBy: "pos",
-      });
+      const res = await orderApi.createOrder({ tableId: selectedTable._id, items: cart, createdBy: "pos" });
       const order: Order = res.data.data;
       await orderApi.sendKot(order._id);
-      showToast(`✅ KOT sent for ${selectedTable.tableNumber}`);
+      showToast(`✓ KOT sent for ${selectedTable.tableNumber}`);
       setCart([]);
       setOrderForTable(order);
       loadData();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed";
-      showToast(`❌ ${msg}`);
+      showToast(`✗ ${err instanceof Error ? err.message : "Failed"}`, "error");
     }
   };
 
@@ -275,185 +319,151 @@ export default function POSPage() {
     if (!settleOrder) return;
     try {
       await orderApi.settleOrder(settleOrder._id, { amountPaid, paymentMethod: method, discount, resolvedBy: "cashier" });
-      showToast(`✅ Bill settled for ${settleOrder.tableNumber}`);
+      showToast(`✓ Bill settled for ${settleOrder.tableNumber}`);
       setSettleOrder(null);
       setOrderForTable(null);
       setSelectedTable(null);
       loadData();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed";
-      showToast(`❌ ${msg}`);
+      showToast(`✗ ${err instanceof Error ? err.message : "Failed"}`, "error");
     }
   };
 
-  const filteredItems = menu
-    .find((c) => c._id === activeCategory)
-    ?.items.filter(
-      (item) =>
-        !searchQuery ||
-        item.name.toLowerCase().includes(searchQuery.toLowerCase())
-    ) || [];
+  const filteredItems = menu.find(c => c._id === activeCategory)?.items.filter(
+    item => !searchQuery || item.name.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || [];
 
-  const tableStatusColor: Record<string, string> = {
-    available: "border-green-300 bg-green-50 hover:bg-green-100",
-    occupied: "border-red-300 bg-red-50 hover:bg-red-100",
-    reserved: "border-blue-300 bg-blue-50 hover:bg-blue-100",
-    cleaning: "border-yellow-300 bg-yellow-50 hover:bg-yellow-100",
+  const stats = {
+    available: tables.filter(t => t.status === "available").length,
+    occupied: tables.filter(t => t.status === "occupied").length,
+    orders: activeOrders.length,
+    revenue: activeOrders.filter(o => o.status === "settled").reduce((s, o) => s + o.totalAmount, 0),
   };
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: BRAND.coffee, fontFamily: "'Nunito', sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Nunito:wght@400;600;700;800;900&display=swap');
+        * { box-sizing: border-box; }
+        @keyframes scaleIn { from{transform:scale(0.95);opacity:0} to{transform:scale(1);opacity:1} }
+        @keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes toastIn { from{transform:translateX(-50%) translateY(20px);opacity:0} to{transform:translateX(-50%) translateY(0);opacity:1} }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: ${BRAND.coffeeBorder}; border-radius: 4px; }
+        input { font-family: 'Nunito', sans-serif; }
+        button { font-family: 'Nunito', sans-serif; }
+      `}</style>
+
       <POSSidebar />
 
       {/* Main area */}
-      <div className="flex-1 ml-16 lg:ml-56 flex overflow-hidden">
+      <div style={{ flex: 1, marginLeft: "64px", display: "flex", overflow: "hidden" }}>
 
-        {/* ── LEFT: Table Grid + Menu ── */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        {/* ── LEFT: Tables + Menu ── */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-          {/* Top bar */}
-          <header className="bg-white border-b border-surface-200 px-6 py-3 flex items-center justify-between flex-shrink-0">
-            <div>
-              <h1 className="font-display font-bold text-surface-900 text-xl">
-                Point of Sale
-              </h1>
-              <p className="text-surface-400 text-xs">
-                {new Date().toLocaleString("en-IN", { dateStyle: "full", timeStyle: "short" })}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex gap-2 text-xs">
-                {Object.entries({ available: "Available", occupied: "Occupied", cleaning: "Cleaning" }).map(([k, v]) => (
-                  <span key={k} className={`px-2 py-1 rounded-lg border font-medium ${tableStatusColor[k]}`}>
-                    {v}: {tables.filter((t) => t.status === k).length}
-                  </span>
+          {/* Top header */}
+          <header style={{ background: BRAND.surface, borderBottom: `1px solid ${BRAND.coffeeBorder}`, padding: "16px 24px", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <h1 style={{ fontWeight: 900, fontSize: "22px", color: BRAND.gold, margin: 0, fontFamily: "'Playfair Display', serif" }}>Point of Sale</h1>
+                <p style={{ color: BRAND.textMuted, fontSize: "12px", margin: "3px 0 0", fontWeight: 600 }}>
+                  {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} • {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </div>
+
+              {/* Stats pills */}
+              <div style={{ display: "flex", gap: "10px" }}>
+                {[
+                  { label: "Available", value: stats.available, color: BRAND.success },
+                  { label: "Occupied", value: stats.occupied, color: BRAND.danger },
+                  { label: "Active Orders", value: stats.orders, color: BRAND.gold },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{ background: BRAND.coffeeMid, border: `1px solid ${BRAND.coffeeBorder}`, borderRadius: "12px", padding: "8px 14px", textAlign: "center" }}>
+                    <p style={{ fontWeight: 900, fontSize: "18px", color, margin: 0 }}>{value}</p>
+                    <p style={{ fontSize: "10px", color: BRAND.textMuted, margin: 0, fontWeight: 700, letterSpacing: "0.3px" }}>{label}</p>
+                  </div>
                 ))}
               </div>
             </div>
           </header>
 
-          <div className="flex-1 overflow-hidden flex flex-col">
-            {/* Table selection */}
-            <div className="bg-white border-b border-surface-100 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <h2 className="font-semibold text-surface-700 text-sm">
-                  Select Table
-                </h2>
+          <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            {/* Table grid */}
+            <div style={{ background: BRAND.coffeeMid, borderBottom: `1px solid ${BRAND.coffeeBorder}`, padding: "16px 24px", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+                <span style={{ fontSize: "14px", fontWeight: 800, color: BRAND.textMuted, letterSpacing: "0.5px", textTransform: "uppercase" }}>Select Table</span>
                 {selectedTable && (
-                  <span className="text-brand-600 text-xs font-medium bg-brand-50 px-2 py-0.5 rounded-full">
-                    {selectedTable.tableNumber} selected
+                  <span style={{ background: `rgba(201,168,76,0.2)`, color: BRAND.gold, fontSize: "12px", padding: "3px 10px", borderRadius: "99px", fontWeight: 800, border: `1px solid rgba(201,168,76,0.3)` }}>
+                    {selectedTable.tableNumber} Selected
                   </span>
                 )}
               </div>
-              <div className="flex gap-2 flex-wrap">
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                 {loading
                   ? Array.from({ length: 12 }).map((_, i) => (
-                      <div key={i} className="skeleton w-14 h-14 rounded-xl" />
+                      <div key={i} style={{ width: "64px", height: "64px", borderRadius: "18px", background: BRAND.coffeeBorder, animation: "pulse 1.5s infinite" }} />
                     ))
-                  : tables.map((table) => {
-                      const isSelected = selectedTable?._id === table._id;
-                      const order = activeOrders.find(
-                        (o) => o.tableNumber === table.tableNumber
-                      );
-                      return (
-                        <button
-                          key={table._id}
-                          onClick={() => selectTable(table)}
-                          className={`relative w-14 h-14 rounded-xl border-2 flex flex-col items-center justify-center transition-all text-xs font-bold no-select ${
-                            isSelected
-                              ? "border-brand-500 bg-brand-50 text-brand-700 shadow-glow scale-105"
-                              : tableStatusColor[table.status]
-                          }`}
-                        >
-                          <span>{table.tableNumber}</span>
-                          <span className="text-[9px] font-normal opacity-70">
-                            {table.capacity}p
-                          </span>
-                          {order && (
-                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full border border-white" />
-                          )}
-                        </button>
-                      );
-                    })}
+                  : tables.map(table => (
+                      <TableButton key={table._id} table={table}
+                        isSelected={selectedTable?._id === table._id}
+                        order={activeOrders.find(o => o.tableNumber === table.tableNumber)}
+                        onClick={() => selectTable(table)}
+                      />
+                    ))
+                }
               </div>
             </div>
 
-            {/* Menu area */}
+            {/* Menu */}
             {selectedTable ? (
-              <div className="flex-1 overflow-hidden flex flex-col">
+              <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
                 {/* Category tabs + search */}
-                <div className="bg-white border-b border-surface-100 px-4 pt-2 pb-2 flex items-center gap-3">
-                  <div className="flex gap-1 overflow-x-auto flex-1 no-scrollbar">
-                    {menu.map((cat) => (
-                      <button
-                        key={cat._id}
-                        onClick={() => setActiveCategory(cat._id)}
-                        className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                          activeCategory === cat._id
-                            ? "bg-surface-950 text-white"
-                            : "bg-surface-100 text-surface-600 hover:bg-surface-200"
-                        }`}
-                      >
+                <div style={{ background: BRAND.surface, borderBottom: `1px solid ${BRAND.coffeeBorder}`, padding: "12px 24px", display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
+                  <div style={{ display: "flex", gap: "6px", flex: 1, overflowX: "auto", scrollbarWidth: "none" }}>
+                    {menu.map(cat => (
+                      <button key={cat._id} onClick={() => setActiveCategory(cat._id)} style={{
+                        flexShrink: 0, display: "flex", alignItems: "center", gap: "6px",
+                        padding: "7px 14px", borderRadius: "12px", fontSize: "13px", fontWeight: 800,
+                        border: `1.5px solid ${activeCategory === cat._id ? BRAND.gold : BRAND.coffeeBorder}`,
+                        cursor: "pointer", transition: "all 0.2s",
+                        background: activeCategory === cat._id ? `rgba(201,168,76,0.15)` : "transparent",
+                        color: activeCategory === cat._id ? BRAND.gold : BRAND.textMuted,
+                      }}>
                         <span>{cat.icon}</span>
-                        <span className="hidden md:inline">{cat.name}</span>
+                        <span className="hidden lg:inline">{cat.name}</span>
                       </button>
                     ))}
                   </div>
-                  <div className="relative flex-shrink-0 w-44">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-surface-400 text-sm">🔍</span>
-                    <input
-                      type="text"
-                      placeholder="Search..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="input-field pl-8 py-1.5 text-xs"
+                  <div style={{ position: "relative", flexShrink: 0, width: "180px" }}>
+                    <span style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", fontSize: "14px" }}>🔍</span>
+                    <input type="text" placeholder="Search menu..." value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                      style={{ width: "100%", padding: "8px 10px 8px 32px", borderRadius: "10px", border: `1px solid ${BRAND.coffeeBorder}`, background: BRAND.coffeeMid, color: BRAND.text, fontSize: "13px", outline: "none" }}
                     />
                   </div>
                 </div>
 
                 {/* Menu grid */}
-                <div className="flex-1 overflow-y-auto p-4">
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                    {filteredItems.map((item) => {
-                      const inCart = cart.find((c) => c.menuItemId === item._id);
-                      return (
-                        <button
-                          key={item._id}
-                          onClick={() => item.isAvailable && addToCart(item)}
-                          disabled={!item.isAvailable}
-                          className={`relative bg-white rounded-xl border-2 p-3 text-left transition-all no-select ${
-                            !item.isAvailable
-                              ? "opacity-40 cursor-not-allowed border-surface-200"
-                              : inCart
-                              ? "border-brand-400 bg-brand-50 shadow-md"
-                              : "border-surface-200 hover:border-brand-300 hover:shadow-md active:scale-95"
-                          }`}
-                        >
-                          {/* Veg indicator */}
-                          <div className={`w-3 h-3 rounded-sm border flex items-center justify-center mb-1.5 ${item.isVeg ? "border-green-600" : "border-red-600"}`}>
-                            <div className={`w-1.5 h-1.5 rounded-full ${item.isVeg ? "bg-green-600" : "bg-red-600"}`} />
-                          </div>
-                          <p className="font-semibold text-surface-900 text-xs leading-tight line-clamp-2 mb-1">
-                            {item.name}
-                          </p>
-                          <p className="text-brand-600 font-bold text-sm">{formatINR(item.price)}</p>
-                          {inCart && (
-                            <div className="absolute top-1.5 right-1.5 bg-brand-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                              {inCart.quantity}
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
+                <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "10px" }}>
+                    {filteredItems.map(item => (
+                      <MenuTile key={item._id} item={item}
+                        inCart={!!cart.find(c => c.menuItemId === item._id)}
+                        qty={cart.find(c => c.menuItemId === item._id)?.quantity || 0}
+                        onClick={() => item.isAvailable && addToCart(item)}
+                      />
+                    ))}
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex items-center justify-center text-surface-400">
-                <div className="text-center">
-                  <div className="text-5xl mb-3">🪑</div>
-                  <p className="font-semibold text-surface-600">Select a table to start an order</p>
-                  <p className="text-sm mt-1">Click any table above</p>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: "64px", marginBottom: "16px" }}>☕</div>
+                  <p style={{ fontWeight: 800, fontSize: "18px", color: BRAND.textMuted, fontFamily: "'Playfair Display', serif" }}>Select a table to begin</p>
+                  <p style={{ fontSize: "14px", color: BRAND.textDim }}>Click any table above</p>
                 </div>
               </div>
             )}
@@ -461,134 +471,117 @@ export default function POSPage() {
         </div>
 
         {/* ── RIGHT: Order Panel ── */}
-        <div className="w-72 xl:w-80 bg-white border-l border-surface-200 flex flex-col flex-shrink-0 overflow-hidden">
-          <div className="p-4 border-b border-surface-100 flex-shrink-0">
-            <h2 className="font-display font-bold text-surface-900">
+        <div style={{ width: "300px", background: BRAND.surface, borderLeft: `1px solid ${BRAND.coffeeBorder}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
+          {/* Panel header */}
+          <div style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${BRAND.coffeeBorder}`, flexShrink: 0 }}>
+            <h2 style={{ fontWeight: 900, fontSize: "16px", color: BRAND.gold, margin: 0, fontFamily: "'Playfair Display', serif" }}>
               {selectedTable ? `Order — ${selectedTable.tableNumber}` : "No Table Selected"}
             </h2>
             {orderForTable && (
-              <p className="text-xs text-amber-600 font-medium mt-0.5">
-                Active: #{orderForTable.orderNumber}
-              </p>
+              <p style={{ fontSize: "12px", color: BRAND.textMuted, margin: "4px 0 0", fontWeight: 700 }}>Active: #{orderForTable.orderNumber}</p>
             )}
           </div>
 
-          {/* Cart items */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-            {cart.length === 0 && !orderForTable && (
-              <div className="text-center text-surface-400 py-8">
-                <div className="text-3xl mb-2">🛒</div>
-                <p className="text-sm">Select items from the menu</p>
-              </div>
-            )}
-
-            {/* Existing order items */}
+          {/* Order items */}
+          <div style={{ flex: 1, overflowY: "auto", padding: "14px" }}>
+            {/* Existing order */}
             {orderForTable && cart.length === 0 && (
               <div>
-                <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide mb-2">
-                  Current Order
-                </p>
-                <div className="space-y-1.5">
-                  {orderForTable.items.map((item) => (
-                    <div key={item._id} className="flex items-center justify-between bg-surface-50 rounded-lg px-3 py-2">
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium text-surface-800 truncate">{item.name}</p>
-                        <p className="text-xs text-surface-500">×{item.quantity}</p>
-                      </div>
-                      <div className="text-right flex-shrink-0 ml-2">
-                        <p className="text-xs font-semibold text-surface-900">{formatINR(item.price * item.quantity)}</p>
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-                          item.status === "ready" ? "bg-green-100 text-green-700" :
-                          item.status === "preparing" ? "bg-amber-100 text-amber-700" :
-                          "bg-surface-100 text-surface-500"
-                        }`}>
-                          {item.status}
-                        </span>
+                <p style={{ fontSize: "11px", fontWeight: 800, color: BRAND.textMuted, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "10px" }}>Current Order</p>
+                {orderForTable.items.map(item => (
+                  <div key={item._id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: BRAND.coffeeMid, borderRadius: "12px", padding: "10px 12px", marginBottom: "6px", border: `1px solid ${BRAND.coffeeBorder}` }}>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: "13px", fontWeight: 800, color: BRAND.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</p>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "3px" }}>
+                        <span style={{ fontSize: "11px", color: BRAND.textMuted }}>×{item.quantity}</span>
+                        <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "6px", fontWeight: 700,
+                          background: item.status === "ready" ? "rgba(74,222,128,0.15)" : item.status === "preparing" ? "rgba(251,191,36,0.15)" : "rgba(255,255,255,0.05)",
+                          color: item.status === "ready" ? BRAND.success : item.status === "preparing" ? BRAND.warning : BRAND.textDim,
+                        }}>{item.status}</span>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <span style={{ fontWeight: 900, fontSize: "13px", color: BRAND.gold, flexShrink: 0, marginLeft: "8px" }}>{formatINR(item.price * item.quantity)}</span>
+                  </div>
+                ))}
               </div>
             )}
 
             {/* New cart items */}
             {cart.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-surface-500 uppercase tracking-wide mb-2">
+                <p style={{ fontSize: "11px", fontWeight: 800, color: BRAND.gold, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "10px" }}>
                   {orderForTable ? "Adding Items" : "New Order"}
                 </p>
-                <div className="space-y-1.5">
-                  {cart.map((item) => (
-                    <div key={item.menuItemId} className="flex items-center gap-2 bg-brand-50 border border-brand-100 rounded-lg px-3 py-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-surface-900 truncate">{item.name}</p>
-                        <p className="text-xs text-brand-600 font-medium">{formatINR(item.price)}</p>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button
-                          onClick={() => updateCartQty(item.menuItemId, -1)}
-                          className="w-5 h-5 rounded-full bg-white border border-surface-200 text-surface-600 flex items-center justify-center text-xs hover:bg-red-50 hover:border-red-300 hover:text-red-500"
-                        >
-                          −
-                        </button>
-                        <span className="text-xs font-bold text-surface-900 w-4 text-center">
-                          {item.quantity}
-                        </span>
-                        <button
-                          onClick={() => updateCartQty(item.menuItemId, 1)}
-                          className="w-5 h-5 rounded-full bg-white border border-surface-200 text-surface-600 flex items-center justify-center text-xs hover:bg-green-50 hover:border-green-300 hover:text-green-500"
-                        >
-                          +
-                        </button>
-                      </div>
-                      <p className="text-xs font-bold text-surface-900 w-10 text-right flex-shrink-0">
-                        {formatINR(item.price * item.quantity)}
-                      </p>
+                {cart.map(item => (
+                  <div key={item.menuItemId} style={{ display: "flex", alignItems: "center", gap: "8px", background: `rgba(201,168,76,0.08)`, border: `1px solid rgba(201,168,76,0.2)`, borderRadius: "12px", padding: "10px 12px", marginBottom: "6px" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: "13px", fontWeight: 800, color: BRAND.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</p>
+                      <p style={{ fontSize: "12px", color: BRAND.gold, margin: "2px 0 0", fontWeight: 700 }}>{formatINR(item.price)}</p>
                     </div>
-                  ))}
-                </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+                      <button onClick={() => updateCartQty(item.menuItemId, -1)} style={{ width: "22px", height: "22px", borderRadius: "50%", background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.3)", color: BRAND.danger, fontWeight: 900, fontSize: "14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+                      <span style={{ fontSize: "13px", fontWeight: 900, color: BRAND.gold, minWidth: "20px", textAlign: "center" }}>{item.quantity}</span>
+                      <button onClick={() => updateCartQty(item.menuItemId, 1)} style={{ width: "22px", height: "22px", borderRadius: "50%", background: "rgba(74,222,128,0.15)", border: "1px solid rgba(74,222,128,0.3)", color: BRAND.success, fontWeight: 900, fontSize: "14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                    </div>
+                    <span style={{ fontWeight: 900, fontSize: "13px", color: BRAND.gold, minWidth: "44px", textAlign: "right" }}>{formatINR(item.price * item.quantity)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {cart.length === 0 && !orderForTable && (
+              <div style={{ textAlign: "center", padding: "48px 0", color: BRAND.textDim }}>
+                <div style={{ fontSize: "40px", marginBottom: "10px" }}>🛒</div>
+                <p style={{ fontWeight: 700, fontSize: "14px" }}>Select items from menu</p>
               </div>
             )}
           </div>
 
-          {/* Order footer */}
-          <div className="p-4 border-t border-surface-100 space-y-3 flex-shrink-0">
+          {/* Footer */}
+          <div style={{ padding: "14px", borderTop: `1px solid ${BRAND.coffeeBorder}`, flexShrink: 0 }}>
+            {/* Bill summary */}
             {cart.length > 0 && (
-              <div className="bg-surface-50 rounded-xl p-3 space-y-1">
-                <div className="flex justify-between text-xs text-surface-500">
+              <div style={{ background: BRAND.coffeeMid, borderRadius: "14px", padding: "12px 14px", marginBottom: "12px", border: `1px solid ${BRAND.coffeeBorder}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: BRAND.textMuted, marginBottom: "4px" }}>
                   <span>Subtotal</span><span>{formatINR(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-xs text-surface-500">
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: BRAND.textMuted, marginBottom: "8px", paddingBottom: "8px", borderBottom: `1px solid ${BRAND.coffeeBorder}` }}>
                   <span>GST (5%)</span><span>{formatINR(tax)}</span>
                 </div>
-                <div className="flex justify-between font-bold text-surface-900 text-sm pt-1 border-t border-surface-200">
-                  <span>Total</span><span>{formatINR(total)}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: "16px" }}>
+                  <span style={{ color: BRAND.text }}>Total</span>
+                  <span style={{ color: BRAND.gold }}>{formatINR(total)}</span>
                 </div>
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setCart([])}
-                disabled={cart.length === 0}
-                className="btn-secondary text-sm py-2 disabled:opacity-40"
-              >
-                Clear
-              </button>
-              <button
-                onClick={sendKot}
-                disabled={cart.length === 0 || !selectedTable}
-                className="btn-primary text-sm py-2 disabled:opacity-50"
-              >
-                Send KOT 🖨️
-              </button>
+            {/* Buttons */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
+              <button onClick={() => setCart([])} disabled={cart.length === 0} style={{
+                padding: "12px", borderRadius: "12px", border: `1px solid ${BRAND.coffeeBorder}`,
+                background: cart.length === 0 ? "transparent" : BRAND.coffeeMid,
+                color: cart.length === 0 ? BRAND.textDim : BRAND.textMuted,
+                fontWeight: 700, cursor: cart.length === 0 ? "not-allowed" : "pointer",
+                fontSize: "13px", fontFamily: "inherit",
+              }}>Clear</button>
+              <button onClick={sendKot} disabled={cart.length === 0 || !selectedTable} style={{
+                padding: "12px", borderRadius: "12px", border: "none",
+                background: cart.length === 0 ? BRAND.coffeeBorder : `linear-gradient(135deg, ${BRAND.goldDark}, ${BRAND.gold})`,
+                color: cart.length === 0 ? BRAND.textDim : BRAND.coffee,
+                fontWeight: 900, cursor: cart.length === 0 ? "not-allowed" : "pointer",
+                fontSize: "13px", fontFamily: "inherit",
+                boxShadow: cart.length > 0 ? `0 4px 12px rgba(201,168,76,0.3)` : "none",
+              }}>🖨️ Send KOT</button>
             </div>
 
             {orderForTable && orderForTable.status !== "settled" && (
-              <button
-                onClick={() => setSettleOrder(orderForTable)}
-                className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl transition-all active:scale-95 shadow-md"
-              >
+              <button onClick={() => setSettleOrder(orderForTable)} style={{
+                width: "100%", padding: "14px", borderRadius: "14px", border: "none",
+                background: `linear-gradient(135deg, #166534, #16a34a)`,
+                color: "white", fontWeight: 900, cursor: "pointer",
+                fontSize: "15px", fontFamily: "inherit",
+                boxShadow: "0 6px 20px rgba(22,163,74,0.35)",
+              }}>
                 💰 Settle Bill — {formatINR(orderForTable.totalAmount)}
               </button>
             )}
@@ -596,20 +589,23 @@ export default function POSPage() {
         </div>
       </div>
 
-      {/* Toast notification */}
-      {toastMsg && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-surface-900 text-white px-6 py-3 rounded-2xl shadow-2xl z-50 animate-slide-up font-medium text-sm">
-          {toastMsg}
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: "24px", left: "50%", transform: "translateX(-50%)",
+          background: toast.type === "success" ? "rgba(22,163,74,0.95)" : "rgba(220,38,38,0.95)",
+          color: "white", padding: "12px 24px", borderRadius: "16px",
+          fontWeight: 800, fontSize: "14px", zIndex: 60,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+          animation: "toastIn 0.3s ease",
+        }}>
+          {toast.msg}
         </div>
       )}
 
       {/* Settle Modal */}
       {settleOrder && (
-        <SettleModal
-          order={settleOrder}
-          onSettle={handleSettle}
-          onClose={() => setSettleOrder(null)}
-        />
+        <SettleModal order={settleOrder} onSettle={handleSettle} onClose={() => setSettleOrder(null)} />
       )}
     </div>
   );
