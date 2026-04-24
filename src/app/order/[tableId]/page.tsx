@@ -478,7 +478,9 @@ function SuccessScreen({ order, onContinue }: { order: Order; onContinue: () => 
   return (
     <div style={{ position: "fixed", inset: 0, background: BRAND.cream, zIndex: 100, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px", animation: "fadeIn 0.4s ease" }}>
       <div style={{ position: "relative", marginBottom: "24px" }}>
-        <div style={{ width: "120px", height: "120px", borderRadius: "50%", background: `linear-gradient(135deg,${BRAND.goldDark},${BRAND.gold})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "56px", boxShadow: `0 20px 60px rgba(201,168,76,0.5)`, animation: "scale-in 0.5s cubic-bezier(0.34,1.56,0.64,1)" }}>☕</div>
+        <div style={{ width: "140px", height: "140px", borderRadius: "50%", overflow: "hidden", boxShadow: `0 20px 60px rgba(201,168,76,0.5)`, animation: "scale-in 0.5s cubic-bezier(0.34,1.56,0.64,1)", background: BRAND.coffee, display: "flex", alignItems: "center", justifyContent: "center" }}>
+  <img src="/logo-large.png" alt="Golden Beans" style={{ width: "140px", height: "140px", objectFit: "contain" }} />
+</div>
       </div>
       <h1 style={{ fontWeight: 900, fontSize: "28px", color: BRAND.espresso, marginBottom: "6px", textAlign: "center", fontFamily: "'Playfair Display', serif" }}>Order Confirmed!</h1>
       <p style={{ color: "#7a6050", textAlign: "center", marginBottom: "24px", fontSize: "15px", fontWeight: 600 }}>Your order is brewing in the kitchen ☕</p>
@@ -769,7 +771,9 @@ export default function CustomerOrderPage() {
         <div style={{ height: "3px", background: `linear-gradient(90deg,${BRAND.goldDark},${BRAND.gold},${BRAND.goldLight},${BRAND.gold},${BRAND.goldDark})`, backgroundSize: "200% 100%", animation: "gold-shine 3s linear infinite" }} />
         <div style={{ padding: "14px 16px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{ width: "44px", height: "44px", borderRadius: "14px", background: `linear-gradient(135deg,${BRAND.goldDark},${BRAND.gold})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", boxShadow: `0 4px 12px rgba(201,168,76,0.4)`, flexShrink: 0 }}>☕</div>
+            <div style={{ width: "48px", height: "48px", borderRadius: "12px", overflow: "hidden", boxShadow: `0 4px 12px rgba(201,168,76,0.4)`, flexShrink: 0, background: BRAND.coffee, display: "flex", alignItems: "center", justifyContent: "center" }}>
+  <img src="/logo-small.png" alt="Golden Beans" style={{ width: "48px", height: "48px", objectFit: "contain" }} />
+</div>
             <div>
               <h1 style={{ fontWeight: 800, fontSize: "20px", color: BRAND.gold, margin: 0, fontFamily: "'Playfair Display', serif" }}>Golden Beans</h1>
               <p style={{ fontSize: "11px", color: "rgba(201,168,76,0.6)", margin: 0, fontWeight: 700, letterSpacing: "0.5px" }}>{table ? `TABLE ${table.tableNumber}` : "LOADING..."}</p>
@@ -894,7 +898,7 @@ export default function CustomerOrderPage() {
         {activeTab === "info" && (
           <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
             <div style={{ background: `linear-gradient(145deg,${BRAND.coffee},${BRAND.coffeeMid})`, borderRadius: "28px", padding: "32px 24px", textAlign: "center" }}>
-              <div style={{ fontSize: "56px", marginBottom: "14px" }}>☕</div>
+              <img src="/logo-header.png" alt="Golden Beans" style={{ width: "120px", height: "120px", objectFit: "contain", marginBottom: "14px" }} />
               <h2 style={{ fontWeight: 800, fontSize: "26px", color: BRAND.gold, margin: "0 0 6px", fontFamily: "'Playfair Display', serif" }}>Golden Beans</h2>
               <p style={{ color: "rgba(201,168,76,0.7)", fontSize: "14px", margin: "0 0 8px", fontWeight: 600 }}>Cafe & Bistro</p>
               <span style={{ background: "rgba(74,222,128,0.2)", color: "#4ade80", fontSize: "12px", padding: "4px 12px", borderRadius: "99px", fontWeight: 800, border: "1px solid rgba(74,222,128,0.3)" }}>🌿 100% Pure Vegetarian</span>

@@ -369,7 +369,9 @@ export default function KDSPage() {
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
             <Link href="/pos" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "6px", color: BRAND.textMuted, fontSize: "13px", fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${BRAND.coffeeBorder}`, borderRadius: "10px", padding: "6px 12px" }}>← POS</Link>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <div style={{ width: "42px", height: "42px", borderRadius: "12px", background: `linear-gradient(135deg,${BRAND.goldDark},${BRAND.gold})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px" }}>👨‍🍳</div>
+              <div style={{ width: "48px", height: "48px", borderRadius: "12px", overflow: "hidden", background: BRAND.coffee, display: "flex", alignItems: "center", justifyContent: "center" }}>
+  <img src="/logo-small.png" alt="Golden Beans" style={{ width: "48px", height: "48px", objectFit: "contain" }} />
+</div>
               <div>
                 <h1 style={{ fontWeight: 900, fontSize: "22px", color: BRAND.gold, margin: 0, fontFamily: "'Playfair Display',serif" }}>Kitchen Display</h1>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
