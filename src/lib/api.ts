@@ -5,18 +5,16 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 10000,
-  headers: { 
+  headers: {
     "Content-Type": "application/json",
     "ngrok-skip-browser-warning": "true",
   },
 });
 
-// Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const message =
-      error.response?.data?.message || error.message || "Network error";
+    const message = error.response?.data?.message || error.message || "Network error";
     console.error("[API Error]", message);
     return Promise.reject(new Error(message));
   }
@@ -38,21 +36,17 @@ export const menuApi = {
 export const orderApi = {
   getOrders: (params?: Record<string, string>) => api.get("/orders", { params }),
   getKdsOrders: () => api.get("/orders/kds"),
+  getPendingApproval: () => api.get("/orders/pending-approval"),
   getOrderByTable: (tableId: string) => api.get(`/orders/table/${tableId}`),
   getOrder: (id: string) => api.get(`/orders/${id}`),
   createOrder: (data: unknown) => api.post("/orders", data),
   sendKot: (id: string) => api.patch(`/orders/${id}/send-kot`),
+  approveOrder: (id: string) => api.patch(`/orders/${id}/approve`),
+  rejectOrder: (id: string, reason: string) => api.patch(`/orders/${id}/reject`, { reason }),
   updateItemStatus: (id: string, data: { itemId: string; status: string }) =>
     api.patch(`/orders/${id}/item-status`, data),
-  settleOrder: (
-    id: string,
-    data: {
-      amountPaid: number;
-      paymentMethod: string;
-      discount?: number;
-      resolvedBy?: string;
-    }
-  ) => api.patch(`/orders/${id}/settle`, data),
+  settleOrder: (id: string, data: { amountPaid: number; paymentMethod: string; discount?: number; resolvedBy?: string }) =>
+    api.patch(`/orders/${id}/settle`, data),
   cancelOrder: (id: string) => api.patch(`/orders/${id}/cancel`),
 };
 
@@ -71,8 +65,7 @@ export const inventoryApi = {
   getLowStock: () => api.get("/inventory/low-stock"),
   create: (data: unknown) => api.post("/inventory", data),
   update: (id: string, data: unknown) => api.put(`/inventory/${id}`, data),
-  restock: (id: string, quantity: number) =>
-    api.patch(`/inventory/${id}/restock`, { quantity }),
+  restock: (id: string, quantity: number) => api.patch(`/inventory/${id}/restock`, { quantity }),
   delete: (id: string) => api.delete(`/inventory/${id}`),
 };
 
@@ -80,8 +73,7 @@ export const inventoryApi = {
 export const analyticsApi = {
   getToday: () => api.get("/analytics/today"),
   getAdjustments: () => api.get("/analytics/adjustments"),
-  getRange: (from: string, to: string) =>
-    api.get("/analytics/range", { params: { from, to } }),
+  getRange: (from: string, to: string) => api.get("/analytics/range", { params: { from, to } }),
 };
 
 export default api;

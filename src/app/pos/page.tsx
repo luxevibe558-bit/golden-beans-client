@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import POSSidebar from "@/components/POSSidebar";
 import { menuApi, orderApi, tableApi } from "@/lib/api";
 import type { MenuCategory, MenuItem, Table, Order, CartItem } from "@/types";
+import OrderApprovalPanel from "@/components/OrderApprovalPanel";
 
 const BRAND = {
   gold: "#C9A84C",
@@ -356,6 +357,7 @@ export default function POSPage() {
       `}</style>
 
       <POSSidebar />
+      <OrderApprovalPanel />
 
       {/* Main area */}
       <div style={{ flex: 1, marginLeft: "64px", display: "flex", overflow: "hidden" }}>
