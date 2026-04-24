@@ -714,7 +714,7 @@ export default function CustomerOrderPage() {
       {readyAlertOrder && <OrderReadyAlert order={readyAlertOrder} onClose={() => setReadyAlertOrder(null)} />}
 
       {/* TOP CANCEL BAR — Shows for 2 min */}
-      {existingOrder && ["pending_approval", "open", "kotSent"].includes(existingOrder.status) && (
+      {existingOrder && !["settled", "cancelled"].includes(existingOrder.status) && (
         <TopCancelBar order={existingOrder} onCancelled={handleCancelled} />
       )}
 

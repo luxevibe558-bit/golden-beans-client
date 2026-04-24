@@ -16,6 +16,9 @@ const BRAND = {
   textMuted: "#9A7A5A",
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Html5QrcodeScanner = any;
+
 export default function HomePage() {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
@@ -23,10 +26,9 @@ export default function HomePage() {
   const [cameraError, setCameraError] = useState("");
   const [manualCode, setManualCode] = useState("");
   const [showManual, setShowManual] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
-  // ── Check for active order on mount ──
+  // ── Check for active order ──
   useEffect(() => {
     async function checkActiveOrder() {
       try {
@@ -38,7 +40,6 @@ export default function HomePage() {
           return;
         }
 
-        // Verify order is still active
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
         const res = await fetch(`${apiUrl}/orders/${savedOrderId}`, {
           headers: { "ngrok-skip-browser-warning": "true" },
@@ -47,19 +48,16 @@ export default function HomePage() {
 
         if (data.success && data.data) {
           const order = data.data;
-          // If order is settled/cancelled, clear storage and show home
           if (["settled", "cancelled"].includes(order.status)) {
             localStorage.removeItem("gb_active_table");
             localStorage.removeItem("gb_active_order");
             setChecking(false);
             return;
           }
-          // Active order — redirect
           router.replace(`/order/${savedTableId}`);
           return;
         }
 
-        // Order not found — clear
         localStorage.removeItem("gb_active_table");
         localStorage.removeItem("gb_active_order");
         setChecking(false);
@@ -70,61 +68,16 @@ export default function HomePage() {
     checkActiveOrder();
   }, [router]);
 
-  // ── Camera QR scan ──
-  const startScanning = async () => {
-    setCameraError("");
-    setScanning(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
-
-      // Use BarcodeDetector API if available
-      if ("BarcodeDetector" in window) {
-        const detector = new (window as unknown as {
-          BarcodeDetector: new (options: { formats: string[] }) => {
-            detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>>;
-          };
-        }).BarcodeDetector({ formats: ["qr_code"] });
-
-        const scanLoop = async () => {
-          if (!videoRef.current || !streamRef.current) return;
-          try {
-            const codes = await detector.detect(videoRef.current);
-            if (codes.length > 0) {
-              const value = codes[0].rawValue;
-              handleQRDetected(value);
-              return;
-            }
-          } catch { }
-          if (streamRef.current) requestAnimationFrame(scanLoop);
-        };
-        requestAnimationFrame(scanLoop);
-      } else {
-        setCameraError("QR scanner not supported on this browser. Please enter table code manually.");
-        stopScanning();
-      }
-    } catch (err) {
-      setCameraError("Camera access denied. Please enable camera or enter code manually.");
-      setScanning(false);
-    }
-  };
-
-  const stopScanning = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
+  const handleQRDetected = (value: string) => {
+    // Stop scanner
+    if (scannerRef.current) {
+      try {
+        scannerRef.current.clear();
+      } catch { }
+      scannerRef.current = null;
     }
     setScanning(false);
-  };
 
-  const handleQRDetected = (value: string) => {
-    stopScanning();
     // Extract table ID from URL or direct value
     let tableId = value;
     try {
@@ -134,17 +87,83 @@ export default function HomePage() {
     } catch {
       // Not a URL, use as-is
     }
+
     router.push(`/order/${tableId}`);
+  };
+
+  // ── Start scanning with html5-qrcode ──
+  useEffect(() => {
+    if (!scanning) return;
+
+    let cancelled = false;
+
+    async function startScanner() {
+      try {
+        setCameraError("");
+        // Dynamic import to avoid SSR issues
+        const { Html5Qrcode } = await import("html5-qrcode");
+
+        if (cancelled) return;
+
+        const scanner = new Html5Qrcode("qr-reader");
+        scannerRef.current = scanner;
+
+        await scanner.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: { width: 240, height: 240 },
+            aspectRatio: 1.0,
+          },
+          (decodedText: string) => {
+            handleQRDetected(decodedText);
+          },
+          () => {
+            // Ignore scan errors (happens when no QR in frame)
+          }
+        );
+      } catch (err) {
+        console.error("QR scanner error:", err);
+        setCameraError(
+          err instanceof Error && err.message.includes("NotAllowed")
+            ? "Camera permission denied. Please allow camera access in browser settings."
+            : "Unable to access camera. Please use manual entry below."
+        );
+        setScanning(false);
+      }
+    }
+
+    startScanner();
+
+    return () => {
+      cancelled = true;
+      if (scannerRef.current) {
+        try {
+          scannerRef.current.stop().then(() => {
+            scannerRef.current?.clear();
+          }).catch(() => { });
+        } catch { }
+        scannerRef.current = null;
+      }
+    };
+  }, [scanning]);
+
+  const stopScanning = () => {
+    if (scannerRef.current) {
+      try {
+        scannerRef.current.stop().then(() => {
+          scannerRef.current?.clear();
+          scannerRef.current = null;
+        }).catch(() => { });
+      } catch { }
+    }
+    setScanning(false);
   };
 
   const handleManualSubmit = () => {
     if (!manualCode.trim()) return;
     handleQRDetected(manualCode.trim());
   };
-
-  useEffect(() => {
-    return () => { stopScanning(); };
-  }, []);
 
   if (checking) {
     return (
@@ -164,31 +183,33 @@ export default function HomePage() {
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Nunito:wght@400;600;700;800;900&display=swap');
         * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; font-family: 'Nunito', sans-serif; }
         @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-        @keyframes scan-line { 0%{transform:translateY(0)} 50%{transform:translateY(200px)} 100%{transform:translateY(0)} }
         @keyframes pulse-ring { 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)} 50%{box-shadow:0 0 0 20px rgba(201,168,76,0)} }
         @keyframes float-up { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+        /* Hide html5-qrcode default UI */
+        #qr-reader__dashboard { display: none !important; }
+        #qr-reader__scan_region { background: transparent !important; }
+        #qr-reader__scan_region img { display: none !important; }
+        #qr-reader video { border-radius: 20px; }
+        #qr-reader { border: none !important; padding: 0 !important; }
       `}</style>
 
-      {/* Gold shimmer top */}
       <div style={{ height: "4px", background: `linear-gradient(90deg,${BRAND.goldDark},${BRAND.gold},${BRAND.goldLight},${BRAND.gold},${BRAND.goldDark})`, backgroundSize: "200% 100%", animation: "shimmer 3s linear infinite" }} />
 
-      {/* Background decoration */}
       <div style={{ position: "absolute", top: "10%", right: "-50px", width: "200px", height: "200px", borderRadius: "50%", background: `radial-gradient(circle, rgba(201,168,76,0.15), transparent 70%)`, zIndex: 0 }} />
       <div style={{ position: "absolute", bottom: "20%", left: "-80px", width: "240px", height: "240px", borderRadius: "50%", background: `radial-gradient(circle, rgba(201,168,76,0.1), transparent 70%)`, zIndex: 0 }} />
 
       {!scanning ? (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "40px 24px 32px", position: "relative", zIndex: 1 }}>
-          {/* Logo */}
           <div style={{ textAlign: "center", marginBottom: "24px", animation: "fadeIn 0.5s ease" }}>
             <div style={{ display: "inline-block", animation: "float-up 3s ease-in-out infinite" }}>
               <img src="/logo-large.png" alt="Golden Beans" style={{ width: "180px", height: "180px", objectFit: "contain", filter: "drop-shadow(0 12px 32px rgba(0,0,0,0.5))" }} />
             </div>
           </div>
 
-          {/* Heading */}
           <div style={{ textAlign: "center", marginBottom: "32px" }}>
-            <h1 style={{ fontWeight: 800, fontSize: "28px", color: BRAND.gold, margin: "0 0 8px", fontFamily: "'Playfair Display', serif", letterSpacing: "-0.3px" }}>
+            <h1 style={{ fontWeight: 800, fontSize: "28px", color: BRAND.gold, margin: "0 0 8px", fontFamily: "'Playfair Display', serif" }}>
               Welcome!
             </h1>
             <p style={{ fontSize: "14px", color: "rgba(201,168,76,0.7)", margin: 0, fontWeight: 600, lineHeight: 1.6 }}>
@@ -196,8 +217,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Scan Button */}
-          <button onClick={startScanning} style={{
+          <button onClick={() => setScanning(true)} style={{
             background: `linear-gradient(135deg,${BRAND.goldDark},${BRAND.gold},${BRAND.goldLight})`,
             color: BRAND.coffee, border: "none", borderRadius: "20px",
             padding: "20px 24px", fontWeight: 900, fontSize: "16px",
@@ -210,14 +230,13 @@ export default function HomePage() {
             <span>Scan QR Code</span>
           </button>
 
-          {/* Manual Entry Toggle */}
           <button onClick={() => setShowManual(!showManual)} style={{
             background: "none", border: "none",
             color: "rgba(201,168,76,0.7)", fontSize: "13px",
             marginTop: "20px", cursor: "pointer", fontWeight: 700,
             fontFamily: "inherit", textDecoration: "underline",
           }}>
-            {showManual ? "← Back to scanner" : "Enter table code manually"}
+            {showManual ? "← Back" : "Enter table code manually"}
           </button>
 
           {showManual && (
@@ -227,7 +246,7 @@ export default function HomePage() {
               </label>
               <input
                 type="text"
-                placeholder="Paste table code here..."
+                placeholder="Paste here..."
                 value={manualCode}
                 onChange={e => setManualCode(e.target.value)}
                 style={{ width: "100%", padding: "12px 14px", borderRadius: "12px", border: `1px solid rgba(201,168,76,0.3)`, background: "rgba(255,255,255,0.05)", color: BRAND.text, fontSize: "14px", fontWeight: 600, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
@@ -246,12 +265,11 @@ export default function HomePage() {
           )}
 
           {cameraError && (
-            <div style={{ marginTop: "16px", background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: "12px", padding: "12px 14px", textAlign: "center" }}>
+            <div style={{ marginTop: "16px", background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: "12px", padding: "12px 14px" }}>
               <p style={{ fontSize: "12px", color: "#f87171", margin: 0, fontWeight: 700 }}>{cameraError}</p>
             </div>
           )}
 
-          {/* Info strip */}
           <div style={{ marginTop: "auto", paddingTop: "32px", textAlign: "center" }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "rgba(74,222,128,0.15)", border: "1px solid rgba(74,222,128,0.3)", borderRadius: "99px", padding: "6px 14px" }}>
               <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#4ade80" }} />
@@ -260,40 +278,35 @@ export default function HomePage() {
           </div>
         </div>
       ) : (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "24px 16px", position: "relative", zIndex: 1 }}>
-          {/* Scanner header */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "20px 14px", position: "relative", zIndex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
             <div>
-              <h2 style={{ fontWeight: 900, fontSize: "20px", color: BRAND.gold, margin: 0, fontFamily: "'Playfair Display', serif" }}>Scan QR Code</h2>
-              <p style={{ fontSize: "12px", color: "rgba(201,168,76,0.7)", margin: "2px 0 0", fontWeight: 600 }}>Point camera at table QR</p>
+              <h2 style={{ fontWeight: 900, fontSize: "18px", color: BRAND.gold, margin: 0, fontFamily: "'Playfair Display', serif" }}>Scan QR Code</h2>
+              <p style={{ fontSize: "11px", color: "rgba(201,168,76,0.7)", margin: "2px 0 0", fontWeight: 600 }}>Point at table QR</p>
             </div>
             <button onClick={stopScanning} style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(201,168,76,0.3)", color: BRAND.gold, cursor: "pointer", fontSize: "16px" }}>✕</button>
           </div>
 
-          {/* Camera viewport */}
-          <div style={{ position: "relative", flex: 1, borderRadius: "24px", overflow: "hidden", background: "black", boxShadow: "0 20px 60px rgba(0,0,0,0.5)", border: `2px solid ${BRAND.gold}` }}>
-            <video ref={videoRef} playsInline autoPlay muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <div style={{ position: "relative", flex: 1, borderRadius: "20px", overflow: "hidden", background: "black", boxShadow: "0 20px 60px rgba(0,0,0,0.5)", border: `2px solid ${BRAND.gold}`, minHeight: "320px" }}>
+            {/* html5-qrcode mounts video here */}
+            <div id="qr-reader" style={{ width: "100%", height: "100%" }} />
 
-            {/* Overlay frame */}
+            {/* Overlay corners */}
             <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-              <div style={{ width: "220px", height: "220px", position: "relative" }}>
-                {/* Corners */}
+              <div style={{ width: "240px", height: "240px", position: "relative" }}>
                 {[
                   { top: 0, left: 0, borderTop: `4px solid ${BRAND.gold}`, borderLeft: `4px solid ${BRAND.gold}`, borderRadius: "12px 0 0 0" },
                   { top: 0, right: 0, borderTop: `4px solid ${BRAND.gold}`, borderRight: `4px solid ${BRAND.gold}`, borderRadius: "0 12px 0 0" },
                   { bottom: 0, left: 0, borderBottom: `4px solid ${BRAND.gold}`, borderLeft: `4px solid ${BRAND.gold}`, borderRadius: "0 0 0 12px" },
                   { bottom: 0, right: 0, borderBottom: `4px solid ${BRAND.gold}`, borderRight: `4px solid ${BRAND.gold}`, borderRadius: "0 0 12px 0" },
                 ].map((s, i) => (
-                  <div key={i} style={{ position: "absolute", width: "30px", height: "30px", ...s }} />
+                  <div key={i} style={{ position: "absolute", width: "32px", height: "32px", ...s }} />
                 ))}
-
-                {/* Animated scan line */}
-                <div style={{ position: "absolute", left: "10%", right: "10%", height: "2px", background: `linear-gradient(90deg, transparent, ${BRAND.gold}, transparent)`, animation: "scan-line 2s ease-in-out infinite", boxShadow: `0 0 8px ${BRAND.gold}` }} />
               </div>
             </div>
           </div>
 
-          <p style={{ textAlign: "center", fontSize: "13px", color: "rgba(201,168,76,0.7)", marginTop: "20px", fontWeight: 600 }}>
+          <p style={{ textAlign: "center", fontSize: "12px", color: "rgba(201,168,76,0.7)", marginTop: "16px", fontWeight: 600 }}>
             Hold steady — scanning automatically
           </p>
         </div>
