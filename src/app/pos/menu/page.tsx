@@ -36,19 +36,14 @@ interface VariantGroup {
   options: VariantOption[];
 }
 
-interface ExtendedMenuItem extends MenuItem {
-  imageUrl?: string;
-  imagePublicId?: string;
-  variantGroups?: VariantGroup[];
-  rating?: number;
-}
+
 
 export default function MenuManagerPage() {
   const [menu, setMenu] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [search, setSearch] = useState("");
-  const [editItem, setEditItem] = useState<ExtendedMenuItem | null>(null);
+  const [editItem, setEditItem] = useState<MenuItem | null>(null);
   const [showAdd, setShowAdd] = useState(false);
 
   const load = useCallback(async () => {
@@ -64,13 +59,13 @@ export default function MenuManagerPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const allItems = menu.flatMap(c => c.items as ExtendedMenuItem[]);
+  const allItems = menu.flatMap(c => c.items as MenuItem[]);
   const totalItems = allItems.length;
   const availableCount = allItems.filter(i => i.isAvailable).length;
   const withPhotoCount = allItems.filter(i => i.imageUrl).length;
   const withVariantsCount = allItems.filter(i => i.variantGroups && i.variantGroups.length > 0).length;
 
-  const activeItems = (menu.find(c => c._id === activeCategory)?.items as ExtendedMenuItem[] || [])
+  const activeItems = (menu.find(c => c._id === activeCategory)?.items as MenuItem[] || [])
     .filter(i => i.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
@@ -197,7 +192,7 @@ export default function MenuManagerPage() {
 }
 
 // ─── ITEM CARD ───
-function ItemCard({ item, onEdit }: { item: ExtendedMenuItem; onEdit: () => void }) {
+function ItemCard({ item, onEdit }: { item: MenuItem; onEdit: () => void }) {
   return (
     <Card padding="none" hover>
       <div style={{ display: "flex", gap: "12px", padding: "12px" }}>
@@ -253,7 +248,7 @@ function ItemCard({ item, onEdit }: { item: ExtendedMenuItem; onEdit: () => void
 
 // ─── EDIT/ADD MODAL ───
 function ItemEditModal({ item, categories, isOpen, onClose, onSaved }: {
-  item: ExtendedMenuItem | null;
+  item: MenuItem | null;
   categories: MenuCategory[];
   isOpen: boolean;
   onClose: () => void;
