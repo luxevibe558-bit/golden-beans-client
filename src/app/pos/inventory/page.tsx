@@ -56,7 +56,7 @@ export default function InventoryPage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await (inventoryApi as { getIngredients: () => Promise<IngredientsResponse> }).getIngredients();
+      const res = await (inventoryApi as { getAll: () => Promise<IngredientsResponse> }).getAll();
       setIngredients(res.data.data);
     } catch (e) {
       console.error(e);
@@ -71,7 +71,7 @@ export default function InventoryPage() {
     if (!restockModal || !restockAmount) return;
     try {
       const newStock = restockModal.currentStock + parseFloat(restockAmount);
-      await (inventoryApi as { updateIngredient: (id: string, data: { currentStock: number }) => Promise<unknown> }).updateIngredient(restockModal._id, { currentStock: newStock });
+      await (inventoryApi as { update: (id: string, data: { currentStock: number }) => Promise<unknown> }).update(restockModal._id, { currentStock: newStock });
       setRestockModal(null);
       setRestockAmount("");
       load();
@@ -83,7 +83,7 @@ export default function InventoryPage() {
   const handleEdit = async () => {
     if (!editModal) return;
     try {
-      await (inventoryApi as { updateIngredient: (id: string, data: Record<string, unknown>) => Promise<unknown> }).updateIngredient(editModal._id, {
+      await (inventoryApi as { update: (id: string, data: Record<string, unknown>) => Promise<unknown> }).update(editModal._id, {
         name: editForm.name,
         unit: editForm.unit,
         currentStock: parseFloat(editForm.currentStock) || 0,
@@ -98,7 +98,7 @@ export default function InventoryPage() {
   const handleAdd = async () => {
     if (!addForm.name) return;
     try {
-      await (inventoryApi as { createIngredient: (data: Record<string, unknown>) => Promise<unknown> }).createIngredient({
+      await (inventoryApi as { create: (data: Record<string, unknown>) => Promise<unknown> }).create({
         name: addForm.name,
         unit: addForm.unit,
         currentStock: parseFloat(addForm.currentStock) || 0,
@@ -114,7 +114,7 @@ export default function InventoryPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this ingredient permanently?")) return;
     try {
-      await (inventoryApi as { deleteIngredient: (id: string) => Promise<unknown> }).deleteIngredient(id);
+      await (inventoryApi as { delete: (id: string) => Promise<unknown> }).delete(id);
       load();
     } catch (e) { console.error(e); }
   };
