@@ -163,7 +163,7 @@ export default function POSPage() {
 
   const loadPendingApprovals = useCallback(async () => {
     try {
-      const res = await orderApi.getPendingApprovalOrders();
+      const res = await orderApi.getPendingApproval();
       setPendingOrders(res.data.data || []);
     } catch { }
   }, []);
