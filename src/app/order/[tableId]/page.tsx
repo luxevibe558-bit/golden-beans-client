@@ -39,12 +39,7 @@ interface VariantGroup {
   options: VariantOption[];
 }
 
-interface ExtendedMenuItem extends MenuItem {
-  imageUrl?: string;
-  variantGroups?: VariantGroup[];
-  rating?: number;
-  reviewCount?: number;
-}
+
 
 interface ExtendedCartItem extends CartItem {
   variants?: { groupName: string; selected: string[]; }[];
@@ -154,7 +149,7 @@ function VerticalCategoryTabs({ categories, activeCategoryId, onSelect }: {
 
 // ─────────── Premium Product Card (Larista-style) ───────────
 function ProductCard({ item, onTap, cartQty }: {
-  item: ExtendedMenuItem;
+  item: MenuItem;
   onTap: () => void;
   cartQty: number;
 }) {
@@ -302,10 +297,10 @@ function ProductCard({ item, onTap, cartQty }: {
 
 // ─────────── Product Detail Modal with Variants ───────────
 function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
-  item: ExtendedMenuItem | null;
+  item: MenuItem | null;
   isOpen: boolean;
   onClose: () => void;
-  onAddToCart: (item: ExtendedMenuItem, quantity: number, variants: { groupName: string; selected: string[]; }[], priceModifier: number) => void;
+  onAddToCart: (item: MenuItem, quantity: number, variants: { groupName: string; selected: string[]; }[], priceModifier: number) => void;
 }) {
   const [quantity, setQuantity] = useState(1);
   const [selections, setSelections] = useState<Record<string, string[]>>({});
@@ -841,7 +836,7 @@ export default function CustomerOrderPage() {
   const [isPlacing, setIsPlacing] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedItem, setSelectedItem] = useState<ExtendedMenuItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [showCustomerPopup, setShowCustomerPopup] = useState(false);
   const [customerData, setCustomerData] = useState<{ name: string; phone: string } | null>(null);
   const prevStatusRef = useRef<string | null>(null);
@@ -928,7 +923,7 @@ export default function CustomerOrderPage() {
       .filter(o => new Date(o.createdAt).getTime() < new Date(existingOrder.createdAt).getTime()).length
     : undefined;
 
-  const handleAddToCart = (item: ExtendedMenuItem, qty: number, variants: { groupName: string; selected: string[]; }[], modifier: number) => {
+  const handleAddToCart = (item: MenuItem, qty: number, variants: { groupName: string; selected: string[]; }[], modifier: number) => {
     const cartKey = item._id + JSON.stringify(variants);
     setCart(prev => {
       const existing = prev.find(c => (c.menuItemId + JSON.stringify(c.variants)) === cartKey);
@@ -1003,8 +998,8 @@ export default function CustomerOrderPage() {
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
   const totalCartValue = cart.reduce((s, i) => s + (i.price + (i.totalPriceModifier || 0)) * i.quantity, 0);
   const activeCategoryItems = searchQuery
-    ? menu.flatMap(c => c.items as ExtendedMenuItem[]).filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : (menu.find(c => c._id === activeCategoryId(activeCategory))?.items as ExtendedMenuItem[] || []);
+    ? menu.flatMap(c => c.items as MenuItem[]).filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : (menu.find(c => c._id === activeCategoryId(activeCategory))?.items as MenuItem[] || []);
 
   function activeCategoryId(id: string) { return id; }
 
