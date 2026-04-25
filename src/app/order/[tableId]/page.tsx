@@ -557,13 +557,12 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
               color: T.gold,
               border: "none",
               borderRadius: "16px",
-              padding: "16px",
+              padding: "16px 22px",
               fontFamily: "'Inter', sans-serif",
               fontWeight: 800, fontSize: "15px",
               cursor: "pointer",
               boxShadow: "0 8px 24px rgba(15,61,46,0.35)",
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "16px 22px",
             }}
           >
             <span>Add to Cart</span>
