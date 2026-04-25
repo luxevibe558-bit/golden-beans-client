@@ -1,613 +1,545 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import POSSidebar from "@/components/POSSidebar";
 import { menuApi, orderApi, tableApi } from "@/lib/api";
-import type { MenuCategory, MenuItem, Table, Order, CartItem } from "@/types";
-import OrderApprovalPanel from "@/components/OrderApprovalPanel";
+import type { MenuCategory, MenuItem, CartItem, Table, Order } from "@/types";
 
-const BRAND = {
-  gold: "#C9A84C",
-  goldLight: "#E8C97A",
-  goldDark: "#A07830",
-  coffee: "#1A0E06",
-  coffeeMid: "#2C1A0E",
-  coffeeLight: "#4A2C1A",
-  coffeeBorder: "#3D2410",
-  cream: "#FDF6E9",
-  creamDark: "#F0E0C0",
-  espresso: "#0D0700",
-  surface: "#231508",
-  surfaceHover: "#2E1B0F",
-  text: "#E8D5B0",
-  textMuted: "#9A7A5A",
-  textDim: "#6A4A2A",
-  success: "#4ade80",
-  warning: "#fbbf24",
-  danger: "#f87171",
-  blue: "#60a5fa",
+const T = {
+  emerald: "#0F3D2E",
+  emeraldMid: "#1A5340",
+  emeraldLight: "#2D7A5F",
+  emeraldDeep: "#0A2C20",
+  sage: "#7A9E7E",
+  gold: "#D4A574",
+  goldLight: "#E8C895",
+  goldDark: "#B08550",
+  cream: "#FAF6F0",
+  creamDark: "#F0E8DA",
+  ivory: "#FFFBF5",
+  text: "#2C2418",
+  textMuted: "#7A6B54",
+  textDim: "#A89B80",
+  border: "#E5DCC9",
+  success: "#4A8B4A",
+  danger: "#C0392B",
+  warning: "#D4A574",
 };
 
-function formatINR(n: number) {
-  return `₹${n.toFixed(0)}`;
-}
+const ITEM_EMOJIS: Record<string, string> = {
+  Espresso: "☕", Cappuccino: "☕", Latte: "🥛", "Masala Chai": "🫖",
+  "Hot Chocolate": "🍫", "Cold Brew": "🧊", "Iced Latte": "🥤",
+  "Chocolate Frappe": "🧋", "Butter Toast": "🍞", "Cheese Sandwich": "🥪",
+  "Garlic Bread": "🥖", "Chocolate Brownie": "🍫", "Cheesecake Slice": "🍰",
+  "Classic Omelette": "🍳", "Pancake Stack": "🥞",
+};
 
-const TAX_RATE = 0.05;
-
-// ─── Settle Modal ───
-function SettleModal({ order, onSettle, onClose }: {
-  order: Order;
-  onSettle: (amountPaid: number, method: string, discount: number) => Promise<void>;
-  onClose: () => void;
+// ─── Pending Approval Notification ───
+function PendingApprovalBell({ orders, onAccept, onReject }: {
+  orders: Order[];
+  onAccept: (id: string) => void;
+  onReject: (id: string) => void;
 }) {
-  const [method, setMethod] = useState("cash");
-  const [discount, setDiscount] = useState(0);
-  const [amountPaid, setAmountPaid] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [timers, setTimers] = useState<Record<string, number>>({});
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
-  const subtotal = order.items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const tax = subtotal * TAX_RATE;
-  const total = Math.max(0, subtotal + tax - discount);
+  useEffect(() => {
+    if (orders.length === 0) return;
+    try {
+      if (!audioCtxRef.current) audioCtxRef.current = new AudioContext();
+      const ctx = audioCtxRef.current;
+      [0, 0.4, 0.8].forEach(delay => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 1100;
+        gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.2);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + 0.2);
+      });
+    } catch { }
+  }, [orders.length]);
 
-  useEffect(() => { setAmountPaid(total); }, [total]);
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const newTimers: Record<string, number> = {};
+      orders.forEach(o => {
+        const elapsed = Math.floor((Date.now() - new Date(o.createdAt).getTime()) / 1000);
+        const remaining = Math.max(0, 60 - elapsed);
+        newTimers[o._id] = remaining;
+        if (remaining === 0) onAccept(o._id);
+      });
+      setTimers(newTimers);
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [orders, onAccept]);
 
-  const shortfall = total - amountPaid;
-  const change = amountPaid - total;
-
-  const handleSettle = async () => {
-    if (amountPaid <= 0) return alert("Enter amount paid");
-    setLoading(true);
-    try { await onSettle(amountPaid, method, discount); }
-    finally { setLoading(false); }
-  };
-
-  const payMethods = [
-    { id: "cash", label: "Cash", icon: "💵" },
-    { id: "upi", label: "UPI", icon: "📱" },
-    { id: "card", label: "Card", icon: "💳" },
-    { id: "wallet", label: "Wallet", icon: "👛" },
-  ];
+  if (orders.length === 0) return null;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", backdropFilter: "blur(8px)" }}>
-      <div style={{ background: BRAND.surface, border: `1px solid ${BRAND.coffeeBorder}`, borderRadius: "28px", width: "100%", maxWidth: "460px", overflow: "hidden", boxShadow: `0 32px 80px rgba(0,0,0,0.5)`, animation: "scaleIn 0.2s ease" }}>
-        {/* Header */}
-        <div style={{ background: `linear-gradient(135deg, ${BRAND.coffeeMid}, ${BRAND.coffeeLight})`, padding: "20px 24px", borderBottom: `1px solid ${BRAND.coffeeBorder}` }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <h2 style={{ fontWeight: 900, fontSize: "20px", color: BRAND.gold, margin: 0 }}>Settle Bill</h2>
-              <p style={{ fontSize: "13px", color: BRAND.textMuted, margin: "3px 0 0" }}>{order.tableNumber} • #{order.orderNumber}</p>
+    <div style={{ position: "fixed", top: "18px", right: "18px", zIndex: 100, width: "340px", maxHeight: "calc(100vh - 36px)", overflowY: "auto" }}>
+      {orders.map((order, idx) => (
+        <div key={order._id} style={{
+          background: T.ivory, borderRadius: "16px", padding: "16px", marginBottom: "10px",
+          border: `2px solid ${T.gold}`,
+          boxShadow: "0 16px 40px rgba(15,61,46,0.3)",
+          animation: `slideInRight 0.4s ${idx * 0.1}s ease both`,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
+              <div style={{ width: "38px", height: "38px", borderRadius: "10px", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", animation: "ring 1.5s infinite" }}>🔔</div>
+              <div>
+                <p style={{ fontWeight: 900, fontSize: "13px", color: T.emerald, margin: 0, fontFamily: "'Playfair Display', serif" }}>New QR Order!</p>
+                <p style={{ fontSize: "11px", color: T.textMuted, margin: "1px 0 0", fontWeight: 700 }}>{order.tableNumber} • #{order.orderNumber}</p>
+              </div>
             </div>
-            <button onClick={onClose} style={{ width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: `1px solid ${BRAND.coffeeBorder}`, color: BRAND.textMuted, cursor: "pointer", fontSize: "16px" }}>✕</button>
+            <div style={{ background: timers[order._id] && timers[order._id] <= 10 ? T.danger : T.emerald, color: "white", padding: "3px 8px", borderRadius: "8px", fontSize: "12px", fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>
+              {timers[order._id] || 60}s
+            </div>
           </div>
-        </div>
 
-        <div style={{ padding: "20px 24px", maxHeight: "70vh", overflowY: "auto" }}>
-          {/* Items */}
-          <div style={{ background: BRAND.coffeeMid, borderRadius: "16px", padding: "14px", marginBottom: "16px", border: `1px solid ${BRAND.coffeeBorder}`, maxHeight: "160px", overflowY: "auto" }}>
-            {order.items.map(item => (
-              <div key={item._id} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", padding: "4px 0", borderBottom: `1px solid ${BRAND.coffeeBorder}` }}>
-                <span style={{ color: BRAND.text }}>{item.name} <span style={{ color: BRAND.textMuted }}>×{item.quantity}</span></span>
-                <span style={{ color: BRAND.gold, fontWeight: 700 }}>{formatINR(item.price * item.quantity)}</span>
+          <div style={{ background: T.cream, borderRadius: "10px", padding: "9px 11px", marginBottom: "10px", border: `1px solid ${T.creamDark}` }}>
+            {order.items.slice(0, 3).map(item => (
+              <div key={item._id} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                <span style={{ fontSize: "11px", color: T.text, fontWeight: 700 }}>
+                  {item.name} <span style={{ color: T.textMuted }}>×{item.quantity}</span>
+                </span>
+                <span style={{ fontSize: "11px", color: T.emerald, fontWeight: 800 }}>₹{item.price * item.quantity}</span>
               </div>
             ))}
-          </div>
-
-          {/* Discount */}
-          <div style={{ marginBottom: "14px" }}>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: BRAND.textMuted, marginBottom: "6px", letterSpacing: "0.5px", textTransform: "uppercase" }}>Discount (₹)</label>
-            <input type="number" min="0" value={discount}
-              onChange={e => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-              style={{ width: "100%", padding: "10px 14px", borderRadius: "12px", border: `1px solid ${BRAND.coffeeBorder}`, background: BRAND.coffeeMid, color: BRAND.text, fontSize: "14px", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
-            />
-          </div>
-
-          {/* Bill breakdown */}
-          <div style={{ background: BRAND.coffeeMid, borderRadius: "16px", padding: "14px 16px", marginBottom: "16px", border: `1px solid ${BRAND.coffeeBorder}` }}>
-            {[
-              { label: "Subtotal", value: formatINR(subtotal) },
-              { label: "GST (5%)", value: formatINR(tax) },
-              ...(discount > 0 ? [{ label: "Discount", value: `−${formatINR(discount)}` }] : []),
-            ].map(({ label, value }) => (
-              <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", color: BRAND.textMuted, marginBottom: "6px" }}>
-                <span>{label}</span><span>{value}</span>
-              </div>
-            ))}
-            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: "18px", paddingTop: "10px", borderTop: `1px solid ${BRAND.coffeeBorder}` }}>
-              <span style={{ color: BRAND.text }}>Total</span>
-              <span style={{ color: BRAND.gold }}>{formatINR(total)}</span>
+            {order.items.length > 3 && (
+              <p style={{ fontSize: "10px", color: T.textMuted, margin: "3px 0 0", fontWeight: 700 }}>+{order.items.length - 3} more items</p>
+            )}
+            <div style={{ borderTop: `1px dashed ${T.creamDark}`, paddingTop: "5px", marginTop: "5px", display: "flex", justifyContent: "space-between" }}>
+              <span style={{ fontSize: "11px", fontWeight: 800, color: T.emerald }}>Total</span>
+              <span style={{ fontSize: "13px", fontWeight: 900, color: T.emerald }}>₹{order.totalAmount.toFixed(0)}</span>
             </div>
           </div>
 
-          {/* Payment method */}
-          <div style={{ marginBottom: "14px" }}>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: BRAND.textMuted, marginBottom: "8px", letterSpacing: "0.5px", textTransform: "uppercase" }}>Payment Method</label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "8px" }}>
-              {payMethods.map(m => (
-                <button key={m.id} onClick={() => setMethod(m.id)} style={{
-                  padding: "10px 8px", borderRadius: "14px", cursor: "pointer",
-                  border: `2px solid ${method === m.id ? BRAND.gold : BRAND.coffeeBorder}`,
-                  background: method === m.id ? `rgba(201,168,76,0.15)` : BRAND.coffeeMid,
-                  color: method === m.id ? BRAND.gold : BRAND.textMuted,
-                  fontWeight: 800, fontSize: "11px", transition: "all 0.2s",
-                  display: "flex", flexDirection: "column", alignItems: "center", gap: "4px",
-                }}>
-                  <span style={{ fontSize: "20px" }}>{m.icon}</span>
-                  <span>{m.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Amount paid */}
-          <div style={{ marginBottom: "8px" }}>
-            <label style={{ display: "block", fontSize: "12px", fontWeight: 700, color: BRAND.textMuted, marginBottom: "6px", letterSpacing: "0.5px", textTransform: "uppercase" }}>Amount Paid (₹)</label>
-            <input type="number" min="0" value={amountPaid}
-              onChange={e => setAmountPaid(parseFloat(e.target.value) || 0)}
-              style={{ width: "100%", padding: "14px", borderRadius: "12px", border: `2px solid ${BRAND.gold}`, background: BRAND.coffeeMid, color: BRAND.gold, fontSize: "22px", fontWeight: 900, outline: "none", fontFamily: "inherit", boxSizing: "border-box", textAlign: "right" }}
-            />
-            {shortfall > 0.5 && (
-              <p style={{ color: BRAND.warning, fontSize: "12px", margin: "6px 0 0", fontWeight: 700 }}>⚠️ Shortfall ₹{shortfall.toFixed(0)} → logged to Adjustment Wallet</p>
-            )}
-            {change > 0.5 && (
-              <p style={{ color: BRAND.success, fontSize: "12px", margin: "6px 0 0", fontWeight: 700 }}>💵 Return change: ₹{change.toFixed(0)}</p>
-            )}
+          <div style={{ display: "flex", gap: "6px" }}>
+            <button onClick={() => onReject(order._id)} style={{ flex: 1, padding: "9px", borderRadius: "9px", border: `1px solid ${T.danger}`, background: "white", color: T.danger, fontWeight: 800, cursor: "pointer", fontSize: "11px", fontFamily: "inherit" }}>
+              ✕ Reject
+            </button>
+            <button onClick={() => onAccept(order._id)} style={{ flex: 2, padding: "9px", borderRadius: "9px", border: "none", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, fontWeight: 900, cursor: "pointer", fontSize: "11px", fontFamily: "inherit", boxShadow: `0 4px 10px rgba(15,61,46,0.3)` }}>
+              ✓ Accept & Send
+            </button>
           </div>
         </div>
-
-        {/* Footer */}
-        <div style={{ padding: "16px 24px 24px", display: "flex", gap: "10px", borderTop: `1px solid ${BRAND.coffeeBorder}` }}>
-          <button onClick={onClose} style={{ flex: 1, padding: "14px", borderRadius: "14px", border: `1px solid ${BRAND.coffeeBorder}`, background: BRAND.coffeeMid, color: BRAND.textMuted, fontWeight: 700, cursor: "pointer", fontSize: "14px", fontFamily: "inherit" }}>Cancel</button>
-          <button onClick={handleSettle} disabled={loading} style={{
-            flex: 2, padding: "14px", borderRadius: "14px", border: "none",
-            background: loading ? BRAND.coffeeBorder : `linear-gradient(135deg, ${BRAND.goldDark}, ${BRAND.gold})`,
-            color: loading ? BRAND.textMuted : BRAND.coffee,
-            fontWeight: 900, cursor: loading ? "not-allowed" : "pointer",
-            fontSize: "15px", fontFamily: "inherit",
-            boxShadow: loading ? "none" : `0 8px 24px rgba(201,168,76,0.35)`,
-          }}>
-            {loading ? "Processing..." : "✓ Settle Bill"}
-          </button>
-        </div>
-      </div>
+      ))}
     </div>
   );
 }
 
-// ─── Table Button ───
-function TableButton({ table, isSelected, order, onClick }: {
-  table: Table; isSelected: boolean; order?: Order; onClick: () => void;
-}) {
-  const statusColors = {
-    available: { bg: "rgba(74,222,128,0.1)", border: "rgba(74,222,128,0.3)", text: "#4ade80" },
-    occupied: { bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.3)", text: "#f87171" },
-    reserved: { bg: "rgba(96,165,250,0.1)", border: "rgba(96,165,250,0.3)", text: "#60a5fa" },
-    cleaning: { bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.3)", text: "#fbbf24" },
-  };
-  const sc = statusColors[table.status] || statusColors.available;
-
-  return (
-    <button onClick={onClick} style={{
-      position: "relative", width: "64px", height: "64px", borderRadius: "18px",
-      border: `2px solid ${isSelected ? BRAND.gold : sc.border}`,
-      background: isSelected ? `rgba(201,168,76,0.2)` : sc.bg,
-      cursor: "pointer", transition: "all 0.2s ease",
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "2px",
-      boxShadow: isSelected ? `0 0 0 3px rgba(201,168,76,0.3), 0 8px 20px rgba(0,0,0,0.3)` : "0 2px 8px rgba(0,0,0,0.2)",
-      transform: isSelected ? "scale(1.08)" : "scale(1)",
-    }}>
-      <span style={{ fontWeight: 900, fontSize: "13px", color: isSelected ? BRAND.gold : sc.text }}>{table.tableNumber}</span>
-      <span style={{ fontSize: "9px", color: isSelected ? BRAND.goldDark : sc.text, opacity: 0.8, fontWeight: 700 }}>{table.capacity}p</span>
-      {order && (
-        <div style={{ position: "absolute", top: "4px", right: "4px", width: "8px", height: "8px", borderRadius: "50%", background: BRAND.gold, border: "1.5px solid " + BRAND.coffee }} />
-      )}
-    </button>
-  );
-}
-
-// ─── Menu Item Tile ───
-function MenuTile({ item, inCart, qty, onClick }: {
-  item: MenuItem; inCart: boolean; qty: number; onClick: () => void;
-}) {
-  return (
-    <button onClick={onClick} disabled={!item.isAvailable} style={{
-      position: "relative", background: inCart ? `rgba(201,168,76,0.15)` : BRAND.surface,
-      border: `2px solid ${inCart ? BRAND.gold : BRAND.coffeeBorder}`,
-      borderRadius: "18px", padding: "12px 10px", textAlign: "left",
-      cursor: item.isAvailable ? "pointer" : "not-allowed",
-      transition: "all 0.18s ease", opacity: item.isAvailable ? 1 : 0.4,
-      boxShadow: inCart ? `0 4px 16px rgba(201,168,76,0.2)` : "0 2px 8px rgba(0,0,0,0.2)",
-      transform: inCart ? "scale(1.02)" : "scale(1)",
-    }}>
-      {/* Veg indicator */}
-      <div style={{ width: "12px", height: "12px", borderRadius: "3px", border: `2px solid ${item.isVeg ? "#4ade80" : "#f87171"}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "6px" }}>
-        <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: item.isVeg ? "#4ade80" : "#f87171" }} />
-      </div>
-      <p style={{ fontWeight: 800, fontSize: "12px", color: BRAND.text, margin: "0 0 4px", lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.name}</p>
-      <p style={{ fontWeight: 900, fontSize: "14px", color: BRAND.gold, margin: 0 }}>{formatINR(item.price)}</p>
-      {qty > 0 && (
-        <div style={{ position: "absolute", top: "8px", right: "8px", width: "22px", height: "22px", borderRadius: "50%", background: `linear-gradient(135deg, ${BRAND.goldDark}, ${BRAND.gold})`, color: BRAND.coffee, fontWeight: 900, fontSize: "11px", display: "flex", alignItems: "center", justifyContent: "center" }}>{qty}</div>
-      )}
-    </button>
-  );
-}
-
 export default function POSPage() {
-  const [menu, setMenu] = useState<MenuCategory[]>([]);
+  const router = useRouter();
   const [tables, setTables] = useState<Table[]>([]);
-  const [activeOrders, setActiveOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [menu, setMenu] = useState<MenuCategory[]>([]);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
-  const [activeCategory, setActiveCategory] = useState<string>("");
+  const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
+  const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [orderForTable, setOrderForTable] = useState<Order | null>(null);
-  const [settleOrder, setSettleOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
-
-  const showToast = (msg: string, type: "success" | "error" = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const loadData = useCallback(async () => {
-    try {
-      const [menuRes, tablesRes, ordersRes] = await Promise.all([
-        menuApi.getMenu(), tableApi.getTables(), orderApi.getOrders(),
-      ]);
-      setMenu(menuRes.data.data);
-      setTables(tablesRes.data.data);
-      setActiveOrders(ordersRes.data.data);
-      if (menuRes.data.data.length > 0 && !activeCategory) {
-        setActiveCategory(menuRes.data.data[0]._id);
-      }
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, [activeCategory]);
+  const [showSettleModal, setShowSettleModal] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    loadData();
-    const iv = setInterval(loadData, 10000);
+    const iv = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(iv);
-  }, [loadData]);
+  }, []);
 
-  const selectTable = async (table: Table) => {
-    setSelectedTable(table);
-    setCart([]);
+  const loadTables = useCallback(async () => {
     try {
-      const res = await orderApi.getOrderByTable(table._id);
-      setOrderForTable(res.data.data);
-    } catch { setOrderForTable(null); }
+      const res = await tableApi.getTables();
+      setTables(res.data.data);
+    } catch (e) { console.error(e); }
+  }, []);
+
+  const loadPendingApprovals = useCallback(async () => {
+    try {
+      const res = await orderApi.getPendingApprovalOrders();
+      setPendingOrders(res.data.data || []);
+    } catch { }
+  }, []);
+
+  useEffect(() => {
+    async function init() {
+      try {
+        const [tablesRes, menuRes] = await Promise.all([
+          tableApi.getTables(), menuApi.getMenu(),
+        ]);
+        setTables(tablesRes.data.data);
+        setMenu(menuRes.data.data);
+        if (menuRes.data.data.length > 0) setActiveCategory(menuRes.data.data[0]._id);
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    }
+    init();
+    const iv = setInterval(() => {
+      loadTables();
+      loadPendingApprovals();
+    }, 5000);
+    return () => clearInterval(iv);
+  }, [loadTables, loadPendingApprovals]);
+
+  const handleAcceptApproval = async (orderId: string) => {
+    try {
+      await orderApi.approveOrder(orderId);
+      setPendingOrders(prev => prev.filter(o => o._id !== orderId));
+      loadTables();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleRejectApproval = async (orderId: string) => {
+    try {
+      await orderApi.rejectOrder(orderId);
+      setPendingOrders(prev => prev.filter(o => o._id !== orderId));
+      loadTables();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleSelectTable = async (table: Table) => {
+    setSelectedTable(table);
+    if (table.currentOrderId) {
+      try {
+        const res = await orderApi.getOrderByTable(table._id);
+        setCurrentOrder(res.data.data || null);
+      } catch { setCurrentOrder(null); }
+    } else {
+      setCurrentOrder(null);
+    }
+    setCart([]);
   };
 
   const addToCart = (item: MenuItem) => {
     setCart(prev => {
       const ex = prev.find(c => c.menuItemId === item._id);
       if (ex) return prev.map(c => c.menuItemId === item._id ? { ...c, quantity: c.quantity + 1 } : c);
-      return [...prev, { menuItemId: item._id, name: item.name, price: item.price, quantity: 1, notes: "", isVeg: item.isVeg }];
+      return [...prev, { menuItemId: item._id, name: item.name, price: item.price, quantity: 1, notes: "", isVeg: true }];
     });
   };
 
-  const updateCartQty = (itemId: string, delta: number) => {
+  const removeFromCart = (itemId: string) => {
     setCart(prev => {
-      const item = prev.find(c => c.menuItemId === itemId);
-      if (!item) return prev;
-      if (item.quantity + delta <= 0) return prev.filter(c => c.menuItemId !== itemId);
-      return prev.map(c => c.menuItemId === itemId ? { ...c, quantity: c.quantity + delta } : c);
+      const ex = prev.find(c => c.menuItemId === itemId);
+      if (!ex) return prev;
+      if (ex.quantity === 1) return prev.filter(c => c.menuItemId !== itemId);
+      return prev.map(c => c.menuItemId === itemId ? { ...c, quantity: c.quantity - 1 } : c);
     });
+  };
+
+  const sendKOT = async () => {
+    if (!selectedTable || cart.length === 0) return;
+    try {
+      const res = await orderApi.createOrder({
+        tableId: selectedTable._id, items: cart, createdBy: "pos",
+      });
+      setCurrentOrder(res.data.data);
+      setCart([]);
+      loadTables();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to send KOT");
+    }
+  };
+
+  const settleOrder = async () => {
+    if (!currentOrder) return;
+    try {
+      await orderApi.settleOrder(currentOrder._id, {
+        paymentMethod,
+        amountPaid: currentOrder.totalAmount,
+      });
+      setShowSettleModal(false);
+      setCurrentOrder(null);
+      setSelectedTable(null);
+      loadTables();
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to settle");
+    }
   };
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-  const tax = subtotal * TAX_RATE;
+  const tax = subtotal * 0.05;
   const total = subtotal + tax;
 
-  const sendKot = async () => {
-    if (!selectedTable || cart.length === 0) return;
-    try {
-      const res = await orderApi.createOrder({ tableId: selectedTable._id, items: cart, createdBy: "pos" });
-      const order: Order = res.data.data;
-      await orderApi.sendKot(order._id);
-      showToast(`✓ KOT sent for ${selectedTable.tableNumber}`);
-      setCart([]);
-      setOrderForTable(order);
-      loadData();
-    } catch (err: unknown) {
-      showToast(`✗ ${err instanceof Error ? err.message : "Failed"}`, "error");
-    }
-  };
-
-  const handleSettle = async (amountPaid: number, method: string, discount: number) => {
-    if (!settleOrder) return;
-    try {
-      await orderApi.settleOrder(settleOrder._id, { amountPaid, paymentMethod: method, discount, resolvedBy: "cashier" });
-      showToast(`✓ Bill settled for ${settleOrder.tableNumber}`);
-      setSettleOrder(null);
-      setOrderForTable(null);
-      setSelectedTable(null);
-      loadData();
-    } catch (err: unknown) {
-      showToast(`✗ ${err instanceof Error ? err.message : "Failed"}`, "error");
-    }
-  };
-
-  const filteredItems = menu.find(c => c._id === activeCategory)?.items.filter(
-    item => !searchQuery || item.name.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
-
-  const stats = {
-    available: tables.filter(t => t.status === "available").length,
-    occupied: tables.filter(t => t.status === "occupied").length,
-    orders: activeOrders.length,
-    revenue: activeOrders.filter(o => o.status === "settled").reduce((s, o) => s + o.totalAmount, 0),
-  };
+  const filteredMenu = searchQuery
+    ? menu.map(cat => ({ ...cat, items: cat.items.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase())) })).filter(cat => cat.items.length > 0)
+    : menu;
 
   return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: BRAND.coffee, fontFamily: "'Nunito', sans-serif" }}>
+    <div style={{ display: "flex", minHeight: "100vh", background: T.cream, fontFamily: "'Nunito', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Nunito:wght@400;600;700;800;900&display=swap');
-        * { box-sizing: border-box; }
-        @keyframes scaleIn { from{transform:scale(0.95);opacity:0} to{transform:scale(1);opacity:1} }
-        @keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
-        @keyframes toastIn { from{transform:translateX(-50%) translateY(20px);opacity:0} to{transform:translateX(-50%) translateY(0);opacity:1} }
-        ::-webkit-scrollbar { width: 4px; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        @keyframes slideInRight { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
+        @keyframes ring { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-15deg)} 75%{transform:rotate(15deg)} }
+        ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: ${BRAND.coffeeBorder}; border-radius: 4px; }
-        input { font-family: 'Nunito', sans-serif; }
-        button { font-family: 'Nunito', sans-serif; }
+        ::-webkit-scrollbar-thumb { background: ${T.creamDark}; border-radius: 6px; }
+        button, input { font-family: 'Nunito', sans-serif; }
       `}</style>
 
       <POSSidebar />
-      <OrderApprovalPanel />
 
-      {/* Main area */}
-      <div style={{ flex: 1, marginLeft: "64px", display: "flex", overflow: "hidden" }}>
+      <PendingApprovalBell
+        orders={pendingOrders}
+        onAccept={handleAcceptApproval}
+        onReject={handleRejectApproval}
+      />
 
-        {/* ── LEFT: Tables + Menu ── */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ flex: 1, marginLeft: "64px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <header style={{ background: T.ivory, borderBottom: `1px solid ${T.border}`, padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 2px 8px rgba(15,61,46,0.05)" }}>
+          <div>
+            <h1 style={{ fontWeight: 800, fontSize: "22px", color: T.emerald, margin: 0, fontFamily: "'Playfair Display', serif" }}>Point of Sale</h1>
+            <p style={{ fontSize: "11px", color: T.textMuted, margin: "2px 0 0", fontWeight: 600 }}>
+              {currentTime.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} • {currentTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
+            </p>
+          </div>
 
-          {/* Top header */}
-          <header style={{ background: BRAND.surface, borderBottom: `1px solid ${BRAND.coffeeBorder}`, padding: "16px 24px", flexShrink: 0 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <h1 style={{ fontWeight: 900, fontSize: "22px", color: BRAND.gold, margin: 0, fontFamily: "'Playfair Display', serif" }}>Point of Sale</h1>
-                <p style={{ color: BRAND.textMuted, fontSize: "12px", margin: "3px 0 0", fontWeight: 600 }}>
-                  {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} • {new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
-                </p>
+          <div style={{ display: "flex", gap: "10px" }}>
+            {[
+              { label: "Available", count: tables.filter(t => t.status === "available").length, color: T.success },
+              { label: "Occupied", count: tables.filter(t => t.status === "occupied").length, color: T.danger },
+              { label: "Active Orders", count: tables.filter(t => t.currentOrderId).length, color: T.gold },
+            ].map(({ label, count, color }) => (
+              <div key={label} style={{ background: T.cream, borderRadius: "12px", padding: "8px 14px", textAlign: "center", border: `1px solid ${T.creamDark}`, minWidth: "90px" }}>
+                <p style={{ fontWeight: 900, fontSize: "20px", color, margin: 0 }}>{count}</p>
+                <p style={{ fontSize: "9px", color: T.textMuted, margin: 0, fontWeight: 800, letterSpacing: "0.5px", textTransform: "uppercase" }}>{label}</p>
               </div>
+            ))}
+          </div>
+        </header>
 
-              {/* Stats pills */}
-              <div style={{ display: "flex", gap: "10px" }}>
-                {[
-                  { label: "Available", value: stats.available, color: BRAND.success },
-                  { label: "Occupied", value: stats.occupied, color: BRAND.danger },
-                  { label: "Active Orders", value: stats.orders, color: BRAND.gold },
-                ].map(({ label, value, color }) => (
-                  <div key={label} style={{ background: BRAND.coffeeMid, border: `1px solid ${BRAND.coffeeBorder}`, borderRadius: "12px", padding: "8px 14px", textAlign: "center" }}>
-                    <p style={{ fontWeight: 900, fontSize: "18px", color, margin: 0 }}>{value}</p>
-                    <p style={{ fontSize: "10px", color: BRAND.textMuted, margin: 0, fontWeight: 700, letterSpacing: "0.3px" }}>{label}</p>
-                  </div>
+        <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr 380px", overflow: "hidden" }}>
+          {/* Left Pane - Tables */}
+          <div style={{ borderRight: `1px solid ${T.border}`, padding: "16px", overflowY: "auto" }}>
+            <h2 style={{ fontWeight: 900, fontSize: "16px", color: T.emerald, margin: "0 0 12px", fontFamily: "'Playfair Display', serif" }}>SELECT TABLE</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))", gap: "8px" }}>
+              {tables.map(table => {
+                const isSelected = selectedTable?._id === table._id;
+                const isOccupied = table.status === "occupied";
+                return (
+                  <button key={table._id} onClick={() => handleSelectTable(table)} style={{
+                    aspectRatio: "1", background: isSelected
+                      ? `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`
+                      : isOccupied ? "#fee" : T.ivory,
+                    border: `2px solid ${isSelected ? T.goldDark : isOccupied ? T.danger : T.creamDark}`,
+                    borderRadius: "12px", cursor: "pointer", display: "flex",
+                    flexDirection: "column", alignItems: "center", justifyContent: "center",
+                    fontWeight: 900, fontSize: "13px",
+                    color: isSelected ? T.emerald : isOccupied ? T.danger : T.emerald,
+                    transition: "all 0.2s ease", fontFamily: "inherit",
+                    boxShadow: isSelected ? `0 4px 12px rgba(212,165,116,0.4)` : "none",
+                  }}>
+                    <span style={{ fontSize: "11px", opacity: 0.7 }}>Table</span>
+                    <span style={{ fontSize: "16px" }}>{table.tableNumber}</span>
+                    <span style={{ fontSize: "8px", marginTop: "2px", opacity: 0.7 }}>
+                      {isOccupied ? "Active" : "Free"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Middle Pane - Menu */}
+          <div style={{ borderRight: `1px solid ${T.border}`, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div style={{ padding: "16px 16px 10px", borderBottom: `1px solid ${T.border}` }}>
+              <input type="text" placeholder="🔍 Search menu items..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: `1px solid ${T.creamDark}`, background: T.cream, fontSize: "13px", fontWeight: 600, outline: "none", color: T.text, boxSizing: "border-box" }}
+              />
+            </div>
+
+            {!searchQuery && menu.length > 0 && (
+              <div style={{ display: "flex", gap: "5px", overflowX: "auto", padding: "10px 16px", borderBottom: `1px solid ${T.border}` }}>
+                {menu.map(cat => (
+                  <button key={cat._id} onClick={() => setActiveCategory(cat._id)} style={{
+                    flexShrink: 0, padding: "5px 12px", borderRadius: "99px", fontSize: "11px", fontWeight: 800,
+                    border: `1.5px solid ${activeCategory === cat._id ? T.emerald : T.creamDark}`,
+                    background: activeCategory === cat._id ? T.emerald : "white",
+                    color: activeCategory === cat._id ? T.gold : T.emerald,
+                    cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+                  }}>
+                    {cat.icon} {cat.name}
+                  </button>
                 ))}
               </div>
-            </div>
-          </header>
-
-          <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-            {/* Table grid */}
-            <div style={{ background: BRAND.coffeeMid, borderBottom: `1px solid ${BRAND.coffeeBorder}`, padding: "16px 24px", flexShrink: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
-                <span style={{ fontSize: "14px", fontWeight: 800, color: BRAND.textMuted, letterSpacing: "0.5px", textTransform: "uppercase" }}>Select Table</span>
-                {selectedTable && (
-                  <span style={{ background: `rgba(201,168,76,0.2)`, color: BRAND.gold, fontSize: "12px", padding: "3px 10px", borderRadius: "99px", fontWeight: 800, border: `1px solid rgba(201,168,76,0.3)` }}>
-                    {selectedTable.tableNumber} Selected
-                  </span>
-                )}
-              </div>
-              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                {loading
-                  ? Array.from({ length: 12 }).map((_, i) => (
-                      <div key={i} style={{ width: "64px", height: "64px", borderRadius: "18px", background: BRAND.coffeeBorder, animation: "pulse 1.5s infinite" }} />
-                    ))
-                  : tables.map(table => (
-                      <TableButton key={table._id} table={table}
-                        isSelected={selectedTable?._id === table._id}
-                        order={activeOrders.find(o => o.tableNumber === table.tableNumber)}
-                        onClick={() => selectTable(table)}
-                      />
-                    ))
-                }
-              </div>
-            </div>
-
-            {/* Menu */}
-            {selectedTable ? (
-              <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                {/* Category tabs + search */}
-                <div style={{ background: BRAND.surface, borderBottom: `1px solid ${BRAND.coffeeBorder}`, padding: "12px 24px", display: "flex", alignItems: "center", gap: "12px", flexShrink: 0 }}>
-                  <div style={{ display: "flex", gap: "6px", flex: 1, overflowX: "auto", scrollbarWidth: "none" }}>
-                    {menu.map(cat => (
-                      <button key={cat._id} onClick={() => setActiveCategory(cat._id)} style={{
-                        flexShrink: 0, display: "flex", alignItems: "center", gap: "6px",
-                        padding: "7px 14px", borderRadius: "12px", fontSize: "13px", fontWeight: 800,
-                        border: `1.5px solid ${activeCategory === cat._id ? BRAND.gold : BRAND.coffeeBorder}`,
-                        cursor: "pointer", transition: "all 0.2s",
-                        background: activeCategory === cat._id ? `rgba(201,168,76,0.15)` : "transparent",
-                        color: activeCategory === cat._id ? BRAND.gold : BRAND.textMuted,
-                      }}>
-                        <span>{cat.icon}</span>
-                        <span className="hidden lg:inline">{cat.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{ position: "relative", flexShrink: 0, width: "180px" }}>
-                    <span style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", fontSize: "14px" }}>🔍</span>
-                    <input type="text" placeholder="Search menu..." value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      style={{ width: "100%", padding: "8px 10px 8px 32px", borderRadius: "10px", border: `1px solid ${BRAND.coffeeBorder}`, background: BRAND.coffeeMid, color: BRAND.text, fontSize: "13px", outline: "none" }}
-                    />
-                  </div>
-                </div>
-
-                {/* Menu grid */}
-                <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: "10px" }}>
-                    {filteredItems.map(item => (
-                      <MenuTile key={item._id} item={item}
-                        inCart={!!cart.find(c => c.menuItemId === item._id)}
-                        qty={cart.find(c => c.menuItemId === item._id)?.quantity || 0}
-                        onClick={() => item.isAvailable && addToCart(item)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <div style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: "64px", marginBottom: "16px" }}>☕</div>
-                  <p style={{ fontWeight: 800, fontSize: "18px", color: BRAND.textMuted, fontFamily: "'Playfair Display', serif" }}>Select a table to begin</p>
-                  <p style={{ fontSize: "14px", color: BRAND.textDim }}>Click any table above</p>
-                </div>
-              </div>
             )}
-          </div>
-        </div>
 
-        {/* ── RIGHT: Order Panel ── */}
-        <div style={{ width: "300px", background: BRAND.surface, borderLeft: `1px solid ${BRAND.coffeeBorder}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
-          {/* Panel header */}
-          <div style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${BRAND.coffeeBorder}`, flexShrink: 0 }}>
-            <h2 style={{ fontWeight: 900, fontSize: "16px", color: BRAND.gold, margin: 0, fontFamily: "'Playfair Display', serif" }}>
-              {selectedTable ? `Order — ${selectedTable.tableNumber}` : "No Table Selected"}
-            </h2>
-            {orderForTable && (
-              <p style={{ fontSize: "12px", color: BRAND.textMuted, margin: "4px 0 0", fontWeight: 700 }}>Active: #{orderForTable.orderNumber}</p>
-            )}
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px" }}>
+              {loading ? (
+                <p style={{ textAlign: "center", color: T.textMuted, padding: "30px", fontWeight: 700, fontSize: "13px" }}>Loading menu...</p>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "8px" }}>
+                  {(searchQuery ? filteredMenu.flatMap(c => c.items) : menu.find(c => c._id === activeCategory)?.items || []).map(item => (
+                    <button key={item._id} onClick={() => addToCart(item)} disabled={!item.isAvailable} style={{
+                      background: T.ivory, border: `1px solid ${T.creamDark}`, borderRadius: "12px",
+                      padding: "10px 9px", cursor: item.isAvailable ? "pointer" : "not-allowed",
+                      opacity: item.isAvailable ? 1 : 0.5, fontFamily: "inherit",
+                      transition: "all 0.2s ease", textAlign: "center",
+                      boxShadow: "0 2px 6px rgba(15,61,46,0.05)",
+                    }}>
+                      <div style={{ fontSize: "26px", marginBottom: "4px" }}>{ITEM_EMOJIS[item.name] || "🍽️"}</div>
+                      <p style={{ fontWeight: 800, fontSize: "11px", color: T.text, margin: "0 0 2px", lineHeight: 1.2 }}>{item.name}</p>
+                      <p style={{ fontWeight: 900, fontSize: "13px", color: T.emerald, margin: 0 }}>₹{item.price}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Order items */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "14px" }}>
-            {/* Existing order */}
-            {orderForTable && cart.length === 0 && (
-              <div>
-                <p style={{ fontSize: "11px", fontWeight: 800, color: BRAND.textMuted, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "10px" }}>Current Order</p>
-                {orderForTable.items.map(item => (
-                  <div key={item._id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: BRAND.coffeeMid, borderRadius: "12px", padding: "10px 12px", marginBottom: "6px", border: `1px solid ${BRAND.coffeeBorder}` }}>
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ fontSize: "13px", fontWeight: 800, color: BRAND.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</p>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "3px" }}>
-                        <span style={{ fontSize: "11px", color: BRAND.textMuted }}>×{item.quantity}</span>
-                        <span style={{ fontSize: "10px", padding: "2px 6px", borderRadius: "6px", fontWeight: 700,
-                          background: item.status === "ready" ? "rgba(74,222,128,0.15)" : item.status === "preparing" ? "rgba(251,191,36,0.15)" : "rgba(255,255,255,0.05)",
-                          color: item.status === "ready" ? BRAND.success : item.status === "preparing" ? BRAND.warning : BRAND.textDim,
-                        }}>{item.status}</span>
+          {/* Right Pane - Order Summary */}
+          <div style={{ display: "flex", flexDirection: "column", background: T.ivory }}>
+            <div style={{ padding: "16px", borderBottom: `1px solid ${T.border}` }}>
+              <h2 style={{ fontWeight: 900, fontSize: "15px", color: T.emerald, margin: 0, fontFamily: "'Playfair Display', serif" }}>
+                {currentOrder ? `Active Order` : selectedTable ? "New Order" : "No Table Selected"}
+              </h2>
+              {selectedTable && (
+                <p style={{ fontSize: "11px", color: T.textMuted, margin: "3px 0 0", fontWeight: 700 }}>
+                  Table {selectedTable.tableNumber}
+                  {currentOrder && ` • #${currentOrder.orderNumber}`}
+                </p>
+              )}
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", padding: "12px" }}>
+              {currentOrder && (
+                <div style={{ marginBottom: "12px" }}>
+                  <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 800, letterSpacing: "0.5px", textTransform: "uppercase", margin: "0 0 6px" }}>Existing Items</p>
+                  {currentOrder.items.map(item => (
+                    <div key={item._id} style={{ background: T.cream, borderRadius: "9px", padding: "8px 10px", marginBottom: "5px", border: `1px solid ${T.creamDark}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "2px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: 800, color: T.text }}>{item.name}</span>
+                        <span style={{ fontSize: "11px", fontWeight: 900, color: T.emerald }}>₹{(item.price * item.quantity).toFixed(0)}</span>
+                      </div>
+                      <p style={{ fontSize: "9px", color: T.textMuted, margin: 0, fontWeight: 700, textTransform: "capitalize" }}>{item.status} • ×{item.quantity}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {cart.length > 0 && (
+                <>
+                  <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 800, letterSpacing: "0.5px", textTransform: "uppercase", margin: "0 0 6px" }}>New Items</p>
+                  {cart.map(item => (
+                    <div key={item.menuItemId} style={{ background: T.cream, borderRadius: "9px", padding: "8px 10px", marginBottom: "5px", border: `1px solid ${T.gold}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px" }}>
+                        <span style={{ fontSize: "11px", fontWeight: 800, color: T.text }}>{item.name}</span>
+                        <span style={{ fontSize: "11px", fontWeight: 900, color: T.emerald }}>₹{(item.price * item.quantity).toFixed(0)}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                          <button onClick={() => removeFromCart(item.menuItemId)} style={{ width: "22px", height: "22px", borderRadius: "6px", border: "none", background: T.emerald, color: T.gold, fontWeight: 900, cursor: "pointer", fontSize: "12px" }}>−</button>
+                          <span style={{ fontWeight: 900, fontSize: "12px", minWidth: "16px", textAlign: "center" }}>{item.quantity}</span>
+                          <button onClick={() => addToCart({ _id: item.menuItemId, name: item.name, price: item.price } as MenuItem)} style={{ width: "22px", height: "22px", borderRadius: "6px", border: "none", background: T.emerald, color: T.gold, fontWeight: 900, cursor: "pointer", fontSize: "12px" }}>+</button>
+                        </div>
+                        <span style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600 }}>₹{item.price}</span>
                       </div>
                     </div>
-                    <span style={{ fontWeight: 900, fontSize: "13px", color: BRAND.gold, flexShrink: 0, marginLeft: "8px" }}>{formatINR(item.price * item.quantity)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </>
+              )}
 
-            {/* New cart items */}
-            {cart.length > 0 && (
-              <div>
-                <p style={{ fontSize: "11px", fontWeight: 800, color: BRAND.gold, letterSpacing: "1px", textTransform: "uppercase", marginBottom: "10px" }}>
-                  {orderForTable ? "Adding Items" : "New Order"}
+              {!currentOrder && cart.length === 0 && selectedTable && (
+                <p style={{ textAlign: "center", color: T.textDim, padding: "30px 16px", fontSize: "13px", fontWeight: 700 }}>
+                  Select items from menu
                 </p>
-                {cart.map(item => (
-                  <div key={item.menuItemId} style={{ display: "flex", alignItems: "center", gap: "8px", background: `rgba(201,168,76,0.08)`, border: `1px solid rgba(201,168,76,0.2)`, borderRadius: "12px", padding: "10px 12px", marginBottom: "6px" }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: "13px", fontWeight: 800, color: BRAND.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</p>
-                      <p style={{ fontSize: "12px", color: BRAND.gold, margin: "2px 0 0", fontWeight: 700 }}>{formatINR(item.price)}</p>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
-                      <button onClick={() => updateCartQty(item.menuItemId, -1)} style={{ width: "22px", height: "22px", borderRadius: "50%", background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.3)", color: BRAND.danger, fontWeight: 900, fontSize: "14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
-                      <span style={{ fontSize: "13px", fontWeight: 900, color: BRAND.gold, minWidth: "20px", textAlign: "center" }}>{item.quantity}</span>
-                      <button onClick={() => updateCartQty(item.menuItemId, 1)} style={{ width: "22px", height: "22px", borderRadius: "50%", background: "rgba(74,222,128,0.15)", border: "1px solid rgba(74,222,128,0.3)", color: BRAND.success, fontWeight: 900, fontSize: "14px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
-                    </div>
-                    <span style={{ fontWeight: 900, fontSize: "13px", color: BRAND.gold, minWidth: "44px", textAlign: "right" }}>{formatINR(item.price * item.quantity)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+              )}
 
-            {cart.length === 0 && !orderForTable && (
-              <div style={{ textAlign: "center", padding: "48px 0", color: BRAND.textDim }}>
-                <div style={{ fontSize: "40px", marginBottom: "10px" }}>🛒</div>
-                <p style={{ fontWeight: 700, fontSize: "14px" }}>Select items from menu</p>
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div style={{ padding: "14px", borderTop: `1px solid ${BRAND.coffeeBorder}`, flexShrink: 0 }}>
-            {/* Bill summary */}
-            {cart.length > 0 && (
-              <div style={{ background: BRAND.coffeeMid, borderRadius: "14px", padding: "12px 14px", marginBottom: "12px", border: `1px solid ${BRAND.coffeeBorder}` }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: BRAND.textMuted, marginBottom: "4px" }}>
-                  <span>Subtotal</span><span>{formatINR(subtotal)}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: BRAND.textMuted, marginBottom: "8px", paddingBottom: "8px", borderBottom: `1px solid ${BRAND.coffeeBorder}` }}>
-                  <span>GST (5%)</span><span>{formatINR(tax)}</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: "16px" }}>
-                  <span style={{ color: BRAND.text }}>Total</span>
-                  <span style={{ color: BRAND.gold }}>{formatINR(total)}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Buttons */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
-              <button onClick={() => setCart([])} disabled={cart.length === 0} style={{
-                padding: "12px", borderRadius: "12px", border: `1px solid ${BRAND.coffeeBorder}`,
-                background: cart.length === 0 ? "transparent" : BRAND.coffeeMid,
-                color: cart.length === 0 ? BRAND.textDim : BRAND.textMuted,
-                fontWeight: 700, cursor: cart.length === 0 ? "not-allowed" : "pointer",
-                fontSize: "13px", fontFamily: "inherit",
-              }}>Clear</button>
-              <button onClick={sendKot} disabled={cart.length === 0 || !selectedTable} style={{
-                padding: "12px", borderRadius: "12px", border: "none",
-                background: cart.length === 0 ? BRAND.coffeeBorder : `linear-gradient(135deg, ${BRAND.goldDark}, ${BRAND.gold})`,
-                color: cart.length === 0 ? BRAND.textDim : BRAND.coffee,
-                fontWeight: 900, cursor: cart.length === 0 ? "not-allowed" : "pointer",
-                fontSize: "13px", fontFamily: "inherit",
-                boxShadow: cart.length > 0 ? `0 4px 12px rgba(201,168,76,0.3)` : "none",
-              }}>🖨️ Send KOT</button>
+              {!selectedTable && (
+                <p style={{ textAlign: "center", color: T.textDim, padding: "30px 16px", fontSize: "13px", fontWeight: 700 }}>
+                  Select a table to begin
+                </p>
+              )}
             </div>
 
-            {orderForTable && orderForTable.status !== "settled" && (
-              <button onClick={() => setSettleOrder(orderForTable)} style={{
-                width: "100%", padding: "14px", borderRadius: "14px", border: "none",
-                background: `linear-gradient(135deg, #166534, #16a34a)`,
-                color: "white", fontWeight: 900, cursor: "pointer",
-                fontSize: "15px", fontFamily: "inherit",
-                boxShadow: "0 6px 20px rgba(22,163,74,0.35)",
-              }}>
-                💰 Settle Bill — {formatINR(orderForTable.totalAmount)}
-              </button>
+            {(cart.length > 0 || currentOrder) && (
+              <div style={{ borderTop: `1px solid ${T.border}`, padding: "12px" }}>
+                {cart.length > 0 && (
+                  <div style={{ background: T.cream, borderRadius: "10px", padding: "10px", marginBottom: "8px", border: `1px solid ${T.creamDark}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: T.textMuted, marginBottom: "3px" }}>
+                      <span>Subtotal</span><span>₹{subtotal.toFixed(0)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: T.textMuted, marginBottom: "5px", paddingBottom: "5px", borderBottom: `1px dashed ${T.creamDark}` }}>
+                      <span>GST (5%)</span><span>₹{tax.toFixed(0)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: "14px", color: T.emerald }}>
+                      <span>Total</span><span>₹{total.toFixed(0)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {cart.length > 0 && (
+                  <button onClick={sendKOT} style={{
+                    width: "100%", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`,
+                    color: T.gold, border: "none", borderRadius: "10px",
+                    padding: "11px", fontWeight: 900, fontSize: "13px", cursor: "pointer",
+                    boxShadow: `0 6px 16px rgba(15,61,46,0.3)`, fontFamily: "inherit",
+                    marginBottom: currentOrder ? "6px" : 0,
+                  }}>
+                    📤 Send KOT
+                  </button>
+                )}
+
+                {currentOrder && (
+                  <button onClick={() => setShowSettleModal(true)} style={{
+                    width: "100%", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
+                    color: T.emerald, border: "none", borderRadius: "10px",
+                    padding: "11px", fontWeight: 900, fontSize: "13px", cursor: "pointer",
+                    boxShadow: `0 6px 16px rgba(212,165,116,0.4)`, fontFamily: "inherit",
+                  }}>
+                    💰 Settle Bill (₹{currentOrder.totalAmount.toFixed(0)})
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Toast */}
-      {toast && (
-        <div style={{
-          position: "fixed", bottom: "24px", left: "50%", transform: "translateX(-50%)",
-          background: toast.type === "success" ? "rgba(22,163,74,0.95)" : "rgba(220,38,38,0.95)",
-          color: "white", padding: "12px 24px", borderRadius: "16px",
-          fontWeight: 800, fontSize: "14px", zIndex: 60,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-          animation: "toastIn 0.3s ease",
-        }}>
-          {toast.msg}
-        </div>
-      )}
-
       {/* Settle Modal */}
-      {settleOrder && (
-        <SettleModal order={settleOrder} onSettle={handleSettle} onClose={() => setSettleOrder(null)} />
+      {showSettleModal && currentOrder && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,61,46,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", backdropFilter: "blur(8px)" }}>
+          <div style={{ background: T.ivory, borderRadius: "20px", padding: "20px", maxWidth: "380px", width: "100%", boxShadow: "0 24px 60px rgba(15,61,46,0.4)" }}>
+            <div style={{ height: "4px", background: `linear-gradient(90deg, ${T.goldDark}, ${T.gold}, ${T.goldLight}, ${T.gold}, ${T.goldDark})`, borderRadius: "4px", marginBottom: "16px" }} />
+            <h2 style={{ fontWeight: 900, fontSize: "20px", color: T.emerald, margin: "0 0 4px", fontFamily: "'Playfair Display', serif" }}>Settle Bill</h2>
+            <p style={{ fontSize: "12px", color: T.textMuted, margin: "0 0 16px", fontWeight: 600 }}>Order #{currentOrder.orderNumber}</p>
+
+            <div style={{ background: T.cream, borderRadius: "12px", padding: "12px", marginBottom: "14px", border: `1px solid ${T.creamDark}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: "18px", color: T.emerald }}>
+                <span>Total</span><span>₹{currentOrder.totalAmount.toFixed(0)}</span>
+              </div>
+            </div>
+
+            <p style={{ fontSize: "11px", fontWeight: 800, color: T.textMuted, marginBottom: "8px", letterSpacing: "0.5px", textTransform: "uppercase" }}>Payment Method</p>
+            <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
+              {["cash", "card", "upi"].map(method => (
+                <button key={method} onClick={() => setPaymentMethod(method)} style={{
+                  flex: 1, padding: "12px", borderRadius: "10px",
+                  border: `2px solid ${paymentMethod === method ? T.emerald : T.creamDark}`,
+                  background: paymentMethod === method ? T.emerald : T.cream,
+                  color: paymentMethod === method ? T.gold : T.text,
+                  fontWeight: 800, cursor: "pointer", fontSize: "12px",
+                  textTransform: "capitalize", fontFamily: "inherit",
+                }}>{method}</button>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button onClick={() => setShowSettleModal(false)} style={{ flex: 1, padding: "11px", borderRadius: "10px", border: `1px solid ${T.creamDark}`, background: "white", color: T.textMuted, fontWeight: 700, cursor: "pointer", fontSize: "13px", fontFamily: "inherit" }}>Cancel</button>
+              <button onClick={settleOrder} style={{ flex: 2, padding: "11px", borderRadius: "10px", border: "none", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, fontWeight: 900, cursor: "pointer", fontSize: "13px", fontFamily: "inherit" }}>
+                ✓ Confirm Payment
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

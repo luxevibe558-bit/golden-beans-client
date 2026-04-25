@@ -4,16 +4,19 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 
-const BRAND = {
-  gold: "#C9A84C",
-  goldLight: "#E8C97A",
-  goldDark: "#A07830",
-  coffee: "#1A0E06",
-  coffeeMid: "#2C1A0E",
-  coffeeLight: "#4A2C1A",
-  coffeeBorder: "#3D2410",
-  textMuted: "#9A7A5A",
-  textDim: "#6A4A2A",
+const T = {
+  emerald: "#0F3D2E",
+  emeraldMid: "#1A5340",
+  emeraldLight: "#2D7A5F",
+  emeraldDeep: "#0A2C20",
+  gold: "#D4A574",
+  goldLight: "#E8C895",
+  goldDark: "#B08550",
+  cream: "#FAF6F0",
+  ivory: "#FFFBF5",
+  textMuted: "#7A9E8E",
+  textDim: "#5C7868",
+  border: "#1F4A38",
 };
 
 const NAV_ITEMS = [
@@ -31,19 +34,18 @@ export default function POSSidebar() {
 
   return (
     <aside style={{
-      width: "64px", background: BRAND.coffeeMid,
+      width: "64px", background: T.emeraldDeep,
       display: "flex", flexDirection: "column",
       position: "fixed", top: 0, left: 0, height: "100vh",
-      zIndex: 40, borderRight: `1px solid ${BRAND.coffeeBorder}`,
-      boxShadow: "4px 0 24px rgba(0,0,0,0.3)",
+      zIndex: 40, borderRight: `1px solid ${T.border}`,
+      boxShadow: "4px 0 20px rgba(15,61,46,0.3)",
     }}>
-      {/* Logo — actual Golden Beans logo */}
-      <div style={{ padding: "12px 0", display: "flex", justifyContent: "center", borderBottom: `1px solid ${BRAND.coffeeBorder}` }}>
+      <div style={{ padding: "12px 0", display: "flex", justifyContent: "center", borderBottom: `1px solid ${T.border}` }}>
         <div style={{
           width: "48px", height: "48px", borderRadius: "12px",
           overflow: "hidden",
-          boxShadow: `0 4px 12px rgba(201,168,76,0.3)`,
-          background: BRAND.coffee,
+          boxShadow: `0 4px 12px rgba(212,165,116,0.3)`,
+          background: T.emerald,
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
           <Image
@@ -64,14 +66,14 @@ export default function POSSidebar() {
             <Link key={item.href} href={item.href} style={{ textDecoration: "none" }}>
               <div style={{
                 display: "flex", flexDirection: "column", alignItems: "center",
-                padding: "10px 4px", borderRadius: "14px", gap: "4px",
-                background: isActive ? `rgba(201,168,76,0.2)` : "transparent",
-                border: `1.5px solid ${isActive ? BRAND.gold : "transparent"}`,
+                padding: "10px 4px", borderRadius: "12px", gap: "4px",
+                background: isActive ? `rgba(212,165,116,0.18)` : "transparent",
+                border: `1.5px solid ${isActive ? T.gold : "transparent"}`,
                 transition: "all 0.2s ease", cursor: "pointer",
-                boxShadow: isActive ? `0 4px 12px rgba(201,168,76,0.2)` : "none",
+                boxShadow: isActive ? `0 4px 12px rgba(212,165,116,0.2)` : "none",
               }}>
                 <span style={{ fontSize: "20px" }}>{item.icon}</span>
-                <span style={{ fontSize: "9px", fontWeight: 800, color: isActive ? BRAND.gold : BRAND.textDim, letterSpacing: "0.3px" }}>
+                <span style={{ fontSize: "9px", fontWeight: 800, color: isActive ? T.gold : T.textDim, letterSpacing: "0.3px" }}>
                   {item.label}
                 </span>
               </div>
@@ -80,8 +82,8 @@ export default function POSSidebar() {
         })}
       </nav>
 
-      <div style={{ padding: "12px 8px", borderTop: `1px solid ${BRAND.coffeeBorder}`, textAlign: "center" }}>
-        <p style={{ fontSize: "8px", color: BRAND.textDim, fontWeight: 700, margin: 0 }}>
+      <div style={{ padding: "10px 8px", borderTop: `1px solid ${T.border}`, textAlign: "center" }}>
+        <p style={{ fontSize: "8px", color: T.textDim, fontWeight: 700, margin: 0 }}>
           {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
         </p>
       </div>
