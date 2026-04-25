@@ -1,354 +1,631 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import POSSidebar from "@/components/POSSidebar";
 import { menuApi } from "@/lib/api";
-import type { MenuItem, Category } from "@/types";
+import { uploadImage, getThumbnailUrl } from "@/lib/cloudinary";
+import { Card, Pill, StatCard, EmptyState, Skeleton, Icons, Button, Input, Modal } from "@/components/PremiumUI";
+import type { MenuCategory, MenuItem } from "@/types";
 
-interface ItemFormData {
-  name: string;
-  description: string;
-  price: string;
-  category: string;
-  isVeg: boolean;
-  isAvailable: boolean;
-  preparationTime: string;
-  tags: string;
-}
-
-const EMPTY_FORM: ItemFormData = {
-  name: "", description: "", price: "", category: "",
-  isVeg: true, isAvailable: true, preparationTime: "10", tags: "",
+const T = {
+  emerald: "#0F3D2E",
+  emeraldMid: "#1A5340",
+  gold: "#D4A574",
+  goldLight: "#E8C895",
+  goldDark: "#B08550",
+  cream: "#FAF6F0",
+  ivory: "#FFFBF5",
+  border: "#E5DCC9",
+  text: "#1A1208",
+  textMuted: "#7A6B54",
+  textDim: "#A89B80",
+  success: "#4A8B4A",
+  danger: "#C0392B",
 };
 
-export default function MenuPage() {
-  const [items, setItems] = useState<MenuItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
+interface VariantOption {
+  name: string;
+  priceModifier: number;
+  isDefault?: boolean;
+}
+
+interface VariantGroup {
+  name: string;
+  required: boolean;
+  multiSelect: boolean;
+  options: VariantOption[];
+}
+
+interface ExtendedMenuItem extends MenuItem {
+  imageUrl?: string;
+  imagePublicId?: string;
+  variantGroups?: VariantGroup[];
+  rating?: number;
+}
+
+export default function MenuManagerPage() {
+  const [menu, setMenu] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeCat, setActiveCat] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const [showForm, setShowForm] = useState(false);
-  const [editItem, setEditItem] = useState<MenuItem | null>(null);
-  const [form, setForm] = useState<ItemFormData>(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-  const [toast, setToast] = useState("");
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(""), 3000);
-  };
+  const [activeCategory, setActiveCategory] = useState<string>("");
+  const [search, setSearch] = useState("");
+  const [editItem, setEditItem] = useState<ExtendedMenuItem | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [itemsRes, catsRes] = await Promise.all([
-        menuApi.getItems(),
-        menuApi.getCategories(),
-      ]);
-      setItems(itemsRes.data.data);
-      setCategories(catsRes.data.data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      const res = await menuApi.getMenu();
+      setMenu(res.data.data);
+      if (res.data.data.length > 0 && !activeCategory) {
+        setActiveCategory(res.data.data[0]._id);
+      }
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  }, [activeCategory]);
 
   useEffect(() => { load(); }, [load]);
 
-  const openCreate = () => {
-    setEditItem(null);
-    setForm({ ...EMPTY_FORM, category: categories[0]?._id || "" });
-    setShowForm(true);
-  };
+  const allItems = menu.flatMap(c => c.items as ExtendedMenuItem[]);
+  const totalItems = allItems.length;
+  const availableCount = allItems.filter(i => i.isAvailable).length;
+  const withPhotoCount = allItems.filter(i => i.imageUrl).length;
+  const withVariantsCount = allItems.filter(i => i.variantGroups && i.variantGroups.length > 0).length;
 
-  const openEdit = (item: MenuItem) => {
-    setEditItem(item);
-    const catId = typeof item.category === "object" ? item.category._id : item.category;
-    setForm({
-      name: item.name,
-      description: item.description,
-      price: item.price.toString(),
-      category: catId,
-      isVeg: item.isVeg,
-      isAvailable: item.isAvailable,
-      preparationTime: item.preparationTime.toString(),
-      tags: item.tags.join(", "),
-    });
-    setShowForm(true);
+  const activeItems = (menu.find(c => c._id === activeCategory)?.items as ExtendedMenuItem[] || [])
+    .filter(i => i.name.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div style={{ minHeight: "100vh", background: T.cream, display: "flex" }}>
+      <POSSidebar />
+
+      <div style={{ flex: 1, marginLeft: "64px", display: "flex", flexDirection: "column" }}>
+        <header style={{
+          background: T.ivory, borderBottom: `1px solid ${T.border}`,
+          padding: "20px 24px", boxShadow: "0 1px 2px rgba(15,61,46,0.04)",
+        }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
+            <div>
+              <h1 style={{
+                fontFamily: "'Playfair Display', serif",
+                fontSize: "28px", fontWeight: 800,
+                color: T.emerald, margin: "0 0 4px",
+                letterSpacing: "-0.02em", lineHeight: 1.1,
+              }}>Menu Management</h1>
+              <p style={{ fontSize: "12px", color: T.textMuted, margin: 0, fontWeight: 500 }}>
+                Manage items, photos, and variants
+              </p>
+            </div>
+            <Button variant="primary" icon={<Icons.Plus size={14} />} onClick={() => setShowAdd(true)}>
+              Add Item
+            </Button>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
+            <StatCard label="Total Items" value={totalItems} icon={<Icons.Menu size={18} />} variant="default" />
+            <StatCard label="Available" value={availableCount} icon={<Icons.Check size={18} />} variant="success" subtitle={`${totalItems ? Math.round(availableCount/totalItems*100) : 0}% live`} />
+            <StatCard label="With Photos" value={withPhotoCount} icon={<Icons.Camera size={18} />} variant="gold" subtitle={`${totalItems ? Math.round(withPhotoCount/totalItems*100) : 0}% covered`} />
+            <StatCard label="With Variants" value={withVariantsCount} icon={<Icons.Sparkle size={18} />} variant="info" subtitle="Customizable" />
+          </div>
+        </header>
+
+        {/* Category Tabs */}
+        {!loading && menu.length > 0 && (
+          <div style={{ background: T.ivory, borderBottom: `1px solid ${T.border}`, padding: "12px 24px" }}>
+            <div style={{ display: "flex", gap: "8px", overflowX: "auto" }} className="scrollbar-hide">
+              {menu.map(cat => (
+                <button
+                  key={cat._id}
+                  onClick={() => setActiveCategory(cat._id)}
+                  style={{
+                    flexShrink: 0, padding: "8px 14px", borderRadius: "10px",
+                    background: activeCategory === cat._id ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : T.cream,
+                    color: activeCategory === cat._id ? T.gold : T.emerald,
+                    border: `1.5px solid ${activeCategory === cat._id ? T.emerald : T.border}`,
+                    cursor: "pointer", fontWeight: 700, fontSize: "12px",
+                    fontFamily: "'Inter', sans-serif",
+                    transition: "all 150ms ease",
+                    boxShadow: activeCategory === cat._id ? "0 4px 10px rgba(15,61,46,0.25)" : "none",
+                    display: "flex", alignItems: "center", gap: "5px",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <span>{cat.icon}</span>
+                  <span>{cat.name}</span>
+                  <span style={{ opacity: 0.7, fontSize: "10px", marginLeft: "2px" }}>({cat.items.length})</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ padding: "16px 24px 0" }}>
+          <Input icon={<Icons.Search size={14} />} placeholder="Search menu items..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+
+        <main style={{ flex: 1, padding: "16px 24px 24px", overflowY: "auto" }}>
+          {loading ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "12px" }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} height="160px" style={{ borderRadius: "16px" }} />
+              ))}
+            </div>
+          ) : activeItems.length === 0 ? (
+            <EmptyState
+              icon={<Icons.Menu size={32} color={T.emerald} />}
+              title={search ? "No items found" : "No items in this category"}
+              description={search ? "Try a different search." : "Add your first item to get started."}
+              action={!search && (
+                <Button variant="primary" icon={<Icons.Plus size={14} />} onClick={() => setShowAdd(true)}>
+                  Add Item
+                </Button>
+              )}
+            />
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "12px" }}>
+              {activeItems.map((item, idx) => (
+                <div key={item._id} style={{ animation: `gb-fadeInUp 0.3s ${idx * 0.04}s ease both` }}>
+                  <ItemCard item={item} onEdit={() => setEditItem(item)} />
+                </div>
+              ))}
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* Edit Modal */}
+      {editItem && (
+        <ItemEditModal
+          item={editItem}
+          categories={menu}
+          isOpen={!!editItem}
+          onClose={() => setEditItem(null)}
+          onSaved={() => { setEditItem(null); load(); }}
+        />
+      )}
+
+      {/* Add Modal */}
+      {showAdd && (
+        <ItemEditModal
+          item={null}
+          categories={menu}
+          isOpen={showAdd}
+          onClose={() => setShowAdd(false)}
+          onSaved={() => { setShowAdd(false); load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── ITEM CARD ───
+function ItemCard({ item, onEdit }: { item: ExtendedMenuItem; onEdit: () => void }) {
+  return (
+    <Card padding="none" hover>
+      <div style={{ display: "flex", gap: "12px", padding: "12px" }}>
+        <div style={{
+          width: "80px", height: "80px",
+          borderRadius: "12px", overflow: "hidden",
+          background: item.imageUrl ? "transparent" : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+          color: T.gold,
+        }}>
+          {item.imageUrl ? (
+            <img src={getThumbnailUrl(item.imageUrl)} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <Icons.Camera size={28} />
+          )}
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "4px" }}>
+            <p style={{ fontWeight: 800, fontSize: "14px", color: T.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {item.name}
+            </p>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "14px", fontWeight: 800, color: T.emerald, fontVariantNumeric: "tabular-nums" }}>
+              ₹{item.price}
+            </span>
+          </div>
+
+          <p style={{ fontSize: "11px", color: T.textMuted, margin: "0 0 8px", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            {item.description || "No description"}
+          </p>
+
+          <div style={{ display: "flex", gap: "5px", flexWrap: "wrap", marginBottom: "8px" }}>
+            <Pill variant={item.isAvailable ? "success" : "danger"} size="sm">
+              {item.isAvailable ? "Live" : "Hidden"}
+            </Pill>
+            {item.variantGroups && item.variantGroups.length > 0 && (
+              <Pill variant="info" size="sm" icon={<Icons.Sparkle size={9} />}>
+                {item.variantGroups.length} variants
+              </Pill>
+            )}
+            {item.imageUrl && <Pill variant="gold" size="sm" icon={<Icons.Camera size={9} />}>Photo</Pill>}
+          </div>
+
+          <Button size="sm" variant="secondary" fullWidth onClick={onEdit} icon={<Icons.Edit size={11} />}>
+            Edit Item
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// ─── EDIT/ADD MODAL ───
+function ItemEditModal({ item, categories, isOpen, onClose, onSaved }: {
+  item: ExtendedMenuItem | null;
+  categories: MenuCategory[];
+  isOpen: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isNew = !item;
+  const [tab, setTab] = useState<"details" | "photo" | "variants">("details");
+  const [name, setName] = useState(item?.name || "");
+  const [description, setDescription] = useState(item?.description || "");
+  const [price, setPrice] = useState(String(item?.price || ""));
+  const [categoryId, setCategoryId] = useState(typeof item?.category === "object" ? item.category._id : (categories[0]?._id || ""));
+  const [isAvailable, setIsAvailable] = useState(item?.isAvailable ?? true);
+  const [imageUrl, setImageUrl] = useState(item?.imageUrl || "");
+  const [imagePublicId, setImagePublicId] = useState(item?.imagePublicId || "");
+  const [variantGroups, setVariantGroups] = useState<VariantGroup[]>(item?.variantGroups || []);
+  const [tags, setTags] = useState<string[]>(item?.tags || []);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const result = await uploadImage(file);
+      setImageUrl(result.secure_url);
+      setImagePublicId(result.public_id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSave = async () => {
-    if (!form.name || !form.price || !form.category) return alert("Fill required fields");
+    if (!name.trim() || !price || !categoryId) {
+      alert("Please fill name, price, and category");
+      return;
+    }
     setSaving(true);
     try {
       const payload = {
-        ...form,
-        price: parseFloat(form.price),
-        preparationTime: parseInt(form.preparationTime),
-        tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
+        name: name.trim(),
+        description,
+        price: parseFloat(price),
+        category: categoryId,
+        isAvailable,
+        imageUrl,
+        imagePublicId,
+        variantGroups,
+        tags,
+        isVeg: true,
       };
-      if (editItem) {
-        await menuApi.updateItem(editItem._id, payload);
-        showToast("✅ Item updated");
+      if (isNew) {
+        await (menuApi as { createItem?: (data: typeof payload) => Promise<unknown> }).createItem?.(payload)
+          ?? await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/items`, {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+          });
       } else {
-        await menuApi.createItem(payload);
-        showToast("✅ Item created");
+        await (menuApi as { updateItem?: (id: string, data: typeof payload) => Promise<unknown> }).updateItem?.(item!._id, payload)
+          ?? await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/items/${item!._id}`, {
+            method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+          });
       }
-      setShowForm(false);
-      load();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Error";
-      showToast(`❌ ${msg}`);
+      onSaved();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleToggle = async (item: MenuItem) => {
+  const handleDelete = async () => {
+    if (!item) return;
+    if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return;
+    setSaving(true);
     try {
-      await menuApi.toggleItem(item._id);
-      showToast(`${!item.isAvailable ? "✅ Enabled" : "⏸ Disabled"}: ${item.name}`);
-      load();
-    } catch (e) {
-      console.error(e);
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/menu/items/${item._id}`, { method: "DELETE" });
+      onSaved();
+    } catch (err) {
+      alert("Delete failed");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleDelete = async (item: MenuItem) => {
-    if (!confirm(`Delete "${item.name}"?`)) return;
-    try {
-      await menuApi.deleteItem(item._id);
-      showToast("🗑 Item deleted");
-      load();
-    } catch (e) {
-      console.error(e);
-    }
+  const addVariantGroup = () => {
+    setVariantGroups([...variantGroups, { name: "Size", required: true, multiSelect: false, options: [{ name: "Small", priceModifier: 0, isDefault: true }] }]);
   };
 
-  const filtered = items.filter((item) => {
-    const catId = typeof item.category === "object" ? item.category._id : item.category;
-    const matchCat = activeCat === "all" || catId === activeCat;
-    const matchSearch = !searchQuery ||
-      item.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCat && matchSearch;
-  });
+  const updateVariantGroup = (idx: number, updates: Partial<VariantGroup>) => {
+    setVariantGroups(prev => prev.map((g, i) => i === idx ? { ...g, ...updates } : g));
+  };
+
+  const deleteVariantGroup = (idx: number) => {
+    setVariantGroups(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const addOption = (groupIdx: number) => {
+    setVariantGroups(prev => prev.map((g, i) =>
+      i === groupIdx ? { ...g, options: [...g.options, { name: "", priceModifier: 0 }] } : g
+    ));
+  };
+
+  const updateOption = (groupIdx: number, optIdx: number, updates: Partial<VariantOption>) => {
+    setVariantGroups(prev => prev.map((g, i) =>
+      i === groupIdx ? { ...g, options: g.options.map((o, j) => j === optIdx ? { ...o, ...updates } : o) } : g
+    ));
+  };
+
+  const deleteOption = (groupIdx: number, optIdx: number) => {
+    setVariantGroups(prev => prev.map((g, i) =>
+      i === groupIdx ? { ...g, options: g.options.filter((_, j) => j !== optIdx) } : g
+    ));
+  };
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <POSSidebar />
-      <div className="flex-1 ml-16 lg:ml-56 overflow-hidden flex flex-col">
-        <header className="bg-white border-b border-surface-200 px-6 py-4 flex-shrink-0 flex items-center justify-between">
-          <div>
-            <h1 className="font-display font-bold text-surface-900 text-xl">Menu Management</h1>
-            <p className="text-surface-400 text-xs">{items.length} total items</p>
-          </div>
-          <button onClick={openCreate} className="btn-primary text-sm">
-            + Add Item
+    <Modal isOpen={isOpen} onClose={onClose} title={isNew ? "Add New Item" : `Edit: ${item.name}`} maxWidth={560}>
+      {/* Tabs */}
+      <div style={{ display: "flex", gap: "5px", padding: "4px", background: T.cream, borderRadius: "10px", marginBottom: "16px" }}>
+        {[
+          { id: "details", label: "Details", icon: <Icons.Edit size={12} /> },
+          { id: "photo", label: "Photo", icon: <Icons.Camera size={12} /> },
+          { id: "variants", label: "Variants", icon: <Icons.Sparkle size={12} /> },
+        ].map(t => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id as typeof tab)}
+            style={{
+              flex: 1, padding: "8px", borderRadius: "8px",
+              background: tab === t.id ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : "transparent",
+              color: tab === t.id ? T.gold : T.textMuted,
+              fontWeight: 700, fontSize: "12px",
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
+              fontFamily: "'Inter', sans-serif",
+              transition: "all 150ms ease",
+            }}
+          >
+            {t.icon} {t.label}
           </button>
-        </header>
+        ))}
+      </div>
 
-        {/* Filters */}
-        <div className="bg-white border-b border-surface-100 px-6 py-3 flex items-center gap-3 flex-shrink-0">
-          <div className="flex gap-1 overflow-x-auto">
-            <button
-              onClick={() => setActiveCat("all")}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeCat === "all" ? "bg-surface-950 text-white" : "bg-surface-100 text-surface-600"
-              }`}
-            >
-              All ({items.length})
-            </button>
-            {categories.map((cat) => (
-              <button
-                key={cat._id}
-                onClick={() => setActiveCat(cat._id)}
-                className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeCat === cat._id ? "bg-surface-950 text-white" : "bg-surface-100 text-surface-600"
-                }`}
-              >
-                <span>{cat.icon}</span>{cat.name}
-              </button>
-            ))}
-          </div>
-          <div className="relative ml-auto w-52 flex-shrink-0">
-            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-surface-400 text-sm">🔍</span>
-            <input
-              type="text"
-              placeholder="Search items..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="input-field pl-8 py-1.5 text-xs"
+      {/* Details Tab */}
+      {tab === "details" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <Input label="Name *" placeholder="e.g. Cappuccino" value={name} onChange={e => setName(e.target.value)} />
+          <div>
+            <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "6px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Description</label>
+            <textarea
+              placeholder="A short description..."
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={2}
+              style={{
+                width: "100%", padding: "11px 14px", borderRadius: "10px",
+                border: `1.5px solid ${T.border}`, background: T.ivory,
+                color: T.text, fontSize: "14px", fontWeight: 500,
+                outline: "none", boxSizing: "border-box",
+                fontFamily: "'Inter', sans-serif", resize: "vertical",
+              }}
             />
           </div>
-        </div>
-
-        {/* Items table */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 8 }).map((_, i) => <div key={i} className="skeleton h-16 rounded-xl" />)}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+            <Input label="Price (₹) *" type="number" placeholder="0" value={price} onChange={e => setPrice(e.target.value)} />
+            <div>
+              <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "6px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Category *</label>
+              <select
+                value={categoryId}
+                onChange={e => setCategoryId(e.target.value)}
+                style={{
+                  width: "100%", padding: "11px 14px", borderRadius: "10px",
+                  border: `1.5px solid ${T.border}`, background: T.ivory,
+                  color: T.text, fontSize: "14px", fontWeight: 500,
+                  outline: "none", boxSizing: "border-box",
+                  fontFamily: "'Inter', sans-serif",
+                }}
+              >
+                {categories.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+              </select>
             </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-surface-100 overflow-hidden shadow-card">
-              <table className="w-full">
-                <thead className="bg-surface-50 border-b border-surface-100">
-                  <tr>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wide">Item</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wide hidden md:table-cell">Category</th>
-                    <th className="text-right px-4 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wide">Price</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wide hidden lg:table-cell">Prep</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wide">Status</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wide">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface-50">
-                  {filtered.map((item) => {
-                    const catName = typeof item.category === "object" ? item.category.name : "";
-                    const catIcon = typeof item.category === "object" ? item.category.icon : "";
-                    return (
-                      <tr key={item._id} className="hover:bg-surface-50 transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-3 h-3 rounded-sm border flex items-center justify-center flex-shrink-0 ${item.isVeg ? "border-green-600" : "border-red-600"}`}>
-                              <div className={`w-1.5 h-1.5 rounded-full ${item.isVeg ? "bg-green-600" : "bg-red-600"}`} />
-                            </div>
-                            <div>
-                              <p className="font-semibold text-surface-900 text-sm">{item.name}</p>
-                              <p className="text-xs text-surface-400 line-clamp-1 hidden sm:block">{item.description}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 hidden md:table-cell">
-                          <span className="text-sm text-surface-600">{catIcon} {catName}</span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <span className="font-bold text-surface-900">₹{item.price}</span>
-                        </td>
-                        <td className="px-4 py-3 text-center hidden lg:table-cell">
-                          <span className="text-xs text-surface-500">{item.preparationTime}m</span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <button
-                            onClick={() => handleToggle(item)}
-                            className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${
-                              item.isAvailable
-                                ? "bg-green-100 text-green-700 hover:bg-green-200"
-                                : "bg-red-100 text-red-600 hover:bg-red-200"
-                            }`}
-                          >
-                            {item.isAvailable ? "Available" : "Off"}
-                          </button>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              onClick={() => openEdit(item)}
-                              className="p-1.5 rounded-lg hover:bg-surface-100 text-surface-500 hover:text-surface-900 transition-colors text-sm"
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              onClick={() => handleDelete(item)}
-                              className="p-1.5 rounded-lg hover:bg-red-50 text-surface-500 hover:text-red-500 transition-colors text-sm"
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {filtered.length === 0 && (
-                <div className="text-center py-12 text-surface-400">
-                  <p className="font-medium">No items found</p>
+          </div>
+
+          <div style={{ display: "flex", gap: "12px" }}>
+            <button
+              onClick={() => setIsAvailable(!isAvailable)}
+              style={{
+                flex: 1, padding: "12px 14px",
+                background: isAvailable ? T.success : T.cream,
+                color: isAvailable ? "white" : T.textMuted,
+                border: `1.5px solid ${isAvailable ? T.success : T.border}`,
+                borderRadius: "10px",
+                cursor: "pointer", fontWeight: 700, fontSize: "12px",
+                fontFamily: "'Inter', sans-serif",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+              }}
+            >
+              <Icons.Check size={12} /> {isAvailable ? "Available" : "Hidden"}
+            </button>
+
+            <button
+              onClick={() => setTags(tags.includes("bestseller") ? tags.filter(t => t !== "bestseller") : [...tags, "bestseller"])}
+              style={{
+                flex: 1, padding: "12px 14px",
+                background: tags.includes("bestseller") ? T.gold : T.cream,
+                color: tags.includes("bestseller") ? T.emerald : T.textMuted,
+                border: `1.5px solid ${tags.includes("bestseller") ? T.gold : T.border}`,
+                borderRadius: "10px",
+                cursor: "pointer", fontWeight: 700, fontSize: "12px",
+                fontFamily: "'Inter', sans-serif",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
+              }}
+            >
+              <Icons.Sparkle size={12} /> Bestseller
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Photo Tab */}
+      {tab === "photo" && (
+        <div>
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} style={{ display: "none" }} />
+          
+          <div style={{
+            border: `2px dashed ${imageUrl ? T.gold : T.border}`,
+            borderRadius: "16px",
+            padding: "24px", textAlign: "center",
+            background: T.cream,
+            cursor: "pointer",
+            transition: "all 200ms",
+          }}
+          onClick={() => fileInputRef.current?.click()}
+          >
+            {imageUrl ? (
+              <>
+                <img src={getThumbnailUrl(imageUrl)} alt="Preview" style={{ width: "180px", height: "180px", borderRadius: "16px", objectFit: "cover", marginBottom: "12px", boxShadow: "0 8px 20px rgba(15,61,46,0.15)" }} />
+                <p style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600, margin: "0 0 8px" }}>Click to replace photo</p>
+              </>
+            ) : (
+              <>
+                <div style={{ width: "60px", height: "60px", margin: "0 auto 12px", borderRadius: "16px", background: T.emerald, display: "flex", alignItems: "center", justifyContent: "center", color: T.gold }}>
+                  <Icons.Camera size={28} />
                 </div>
-              )}
+                <p style={{ fontWeight: 800, fontSize: "14px", color: T.emerald, margin: "0 0 4px" }}>Upload Photo</p>
+                <p style={{ fontSize: "11px", color: T.textMuted, margin: 0, fontWeight: 500 }}>JPG/PNG, max 10MB. 4K recommended.</p>
+              </>
+            )}
+            
+            {uploading && (
+              <div style={{ marginTop: "12px", fontSize: "12px", color: T.gold, fontWeight: 700 }}>
+                Uploading... please wait
+              </div>
+            )}
+          </div>
+
+          {imageUrl && (
+            <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+              <Button variant="secondary" fullWidth onClick={() => fileInputRef.current?.click()} icon={<Icons.Camera size={12} />}>
+                Replace Photo
+              </Button>
+              <Button variant="danger" onClick={() => { setImageUrl(""); setImagePublicId(""); }} icon={<Icons.Trash size={12} />}>
+                Remove
+              </Button>
             </div>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Add/Edit Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
-            <div className="p-5 border-b border-surface-100 flex items-center justify-between sticky top-0 bg-white z-10">
-              <h2 className="font-display font-bold text-surface-900">
-                {editItem ? "Edit Item" : "Add Menu Item"}
-              </h2>
-              <button onClick={() => setShowForm(false)} className="text-surface-400 hover:text-surface-700">✕</button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-surface-700 mb-1">Name *</label>
-                  <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-field" placeholder="e.g. Cappuccino" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-surface-700 mb-1">Price (₹) *</label>
-                  <input type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="input-field" placeholder="180" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-surface-700 mb-1">Prep Time (min)</label>
-                  <input type="number" value={form.preparationTime} onChange={(e) => setForm({ ...form, preparationTime: e.target.value })} className="input-field" />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-surface-700 mb-1">Category *</label>
-                  <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="input-field">
-                    <option value="">Select category...</option>
-                    {categories.map((c) => <option key={c._id} value={c._id}>{c.icon} {c.name}</option>)}
-                  </select>
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-surface-700 mb-1">Description</label>
-                  <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="input-field resize-none" rows={2} />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-surface-700 mb-1">Tags (comma separated)</label>
-                  <input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} className="input-field" placeholder="bestseller, popular, spicy" />
-                </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <div
-                      onClick={() => setForm({ ...form, isVeg: !form.isVeg })}
-                      className={`w-10 h-6 rounded-full transition-colors ${form.isVeg ? "bg-green-500" : "bg-red-400"}`}
-                    >
-                      <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform mt-0.5 ${form.isVeg ? "translate-x-4.5 ml-0.5" : "ml-0.5"}`} />
-                    </div>
-                    <span className="text-sm font-medium text-surface-700">{form.isVeg ? "🟢 Veg" : "🔴 Non-Veg"}</span>
-                  </label>
-                </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <div
-                      onClick={() => setForm({ ...form, isAvailable: !form.isAvailable })}
-                      className={`w-10 h-6 rounded-full transition-colors ${form.isAvailable ? "bg-brand-500" : "bg-surface-300"}`}
-                    >
-                      <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform mt-0.5 ${form.isAvailable ? "translate-x-4.5 ml-0.5" : "ml-0.5"}`} />
-                    </div>
-                    <span className="text-sm font-medium text-surface-700">{form.isAvailable ? "Available" : "Unavailable"}</span>
-                  </label>
-                </div>
+      {/* Variants Tab */}
+      {tab === "variants" && (
+        <div>
+          <p style={{ fontSize: "12px", color: T.textMuted, marginBottom: "12px", lineHeight: 1.5 }}>
+            Add customization options like Size (Small/Medium/Large), Milk types, or Add-ons. Each option can have a price modifier.
+          </p>
+
+          {variantGroups.map((group, gIdx) => (
+            <div key={gIdx} style={{ background: T.cream, borderRadius: "14px", padding: "12px", marginBottom: "10px", border: `1px solid ${T.border}` }}>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "10px", alignItems: "center" }}>
+                <Input
+                  fullWidth
+                  placeholder="Group name (e.g. Size)"
+                  value={group.name}
+                  onChange={e => updateVariantGroup(gIdx, { name: e.target.value })}
+                />
+                <button onClick={() => deleteVariantGroup(gIdx)} style={{ width: "32px", height: "40px", borderRadius: "10px", background: "white", border: `1px solid ${T.border}`, color: T.danger, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Icons.Trash size={14} />
+                </button>
               </div>
+
+              <div style={{ display: "flex", gap: "5px", marginBottom: "10px" }}>
+                <button
+                  onClick={() => updateVariantGroup(gIdx, { required: !group.required })}
+                  style={{
+                    padding: "5px 10px", borderRadius: "7px",
+                    background: group.required ? T.danger : "white",
+                    color: group.required ? "white" : T.textMuted,
+                    border: `1px solid ${group.required ? T.danger : T.border}`,
+                    fontSize: "10px", fontWeight: 700, cursor: "pointer",
+                    fontFamily: "'Inter', sans-serif",
+                  }}
+                >
+                  {group.required ? "✓ Required" : "Optional"}
+                </button>
+                <button
+                  onClick={() => updateVariantGroup(gIdx, { multiSelect: !group.multiSelect })}
+                  style={{
+                    padding: "5px 10px", borderRadius: "7px",
+                    background: group.multiSelect ? T.emerald : "white",
+                    color: group.multiSelect ? T.gold : T.textMuted,
+                    border: `1px solid ${group.multiSelect ? T.emerald : T.border}`,
+                    fontSize: "10px", fontWeight: 700, cursor: "pointer",
+                    fontFamily: "'Inter', sans-serif",
+                  }}
+                >
+                  {group.multiSelect ? "✓ Multi-select" : "Single only"}
+                </button>
+              </div>
+
+              {group.options.map((opt, oIdx) => (
+                <div key={oIdx} style={{ display: "flex", gap: "6px", marginBottom: "5px", alignItems: "center" }}>
+                  <input
+                    placeholder="Option name"
+                    value={opt.name}
+                    onChange={e => updateOption(gIdx, oIdx, { name: e.target.value })}
+                    style={{ flex: 2, padding: "8px 10px", borderRadius: "8px", border: `1px solid ${T.border}`, background: "white", fontSize: "12px", outline: "none", fontFamily: "'Inter', sans-serif", boxSizing: "border-box" }}
+                  />
+                  <input
+                    type="number"
+                    placeholder="0"
+                    value={opt.priceModifier}
+                    onChange={e => updateOption(gIdx, oIdx, { priceModifier: parseFloat(e.target.value) || 0 })}
+                    style={{ flex: 1, padding: "8px 10px", borderRadius: "8px", border: `1px solid ${T.border}`, background: "white", fontSize: "12px", outline: "none", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box" }}
+                  />
+                  <button
+                    onClick={() => updateOption(gIdx, oIdx, { isDefault: !opt.isDefault })}
+                    style={{ width: "28px", height: "28px", borderRadius: "7px", background: opt.isDefault ? T.gold : "white", border: `1px solid ${opt.isDefault ? T.gold : T.border}`, color: opt.isDefault ? T.emerald : T.textMuted, cursor: "pointer", fontSize: "11px" }}
+                    title="Default"
+                  >
+                    ★
+                  </button>
+                  <button onClick={() => deleteOption(gIdx, oIdx)} style={{ width: "28px", height: "28px", borderRadius: "7px", background: "white", border: `1px solid ${T.border}`, color: T.danger, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Icons.Close size={11} />
+                  </button>
+                </div>
+              ))}
+
+              <Button size="sm" variant="ghost" fullWidth onClick={() => addOption(gIdx)} icon={<Icons.Plus size={11} />}>
+                Add Option
+              </Button>
             </div>
-            <div className="p-5 pt-0 flex gap-3">
-              <button onClick={() => setShowForm(false)} className="btn-secondary flex-1">Cancel</button>
-              <button onClick={handleSave} disabled={saving} className="btn-primary flex-1">
-                {saving ? "Saving..." : editItem ? "Save Changes" : "Add Item"}
-              </button>
-            </div>
-          </div>
+          ))}
+
+          <Button variant="secondary" fullWidth onClick={addVariantGroup} icon={<Icons.Plus size={12} />}>
+            Add Variant Group
+          </Button>
         </div>
       )}
 
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-surface-900 text-white px-6 py-3 rounded-2xl shadow-2xl z-50 animate-slide-up font-medium text-sm">
-          {toast}
-        </div>
-      )}
-    </div>
+      {/* Footer */}
+      <div style={{ display: "flex", gap: "8px", marginTop: "20px", paddingTop: "16px", borderTop: `1px solid ${T.border}` }}>
+        {!isNew && (
+          <Button variant="danger" onClick={handleDelete} icon={<Icons.Trash size={12} />}>
+            Delete
+          </Button>
+        )}
+        <Button variant="secondary" fullWidth onClick={onClose}>Cancel</Button>
+        <Button variant="primary" fullWidth onClick={handleSave} loading={saving}>
+          {isNew ? "Create Item" : "Save Changes"}
+        </Button>
+      </div>
+    </Modal>
   );
 }

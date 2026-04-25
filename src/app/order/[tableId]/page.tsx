@@ -3,42 +3,54 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { menuApi, orderApi, tableApi } from "@/lib/api";
-import type { MenuCategory, MenuItem, CartItem, Table, Order } from "@/types";
+import { getThumbnailUrl, getHeroUrl } from "@/lib/cloudinary";
+import { Icons, Pill, Button, Skeleton } from "@/components/PremiumUI";
 import LiveOrderTracker from "@/components/LiveOrderTracker";
-
-const ITEM_EMOJIS: Record<string, string> = {
-  Espresso: "☕", Cappuccino: "☕", Latte: "🥛", "Masala Chai": "🫖",
-  "Hot Chocolate": "🍫", "Cold Brew": "🧊", "Iced Latte": "🥤",
-  "Chocolate Frappe": "🧋", "Butter Toast": "🍞", "Cheese Sandwich": "🥪",
-  "Garlic Bread": "🥖", "Chocolate Brownie": "🍫", "Cheesecake Slice": "🍰",
-  "Classic Omelette": "🍳", "Pancake Stack": "🥞",
-};
+import type { MenuCategory, MenuItem, CartItem, Table, Order } from "@/types";
 
 const T = {
   emerald: "#0F3D2E",
   emeraldMid: "#1A5340",
   emeraldLight: "#2D7A5F",
-  sage: "#7A9E7E",
   gold: "#D4A574",
   goldLight: "#E8C895",
   goldDark: "#B08550",
   cream: "#FAF6F0",
   creamDark: "#F0E8DA",
   ivory: "#FFFBF5",
-  text: "#2C2418",
+  text: "#1A1208",
   textMuted: "#7A6B54",
   textDim: "#A89B80",
+  border: "#E5DCC9",
   success: "#4A8B4A",
   danger: "#C0392B",
 };
 
-const CATEGORY_BG: Record<string, string> = {
-  "Hot Beverages": `linear-gradient(145deg, ${T.emerald}, ${T.emeraldMid})`,
-  "Cold Beverages": "linear-gradient(145deg, #1E3A5F, #2E5A8F)",
-  "Snacks": "linear-gradient(145deg, #6B4423, #8B5A2B)",
-  "Desserts": "linear-gradient(145deg, #5C2751, #8B3A6B)",
-  "Breakfast": "linear-gradient(145deg, #4A5D23, #6B8E23)",
-};
+interface VariantOption {
+  name: string;
+  priceModifier: number;
+  isDefault?: boolean;
+}
+
+interface VariantGroup {
+  name: string;
+  required: boolean;
+  multiSelect: boolean;
+  options: VariantOption[];
+}
+
+interface ExtendedMenuItem extends MenuItem {
+  imageUrl?: string;
+  variantGroups?: VariantGroup[];
+  rating?: number;
+  reviewCount?: number;
+}
+
+interface ExtendedCartItem extends CartItem {
+  variants?: { groupName: string; selected: string[]; }[];
+  totalPriceModifier?: number;
+  imageUrl?: string;
+}
 
 function playNotificationBeep() {
   try {
@@ -71,6 +83,504 @@ async function showBrowserNotification(title: string, body: string) {
   } catch { }
 }
 
+// ─────────── Image Placeholder for items without photos ───────────
+function ItemImagePlaceholder({ name, size = 100 }: { name: string; size?: number }) {
+  const initials = name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  return (
+    <div style={{
+      width: size, height: size,
+      background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`,
+      borderRadius: "50%",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      color: T.gold, fontWeight: 800, fontSize: size * 0.25,
+      fontFamily: "'Playfair Display', serif",
+      letterSpacing: "0.03em",
+      boxShadow: "inset 0 -3px 8px rgba(0,0,0,0.2), 0 4px 12px rgba(15,61,46,0.15)",
+    }}>
+      {initials}
+    </div>
+  );
+}
+
+// ─────────── Vertical Category Tabs (Larista-style) ───────────
+function VerticalCategoryTabs({ categories, activeCategoryId, onSelect }: {
+  categories: MenuCategory[];
+  activeCategoryId: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div style={{
+      width: "44px", flexShrink: 0,
+      background: T.emerald,
+      borderRadius: "0 16px 16px 0",
+      display: "flex", flexDirection: "column",
+      paddingTop: "8px", paddingBottom: "8px",
+      boxShadow: "2px 0 12px rgba(15,61,46,0.15)",
+      position: "sticky", top: "120px",
+      maxHeight: "calc(100vh - 200px)",
+      overflowY: "auto",
+    }} className="scrollbar-hide">
+      {categories.map((cat, idx) => {
+        const isActive = activeCategoryId === cat._id;
+        return (
+          <button
+            key={cat._id}
+            onClick={() => onSelect(cat._id)}
+            style={{
+              padding: "16px 4px",
+              background: isActive ? T.gold : "transparent",
+              color: isActive ? T.emerald : "rgba(212,165,116,0.7)",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: isActive ? 800 : 600,
+              fontSize: "11px",
+              letterSpacing: "0.05em",
+              writingMode: "vertical-rl",
+              textOrientation: "mixed",
+              transition: "all 200ms ease",
+              borderRadius: isActive ? "10px" : "0",
+              margin: "2px 4px",
+              animation: `gb-fadeInUp 0.3s ${idx * 0.05}s ease both`,
+            }}
+          >
+            {cat.name.toUpperCase()}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────── Premium Product Card (Larista-style) ───────────
+function ProductCard({ item, onTap, cartQty }: {
+  item: ExtendedMenuItem;
+  onTap: () => void;
+  cartQty: number;
+}) {
+  return (
+    <div
+      onClick={onTap}
+      style={{
+        background: T.ivory,
+        borderRadius: "20px",
+        padding: "16px 12px 12px",
+        cursor: "pointer",
+        boxShadow: "0 4px 16px rgba(15,61,46,0.06), 0 1px 4px rgba(15,61,46,0.04)",
+        transition: "all 250ms cubic-bezier(0.16, 1, 0.3, 1)",
+        position: "relative",
+        border: `1px solid ${T.creamDark}`,
+        overflow: "hidden",
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = "translateY(-3px)";
+        e.currentTarget.style.boxShadow = "0 12px 32px rgba(15,61,46,0.12), 0 4px 8px rgba(15,61,46,0.06)";
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = "";
+        e.currentTarget.style.boxShadow = "0 4px 16px rgba(15,61,46,0.06), 0 1px 4px rgba(15,61,46,0.04)";
+      }}
+      onMouseDown={e => { e.currentTarget.style.transform = "scale(0.98)"; }}
+      onMouseUp={e => { e.currentTarget.style.transform = "translateY(-3px)"; }}
+    >
+      {/* Bestseller Badge */}
+      {item.tags?.includes("bestseller") && (
+        <div style={{
+          position: "absolute", top: "8px", left: "8px",
+          background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
+          padding: "3px 8px",
+          borderRadius: "99px",
+          fontSize: "9px", fontWeight: 800,
+          color: T.emerald, letterSpacing: "0.04em",
+          zIndex: 2,
+          display: "flex", alignItems: "center", gap: "3px",
+        }}>
+          <Icons.Sparkle size={9} /> BEST
+        </div>
+      )}
+
+      {/* Image */}
+      <div style={{
+        display: "flex", justifyContent: "center", marginBottom: "12px",
+        position: "relative",
+      }}>
+        {item.imageUrl ? (
+          <div style={{
+            width: "100px", height: "100px",
+            borderRadius: "50%",
+            overflow: "hidden",
+            border: `3px solid ${T.cream}`,
+            boxShadow: "0 6px 16px rgba(15,61,46,0.15)",
+            background: T.cream,
+          }}>
+            <img
+              src={getThumbnailUrl(item.imageUrl)}
+              alt={item.name}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              loading="lazy"
+            />
+          </div>
+        ) : (
+          <ItemImagePlaceholder name={item.name} size={100} />
+        )}
+
+        {/* Veg Indicator */}
+        <div style={{
+          position: "absolute", bottom: "0", right: "calc(50% - 50px - 4px)",
+          width: "20px", height: "20px",
+          background: T.success,
+          borderRadius: "5px",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          border: "2px solid white",
+        }}>
+          <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "white" }} />
+        </div>
+      </div>
+
+      {/* Name */}
+      <p style={{
+        fontWeight: 800, fontSize: "14px",
+        color: T.text, margin: "0 0 4px",
+        textAlign: "center",
+        fontFamily: "'Inter', sans-serif",
+        letterSpacing: "-0.01em",
+        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+      }}>{item.name}</p>
+
+      {/* Price + Rating */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px", padding: "0 4px" }}>
+        <span style={{
+          fontFamily: "'DM Sans', sans-serif",
+          fontWeight: 800, fontSize: "16px",
+          color: T.emerald,
+          fontVariantNumeric: "tabular-nums",
+        }}>₹{item.price}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+          <span style={{ color: T.gold, fontSize: "11px" }}>★</span>
+          <span style={{ fontSize: "11px", fontWeight: 700, color: T.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
+            {item.rating?.toFixed(1) || "4.5"}
+          </span>
+        </div>
+      </div>
+
+      {/* Add Button */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onTap(); }}
+        style={{
+          width: "100%",
+          background: cartQty > 0
+            ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`
+            : `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
+          color: cartQty > 0 ? T.gold : T.emerald,
+          border: "none",
+          borderRadius: "12px",
+          padding: "10px",
+          fontWeight: 800, fontSize: "12px",
+          cursor: "pointer",
+          letterSpacing: "0.02em",
+          boxShadow: cartQty > 0
+            ? "0 4px 12px rgba(15,61,46,0.3)"
+            : "0 4px 12px rgba(212,165,116,0.4)",
+          fontFamily: "'Inter', sans-serif",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
+          transition: "all 150ms ease",
+        }}
+      >
+        {cartQty > 0 ? (
+          <>
+            <Icons.Check size={12} /> ADDED ({cartQty})
+          </>
+        ) : (
+          <>
+            <Icons.Plus size={12} /> ADD
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
+// ─────────── Product Detail Modal with Variants ───────────
+function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
+  item: ExtendedMenuItem | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onAddToCart: (item: ExtendedMenuItem, quantity: number, variants: { groupName: string; selected: string[]; }[], priceModifier: number) => void;
+}) {
+  const [quantity, setQuantity] = useState(1);
+  const [selections, setSelections] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    if (item) {
+      setQuantity(1);
+      // Set default selections
+      const defaults: Record<string, string[]> = {};
+      item.variantGroups?.forEach(group => {
+        const def = group.options.find(o => o.isDefault);
+        if (def) defaults[group.name] = [def.name];
+        else if (group.required && group.options.length > 0) defaults[group.name] = [group.options[0].name];
+        else defaults[group.name] = [];
+      });
+      setSelections(defaults);
+    }
+  }, [item]);
+
+  if (!isOpen || !item) return null;
+
+  const toggleVariant = (groupName: string, optionName: string, multiSelect: boolean) => {
+    setSelections(prev => {
+      const current = prev[groupName] || [];
+      if (multiSelect) {
+        return {
+          ...prev,
+          [groupName]: current.includes(optionName)
+            ? current.filter(n => n !== optionName)
+            : [...current, optionName],
+        };
+      } else {
+        return { ...prev, [groupName]: [optionName] };
+      }
+    });
+  };
+
+  // Calculate total price modifier
+  let priceModifier = 0;
+  item.variantGroups?.forEach(group => {
+    const selected = selections[group.name] || [];
+    selected.forEach(name => {
+      const opt = group.options.find(o => o.name === name);
+      if (opt) priceModifier += opt.priceModifier;
+    });
+  });
+
+  const itemTotal = (item.price + priceModifier) * quantity;
+
+  const variantSelections = Object.entries(selections).map(([groupName, selected]) => ({
+    groupName, selected,
+  }));
+
+  const handleAdd = () => {
+    onAddToCart(item, quantity, variantSelections, priceModifier);
+    onClose();
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(15,61,46,0.75)",
+        zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center",
+        backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+        animation: "gb-fadeIn 200ms ease-out",
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: T.ivory,
+          width: "100%", maxWidth: "480px",
+          maxHeight: "92vh",
+          borderRadius: "28px 28px 0 0",
+          display: "flex", flexDirection: "column",
+          animation: "gb-slideUpModal 350ms cubic-bezier(0.32, 0.72, 0, 1)",
+          overflow: "hidden",
+        }}
+      >
+        {/* Hero Image */}
+        <div style={{
+          position: "relative",
+          height: "260px",
+          background: item.imageUrl ? "transparent" : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`,
+          overflow: "hidden",
+        }}>
+          {item.imageUrl ? (
+            <img
+              src={getHeroUrl(item.imageUrl)}
+              alt={item.name}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          ) : (
+            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <ItemImagePlaceholder name={item.name} size={140} />
+            </div>
+          )}
+
+          {/* Curved bottom */}
+          <div style={{
+            position: "absolute", bottom: "-1px", left: 0, right: 0,
+            height: "32px",
+            background: T.ivory,
+            borderRadius: "32px 32px 0 0",
+          }} />
+
+          {/* Close button */}
+          <button
+            onClick={onClose}
+            style={{
+              position: "absolute", top: "16px", right: "16px",
+              width: "36px", height: "36px",
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.95)",
+              backdropFilter: "blur(10px)",
+              border: "none", cursor: "pointer",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: T.emerald,
+              boxShadow: "0 4px 12px rgba(15,61,46,0.2)",
+            }}
+          >
+            <Icons.Close size={18} />
+          </button>
+
+          {/* Veg + Best badges */}
+          <div style={{ position: "absolute", top: "16px", left: "16px", display: "flex", gap: "6px" }}>
+            <Pill variant="success" size="sm" icon={<Icons.Leaf size={10} />}>VEG</Pill>
+            {item.tags?.includes("bestseller") && (
+              <Pill variant="gold" size="sm" icon={<Icons.Sparkle size={10} />}>BESTSELLER</Pill>
+            )}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px 0" }}>
+          {/* Name + Rating */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "8px", gap: "12px" }}>
+            <h2 style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: "24px", fontWeight: 800,
+              color: T.text, margin: 0, letterSpacing: "-0.02em",
+              lineHeight: 1.2,
+            }}>{item.name}</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0, background: T.cream, padding: "4px 10px", borderRadius: "99px" }}>
+              <span style={{ color: T.gold, fontSize: "13px" }}>★</span>
+              <span style={{ fontSize: "12px", fontWeight: 800, color: T.emerald, fontFamily: "'DM Sans', sans-serif" }}>
+                {item.rating?.toFixed(1) || "4.5"}
+              </span>
+            </div>
+          </div>
+
+          {/* Description */}
+          {item.description && (
+            <p style={{ fontSize: "13px", color: T.textMuted, margin: "0 0 16px", lineHeight: 1.5, fontWeight: 500 }}>
+              {item.description}
+            </p>
+          )}
+
+          {/* Variant Groups */}
+          {item.variantGroups?.map((group, gIdx) => (
+            <div key={group.name} style={{ marginBottom: "20px", animation: `gb-fadeInUp 0.3s ${gIdx * 0.08}s ease both` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+                <h3 style={{
+                  fontFamily: "'Playfair Display', serif",
+                  fontSize: "16px", fontWeight: 700,
+                  color: T.emerald, margin: 0, letterSpacing: "-0.01em",
+                }}>{group.name}</h3>
+                {group.required && (
+                  <Pill variant="danger" size="sm">Required</Pill>
+                )}
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: group.options.length > 3 ? "1fr 1fr" : `repeat(${group.options.length}, 1fr)`, gap: "8px" }}>
+                {group.options.map(opt => {
+                  const isSelected = selections[group.name]?.includes(opt.name);
+                  return (
+                    <button
+                      key={opt.name}
+                      onClick={() => toggleVariant(group.name, opt.name, group.multiSelect)}
+                      style={{
+                        padding: "12px",
+                        background: isSelected ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : T.cream,
+                        border: `2px solid ${isSelected ? T.emerald : T.creamDark}`,
+                        borderRadius: "14px",
+                        cursor: "pointer",
+                        display: "flex", flexDirection: "column", alignItems: "center", gap: "4px",
+                        transition: "all 200ms cubic-bezier(0.16, 1, 0.3, 1)",
+                        fontFamily: "'Inter', sans-serif",
+                        boxShadow: isSelected ? "0 4px 12px rgba(15,61,46,0.25)" : "none",
+                      }}
+                    >
+                      <span style={{
+                        fontWeight: 800, fontSize: "13px",
+                        color: isSelected ? T.gold : T.text,
+                      }}>{opt.name}</span>
+                      {opt.priceModifier !== 0 && (
+                        <span style={{
+                          fontSize: "11px",
+                          color: isSelected ? "rgba(212,165,116,0.7)" : T.textMuted,
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontWeight: 600,
+                        }}>
+                          {opt.priceModifier > 0 ? `+₹${opt.priceModifier}` : `-₹${Math.abs(opt.priceModifier)}`}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer with Quantity + Add to Cart */}
+        <div style={{
+          padding: "14px 20px 20px",
+          borderTop: `1px solid ${T.border}`,
+          background: T.ivory,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 700 }}>Quantity</span>
+            <div style={{
+              display: "flex", alignItems: "center",
+              background: T.emerald,
+              borderRadius: "99px", overflow: "hidden",
+              boxShadow: "0 4px 12px rgba(15,61,46,0.25)",
+            }}>
+              <button
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                style={{ width: "36px", height: "36px", background: "none", border: "none", color: T.gold, fontSize: "18px", fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <Icons.Minus size={14} />
+              </button>
+              <span style={{
+                minWidth: "30px", textAlign: "center",
+                color: T.gold, fontWeight: 900, fontSize: "16px",
+                fontFamily: "'DM Sans', sans-serif",
+              }}>{quantity}</span>
+              <button
+                onClick={() => setQuantity(quantity + 1)}
+                style={{ width: "36px", height: "36px", background: "none", border: "none", color: T.gold, fontSize: "18px", fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <Icons.Plus size={14} />
+              </button>
+            </div>
+          </div>
+
+          <button
+            onClick={handleAdd}
+            style={{
+              width: "100%",
+              background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`,
+              color: T.gold,
+              border: "none",
+              borderRadius: "16px",
+              padding: "16px",
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: 800, fontSize: "15px",
+              cursor: "pointer",
+              boxShadow: "0 8px 24px rgba(15,61,46,0.35)",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "16px 22px",
+            }}
+          >
+            <span>Add to Cart</span>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontVariantNumeric: "tabular-nums" }}>₹{itemTotal.toFixed(0)}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────── Customer Popup ───────────
 function CustomerDataPopup({ onSubmit, onSkip }: {
   onSubmit: (data: { name: string; phone: string; birthdate: string; anniversary: string }) => void;
   onSkip: () => void;
@@ -80,18 +590,6 @@ function CustomerDataPopup({ onSubmit, onSkip }: {
   const [birthdate, setBirthdate] = useState("");
   const [anniversary, setAnniversary] = useState("");
   const [step, setStep] = useState(1);
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
-
-  useEffect(() => {
-    const handler = () => {
-      if (window.visualViewport) {
-        const heightDiff = window.innerHeight - window.visualViewport.height;
-        setKeyboardOpen(heightDiff > 150);
-      }
-    };
-    window.visualViewport?.addEventListener("resize", handler);
-    return () => window.visualViewport?.removeEventListener("resize", handler);
-  }, []);
 
   const handleSubmit = () => {
     if (step === 1) {
@@ -103,57 +601,57 @@ function CustomerDataPopup({ onSubmit, onSkip }: {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(15,61,46,0.75)", zIndex: 80, display: "flex", alignItems: keyboardOpen ? "flex-start" : "center", justifyContent: "center", padding: keyboardOpen ? "10px 12px" : "16px", backdropFilter: "blur(8px)", overflowY: "auto" }}>
-      <div style={{ width: "100%", maxWidth: "400px", background: T.ivory, borderRadius: "20px", padding: "0 0 16px", animation: "scaleIn 0.3s cubic-bezier(0.34,1.56,0.64,1)", boxShadow: "0 20px 50px rgba(15,61,46,0.4)", marginTop: keyboardOpen ? "10px" : "auto", marginBottom: keyboardOpen ? "10px" : "auto" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(15,61,46,0.75)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", backdropFilter: "blur(8px)" }}>
+      <div style={{ width: "100%", maxWidth: "400px", background: T.ivory, borderRadius: "20px", padding: "0 0 16px", animation: "gb-scaleIn 0.3s cubic-bezier(0.34,1.56,0.64,1)", boxShadow: "0 20px 50px rgba(15,61,46,0.4)" }}>
         <div style={{ height: "3px", background: `linear-gradient(90deg, ${T.goldDark}, ${T.gold}, ${T.goldLight}, ${T.gold}, ${T.goldDark})`, borderRadius: "20px 20px 0 0" }} />
-        <div style={{ padding: "16px 18px 0" }}>
+        <div style={{ padding: "18px 20px 0" }}>
           <div style={{ textAlign: "center", marginBottom: "14px" }}>
             <div style={{ fontSize: "32px", marginBottom: "4px" }}>{step === 1 ? "👋" : "🎂"}</div>
-            <h2 style={{ fontWeight: 900, fontSize: "17px", color: T.emerald, margin: "0 0 3px", fontFamily: "'Playfair Display', serif" }}>
+            <h2 style={{ fontWeight: 800, fontSize: "20px", color: T.emerald, margin: "0 0 3px", fontFamily: "'Playfair Display', serif" }}>
               {step === 1 ? "Welcome!" : "Special dates?"}
             </h2>
-            <p style={{ fontSize: "11px", color: T.textMuted, margin: 0, lineHeight: 1.4 }}>
+            <p style={{ fontSize: "12px", color: T.textMuted, margin: 0 }}>
               {step === 1 ? "Quick detail for personalization" : "We'll surprise you! 🎁"}
             </p>
           </div>
 
           {step === 1 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <div>
-                <label style={{ display: "block", fontSize: "9px", fontWeight: 800, color: T.textMuted, marginBottom: "3px", letterSpacing: "0.5px", textTransform: "uppercase" }}>Your Name *</label>
+                <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "4px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Your Name *</label>
                 <input type="text" placeholder="e.g. Nirav" value={name} onChange={e => setName(e.target.value)} autoFocus
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: "9px", border: `2px solid ${name ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "14px", fontWeight: 700, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+                  style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${name ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "14px", fontWeight: 600, outline: "none", boxSizing: "border-box", fontFamily: "'Inter', sans-serif" }}
                 />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: "9px", fontWeight: 800, color: T.textMuted, marginBottom: "3px", letterSpacing: "0.5px", textTransform: "uppercase" }}>Mobile Number *</label>
+                <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "4px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Mobile Number *</label>
                 <input type="tel" placeholder="10-digit number" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: "9px", border: `2px solid ${phone.length === 10 ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "14px", fontWeight: 700, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+                  style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${phone.length === 10 ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "14px", fontWeight: 600, outline: "none", boxSizing: "border-box", fontFamily: "'Inter', sans-serif" }}
                 />
               </div>
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               <div>
-                <label style={{ display: "block", fontSize: "9px", fontWeight: 800, color: T.textMuted, marginBottom: "3px", letterSpacing: "0.5px", textTransform: "uppercase" }}>🎂 Birthday (Optional)</label>
+                <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "4px", letterSpacing: "0.05em", textTransform: "uppercase" }}>🎂 Birthday (Optional)</label>
                 <input type="date" value={birthdate} onChange={e => setBirthdate(e.target.value)}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: "9px", border: `2px solid ${birthdate ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "13px", fontWeight: 700, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+                  style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${birthdate ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "13px", fontWeight: 600, outline: "none", boxSizing: "border-box", fontFamily: "'Inter', sans-serif" }}
                 />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: "9px", fontWeight: 800, color: T.textMuted, marginBottom: "3px", letterSpacing: "0.5px", textTransform: "uppercase" }}>💑 Anniversary (Optional)</label>
+                <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "4px", letterSpacing: "0.05em", textTransform: "uppercase" }}>💑 Anniversary (Optional)</label>
                 <input type="date" value={anniversary} onChange={e => setAnniversary(e.target.value)}
-                  style={{ width: "100%", padding: "10px 12px", borderRadius: "9px", border: `2px solid ${anniversary ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "13px", fontWeight: 700, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
+                  style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${anniversary ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "13px", fontWeight: 600, outline: "none", boxSizing: "border-box", fontFamily: "'Inter', sans-serif" }}
                 />
               </div>
             </div>
           )}
 
-          <div style={{ display: "flex", gap: "7px", marginTop: "14px" }}>
-            <button onClick={onSkip} style={{ flex: 1, padding: "11px", borderRadius: "9px", border: `1px solid ${T.creamDark}`, background: T.ivory, color: T.textDim, fontWeight: 700, cursor: "pointer", fontSize: "12px", fontFamily: "inherit" }}>Skip</button>
-            <button onClick={handleSubmit} style={{ flex: 2, padding: "11px", borderRadius: "9px", border: "none", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, fontWeight: 900, cursor: "pointer", fontSize: "12px", fontFamily: "inherit", boxShadow: `0 5px 14px rgba(15,61,46,0.3)` }}>
-              {step === 1 ? "Continue →" : "Place Order ☕"}
-            </button>
+          <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
+            <Button variant="secondary" fullWidth onClick={onSkip}>Skip</Button>
+            <Button variant="primary" fullWidth onClick={handleSubmit}>
+              {step === 1 ? "Continue →" : "Place Order"}
+            </Button>
           </div>
         </div>
       </div>
@@ -161,174 +659,103 @@ function CustomerDataPopup({ onSubmit, onSkip }: {
   );
 }
 
-function WelcomeBackPopup({ message, onClose }: {
-  message: { name: string; type: "normal" | "birthday" | "anniversary" };
-  onClose: () => void;
-}) {
-  const configs = {
-    normal: { emoji: "👋", title: `Welcome back, ${message.name}!`, sub: "Great to see you again ☕", bg: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, accent: T.gold },
-    birthday: { emoji: "🎂", title: `Happy Birthday, ${message.name}!`, sub: "Enjoy a special treat 🎁", bg: "linear-gradient(135deg, #7c2d12, #c2410c)", accent: "#fbbf24" },
-    anniversary: { emoji: "💑", title: `Happy Anniversary! ❤️`, sub: "Celebrate with us 🌹", bg: "linear-gradient(135deg, #4a0020, #831843)", accent: "#f9a8d4" },
-  };
-  const cfg = configs[message.type];
-
-  useEffect(() => {
-    const timer = setTimeout(onClose, 5000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  return (
-    <div style={{ position: "fixed", top: "65px", left: "50%", transform: "translateX(-50%)", width: "calc(100% - 20px)", maxWidth: "400px", background: cfg.bg, borderRadius: "14px", padding: "12px", zIndex: 35, boxShadow: "0 14px 36px rgba(0,0,0,0.3)", animation: "slideDown 0.4s cubic-bezier(0.34,1.56,0.64,1)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
-        <div style={{ fontSize: "28px", flexShrink: 0 }}>{cfg.emoji}</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontWeight: 900, fontSize: "12px", color: cfg.accent, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cfg.title}</p>
-          <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.8)", margin: "2px 0 0", fontWeight: 600 }}>{cfg.sub}</p>
-        </div>
-        <button onClick={onClose} style={{ width: "22px", height: "22px", borderRadius: "50%", background: "rgba(255,255,255,0.15)", border: "none", color: "white", cursor: "pointer", fontSize: "10px", flexShrink: 0 }}>✕</button>
-      </div>
-    </div>
-  );
-}
-
-function SkeletonCard() {
-  return (
-    <div style={{ display: "flex", background: T.ivory, borderRadius: "16px", overflow: "hidden", marginBottom: "9px", boxShadow: "0 2px 10px rgba(15,61,46,0.05)" }}>
-      <div style={{ width: "90px", height: "90px", flexShrink: 0, background: `linear-gradient(90deg, ${T.creamDark} 25%, ${T.cream} 50%, ${T.creamDark} 75%)`, backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />
-      <div style={{ flex: 1, padding: "10px", display: "flex", flexDirection: "column", gap: "5px" }}>
-        <div style={{ height: "11px", width: "60%", borderRadius: "5px", background: `linear-gradient(90deg, ${T.creamDark} 25%, ${T.cream} 50%, ${T.creamDark} 75%)`, backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />
-        <div style={{ height: "9px", width: "85%", borderRadius: "5px", background: `linear-gradient(90deg, ${T.creamDark} 25%, ${T.cream} 50%, ${T.creamDark} 75%)`, backgroundSize: "200% 100%", animation: "shimmer 1.5s infinite" }} />
-      </div>
-    </div>
-  );
-}
-
-function MenuItemCard({ item, cartQty, onAdd, onRemove }: {
-  item: MenuItem; cartQty: number;
-  onAdd: (item: MenuItem) => void;
-  onRemove: (id: string) => void;
-}) {
-  const catName = typeof item.category === "object" ? item.category.name : "";
-  const bg = CATEGORY_BG[catName] || `linear-gradient(145deg, ${T.emerald}, ${T.emeraldMid})`;
-  const emoji = ITEM_EMOJIS[item.name] || "🍽️";
-
-  return (
-    <div style={{ display: "flex", background: T.ivory, borderRadius: "16px", overflow: "hidden", marginBottom: "9px", boxShadow: "0 2px 10px rgba(15,61,46,0.07)", opacity: item.isAvailable ? 1 : 0.5, border: `1px solid ${T.creamDark}`, maxWidth: "100%" }}>
-      <div style={{ width: "90px", minHeight: "90px", flexShrink: 0, background: bg, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-        <div style={{ fontSize: "32px", filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.3))", animation: "float 3s ease-in-out infinite" }}>{emoji}</div>
-        {item.tags.includes("bestseller") && (
-          <div style={{ position: "absolute", top: "4px", right: 0, background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, padding: "1px 5px 1px 3px", borderRadius: "0 0 0 4px" }}>
-            <span style={{ fontSize: "7px", color: T.emerald, fontWeight: 900 }}>★ BEST</span>
-          </div>
-        )}
-        <div style={{ position: "absolute", bottom: "4px", left: "4px", background: "rgba(74,139,74,0.95)", borderRadius: "3px", padding: "1px 4px" }}>
-          <span style={{ fontSize: "7px", color: "white", fontWeight: 800 }}>🌿 VEG</span>
-        </div>
-      </div>
-
-      <div style={{ flex: 1, padding: "9px 10px", display: "flex", flexDirection: "column", justifyContent: "space-between", minWidth: 0 }}>
-        <div>
-          <p style={{ fontWeight: 800, fontSize: "11px", color: T.text, margin: "0 0 2px", lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{item.name}</p>
-          <p style={{ fontSize: "9px", color: T.textMuted, margin: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", lineHeight: 1.35 }}>{item.description}</p>
-          {item.preparationTime > 0 && <p style={{ fontSize: "8px", color: T.emerald, margin: "2px 0 0", fontWeight: 700 }}>⏱ {item.preparationTime} min</p>}
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "4px", gap: "6px" }}>
-          <span style={{ fontWeight: 900, fontSize: "13px", color: T.emerald, flexShrink: 0 }}>₹{item.price}</span>
-          {item.isAvailable && (
-            cartQty === 0 ? (
-              <button onClick={() => onAdd(item)} style={{ background: T.ivory, color: T.emerald, border: `2px solid ${T.emerald}`, borderRadius: "8px", padding: "4px 12px", fontWeight: 900, fontSize: "10px", cursor: "pointer", letterSpacing: "0.3px", boxShadow: `0 2px 5px rgba(15,61,46,0.15)`, fontFamily: "inherit", flexShrink: 0 }}>ADD +</button>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", background: T.emerald, borderRadius: "8px", overflow: "hidden", boxShadow: `0 2px 6px rgba(15,61,46,0.25)`, flexShrink: 0 }}>
-                <button onClick={() => onRemove(item._id)} style={{ width: "24px", height: "24px", background: "none", border: "none", color: T.gold, fontWeight: 900, fontSize: "14px", cursor: "pointer" }}>−</button>
-                <span style={{ fontWeight: 900, color: T.gold, fontSize: "11px", minWidth: "14px", textAlign: "center" }}>{cartQty}</span>
-                <button onClick={() => onAdd(item)} style={{ width: "24px", height: "24px", background: "none", border: "none", color: T.gold, fontWeight: 900, fontSize: "14px", cursor: "pointer" }}>+</button>
-              </div>
-            )
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CartDrawer({ cart, isOpen, onClose, onUpdateQty, onUpdateNote, onPlaceOrder, isPlacing, existingOrder }: {
-  cart: CartItem[]; isOpen: boolean; onClose: () => void;
+// ─────────── Cart Drawer ───────────
+function CartDrawer({ cart, isOpen, onClose, onUpdateQty, onPlaceOrder, isPlacing, existingOrder }: {
+  cart: ExtendedCartItem[]; isOpen: boolean; onClose: () => void;
   onUpdateQty: (id: string, delta: number) => void;
-  onUpdateNote: (id: string, note: string) => void;
   onPlaceOrder: () => void; isPlacing: boolean; existingOrder: Order | null;
 }) {
-  const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const subtotal = cart.reduce((s, i) => s + (i.price + (i.totalPriceModifier || 0)) * i.quantity, 0);
   const tax = subtotal * 0.05;
   const total = subtotal + tax;
   const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
 
   return (
     <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,61,46,0.7)", zIndex: 40, opacity: isOpen ? 1 : 0, pointerEvents: isOpen ? "auto" : "none", transition: "opacity 0.35s", backdropFilter: "blur(6px)" }} />
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: T.ivory, zIndex: 50, borderRadius: "22px 22px 0 0", maxHeight: "85vh", display: "flex", flexDirection: "column", transform: isOpen ? "translateY(0)" : "translateY(100%)", transition: "transform 0.4s cubic-bezier(0.32,0.72,0,1)", boxShadow: "0 -18px 40px rgba(15,61,46,0.2)" }}>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,61,46,0.7)", zIndex: 60, opacity: isOpen ? 1 : 0, pointerEvents: isOpen ? "auto" : "none", transition: "opacity 350ms", backdropFilter: "blur(6px)" }} />
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: T.ivory, zIndex: 70, borderRadius: "24px 24px 0 0", maxHeight: "88vh", display: "flex", flexDirection: "column", transform: isOpen ? "translateY(0)" : "translateY(100%)", transition: "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)", boxShadow: "0 -20px 48px rgba(15,61,46,0.25)" }}>
         <div style={{ height: "3px", background: `linear-gradient(90deg, ${T.goldDark}, ${T.gold}, ${T.goldLight}, ${T.gold}, ${T.goldDark})`, borderRadius: "3px 3px 0 0" }} />
-        <div style={{ display: "flex", justifyContent: "center", padding: "7px 0 2px" }}>
-          <div style={{ width: "28px", height: "3px", borderRadius: "99px", background: T.creamDark }} />
+        <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px" }}>
+          <div style={{ width: "32px", height: "4px", borderRadius: "99px", background: T.creamDark }} />
         </div>
 
-        <div style={{ padding: "5px 14px 10px", borderBottom: `1px solid ${T.creamDark}` }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <h2 style={{ fontWeight: 900, fontSize: "17px", color: T.emerald, margin: 0, fontFamily: "'Playfair Display', serif" }}>Your Order</h2>
-                <span style={{ background: T.emerald, color: T.gold, fontSize: "9px", padding: "2px 7px", borderRadius: "99px", fontWeight: 900 }}>{totalItems}</span>
-              </div>
-              {existingOrder && <p style={{ fontSize: "10px", color: T.textMuted, margin: "2px 0 0", fontWeight: 700 }}>Adding to #{existingOrder.orderNumber}</p>}
-            </div>
-            <button onClick={onClose} style={{ width: "28px", height: "28px", borderRadius: "50%", background: T.cream, border: `1px solid ${T.creamDark}`, cursor: "pointer", fontSize: "12px", color: T.textMuted }}>✕</button>
+        <div style={{ padding: "8px 18px 14px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <h2 style={{ fontWeight: 800, fontSize: "22px", color: T.emerald, margin: 0, fontFamily: "'Playfair Display', serif", letterSpacing: "-0.02em" }}>My Order</h2>
+            <p style={{ fontSize: "12px", color: T.textMuted, margin: "3px 0 0" }}>You have {totalItems} item{totalItems !== 1 ? "s" : ""} in your cart</p>
           </div>
+          <button onClick={onClose} style={{ width: "32px", height: "32px", borderRadius: "50%", background: T.cream, border: `1px solid ${T.creamDark}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMuted }}>
+            <Icons.Close size={14} />
+          </button>
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "9px 11px" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
           {cart.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "32px 0" }}>
-              <div style={{ fontSize: "40px", marginBottom: "6px" }}>🛒</div>
-              <p style={{ fontWeight: 800, fontSize: "13px", color: T.emerald }}>Cart is empty</p>
+            <div style={{ textAlign: "center", padding: "48px 0" }}>
+              <div style={{ width: "72px", height: "72px", margin: "0 auto 16px", borderRadius: "20px", background: T.cream, display: "flex", alignItems: "center", justifyContent: "center", color: T.emerald }}>
+                <Icons.Cart size={32} />
+              </div>
+              <p style={{ fontWeight: 800, fontSize: "15px", color: T.emerald, margin: 0 }}>Cart is empty</p>
+              <p style={{ fontSize: "12px", color: T.textMuted, margin: "4px 0 0" }}>Add some delicious items!</p>
             </div>
           ) : cart.map(item => (
-            <div key={item.menuItemId} style={{ background: T.cream, borderRadius: "12px", padding: "9px 10px", marginBottom: "6px", border: `1px solid ${T.creamDark}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "5px", gap: "6px" }}>
-                <span style={{ fontWeight: 800, fontSize: "11px", color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
-                <span style={{ fontWeight: 900, fontSize: "11px", color: T.emerald, flexShrink: 0 }}>₹{(item.price * item.quantity).toFixed(0)}</span>
+            <div key={item.menuItemId + JSON.stringify(item.variants)} style={{
+              background: T.cream,
+              borderRadius: "16px",
+              padding: "12px",
+              marginBottom: "10px",
+              border: `1px solid ${T.creamDark}`,
+              display: "flex",
+              gap: "12px",
+            }}>
+              {/* Image */}
+              <div style={{ flexShrink: 0 }}>
+                {item.imageUrl ? (
+                  <img src={getThumbnailUrl(item.imageUrl)} alt={item.name} style={{ width: "60px", height: "60px", borderRadius: "12px", objectFit: "cover" }} />
+                ) : (
+                  <ItemImagePlaceholder name={item.name} size={60} />
+                )}
               </div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", background: T.emerald, borderRadius: "7px", overflow: "hidden" }}>
-                  <button onClick={() => onUpdateQty(item.menuItemId, -1)} style={{ width: "24px", height: "24px", background: "none", border: "none", color: T.gold, fontWeight: 900, fontSize: "14px", cursor: "pointer" }}>−</button>
-                  <span style={{ fontWeight: 900, color: T.gold, fontSize: "11px", minWidth: "16px", textAlign: "center" }}>{item.quantity}</span>
-                  <button onClick={() => onUpdateQty(item.menuItemId, 1)} style={{ width: "24px", height: "24px", background: "none", border: "none", color: T.gold, fontWeight: 900, fontSize: "14px", cursor: "pointer" }}>+</button>
-                </div>
-                <span style={{ fontSize: "9px", color: T.textDim, fontWeight: 600 }}>₹{item.price} each</span>
+
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontWeight: 800, fontSize: "14px", color: T.text, margin: "0 0 2px" }}>{item.name}</p>
+                {item.variants && item.variants.length > 0 && (
+                  <p style={{ fontSize: "10px", color: T.textMuted, margin: "0 0 4px", fontWeight: 600 }}>
+                    {item.variants.flatMap(v => v.selected).join(", ")}
+                  </p>
+                )}
+                <p style={{ fontWeight: 800, fontSize: "13px", color: T.emerald, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
+                  ₹{((item.price + (item.totalPriceModifier || 0)) * item.quantity).toFixed(0)}
+                </p>
               </div>
-              <input type="text" placeholder="Add note..." value={item.notes} onChange={e => onUpdateNote(item.menuItemId, e.target.value)}
-                style={{ width: "100%", marginTop: "5px", fontSize: "10px", padding: "5px 8px", borderRadius: "6px", border: `1px solid ${T.creamDark}`, background: T.ivory, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }}
-              />
+
+              {/* Quantity */}
+              <div style={{ display: "flex", alignItems: "center", background: T.emerald, borderRadius: "10px", overflow: "hidden", height: "fit-content", boxShadow: "0 3px 8px rgba(15,61,46,0.2)" }}>
+                <button onClick={() => onUpdateQty(item.menuItemId + JSON.stringify(item.variants), -1)} style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icons.Minus size={12} /></button>
+                <span style={{ fontWeight: 900, color: T.gold, fontSize: "12px", minWidth: "20px", textAlign: "center", fontFamily: "'DM Sans', sans-serif" }}>{item.quantity}</span>
+                <button onClick={() => onUpdateQty(item.menuItemId + JSON.stringify(item.variants), 1)} style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icons.Plus size={12} /></button>
+              </div>
             </div>
           ))}
         </div>
 
         {cart.length > 0 && (
-          <div style={{ padding: "0 11px 18px", borderTop: `1px solid ${T.creamDark}` }}>
-            <div style={{ background: T.cream, borderRadius: "12px", padding: "9px 11px", margin: "9px 0 7px", border: `1px solid ${T.creamDark}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: T.textMuted, marginBottom: "3px" }}>
-                <span>Subtotal</span><span>₹{subtotal.toFixed(0)}</span>
+          <div style={{ padding: "12px 18px 22px", borderTop: `1px solid ${T.border}` }}>
+            <div style={{ background: T.cream, borderRadius: "14px", padding: "12px 14px", marginBottom: "10px", border: `1px solid ${T.creamDark}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: T.textMuted, marginBottom: "4px" }}>
+                <span>Subtotal</span><span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: T.text }}>₹{subtotal.toFixed(0)}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: T.textMuted, paddingBottom: "5px", borderBottom: `1px dashed ${T.creamDark}`, marginBottom: "5px" }}>
-                <span>GST (5%)</span><span>₹{tax.toFixed(0)}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: T.textMuted, paddingBottom: "8px", borderBottom: `1px dashed ${T.creamDark}`, marginBottom: "8px" }}>
+                <span>Taxes (5%)</span><span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: T.text }}>₹{tax.toFixed(0)}</span>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: "14px", color: T.emerald }}>
-                <span>Total</span>
-                <span>₹{total.toFixed(0)}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "16px", color: T.emerald }}>
+                <span>Total</span><span style={{ fontFamily: "'DM Sans', sans-serif", fontVariantNumeric: "tabular-nums" }}>₹{total.toFixed(0)}</span>
               </div>
             </div>
-            <button onClick={onPlaceOrder} disabled={isPlacing} style={{ width: "100%", background: isPlacing ? "#d1d5db" : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid}, ${T.emeraldLight})`, color: isPlacing ? "#9ca3af" : T.gold, border: "none", borderRadius: "12px", padding: "13px", fontWeight: 900, fontSize: "13px", cursor: isPlacing ? "not-allowed" : "pointer", boxShadow: isPlacing ? "none" : `0 7px 18px rgba(15,61,46,0.35)`, fontFamily: "inherit" }}>
-              {isPlacing ? "☕ Placing..." : `☕ Place Order • ₹${total.toFixed(0)}`}
-            </button>
+            <Button variant="primary" size="xl" fullWidth onClick={onPlaceOrder} loading={isPlacing}>
+              Proceed to Checkout
+            </Button>
           </div>
         )}
       </div>
@@ -336,6 +763,7 @@ function CartDrawer({ cart, isOpen, onClose, onUpdateQty, onUpdateNote, onPlaceO
   );
 }
 
+// ─────────── Top Cancel Bar ───────────
 function TopCancelBar({ order, onCancelled }: { order: Order; onCancelled: () => void }) {
   const placedAt = new Date(order.createdAt).getTime();
   const [secondsLeft, setSecondsLeft] = useState(() =>
@@ -345,14 +773,12 @@ function TopCancelBar({ order, onCancelled }: { order: Order; onCancelled: () =>
 
   useEffect(() => {
     const iv = setInterval(() => {
-      const remaining = Math.max(0, 120 - Math.floor((Date.now() - placedAt) / 1000));
-      setSecondsLeft(remaining);
+      setSecondsLeft(Math.max(0, 120 - Math.floor((Date.now() - placedAt) / 1000)));
     }, 1000);
     return () => clearInterval(iv);
   }, [placedAt]);
 
   if (secondsLeft <= 0) return null;
-
   const mins = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
   const isUrgent = secondsLeft <= 30;
@@ -374,25 +800,20 @@ function TopCancelBar({ order, onCancelled }: { order: Order; onCancelled: () =>
   };
 
   return (
-    <div style={{ position: "sticky", top: 0, zIndex: 45, background: isUrgent ? "linear-gradient(135deg, #7f1d1d, #C0392B)" : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, animation: isUrgent ? "pulse-urgent 1s infinite" : "none", borderBottom: `2px solid ${isUrgent ? "#ef4444" : T.gold}`, boxShadow: "0 3px 10px rgba(0,0,0,0.2)" }}>
-      <div style={{ padding: "7px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "7px" }}>
-        <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "7px" }}>
-          <div style={{ width: "34px", height: "34px", borderRadius: "8px", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${isUrgent ? "white" : T.gold}`, flexShrink: 0 }}>
-            <span style={{ fontWeight: 900, fontSize: "10px", color: "white", fontVariantNumeric: "tabular-nums", letterSpacing: "-0.5px" }}>
-              {mins}:{String(secs).padStart(2, "0")}
-            </span>
+    <div style={{ position: "sticky", top: 0, zIndex: 45, background: isUrgent ? "linear-gradient(135deg, #7f1d1d, #C0392B)" : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, borderBottom: `2px solid ${isUrgent ? "#ef4444" : T.gold}` }}>
+      <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
+          <div style={{ width: "34px", height: "34px", borderRadius: "9px", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${isUrgent ? "white" : T.gold}` }}>
+            <span style={{ fontWeight: 800, fontSize: "10px", color: "white", fontFamily: "'DM Sans', sans-serif", fontVariantNumeric: "tabular-nums" }}>{mins}:{String(secs).padStart(2, "0")}</span>
           </div>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <p style={{ fontWeight: 900, fontSize: "10px", color: "white", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {isUrgent ? "⚠️ Cancel window ending!" : "Cancel within 2 minutes"}
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontWeight: 800, fontSize: "11px", color: "white", margin: 0 }}>
+              {isUrgent ? "⚠️ Cancel ending!" : "Cancel within 2 min"}
             </p>
-            <p style={{ fontSize: "8px", color: "rgba(255,255,255,0.75)", margin: "1px 0 0", fontWeight: 600 }}>
-              #{order.orderNumber}
-            </p>
+            <p style={{ fontSize: "9px", color: "rgba(255,255,255,0.75)", margin: "1px 0 0", fontWeight: 600 }}>#{order.orderNumber}</p>
           </div>
         </div>
-
-        <button onClick={handleCancel} disabled={cancelling} style={{ flexShrink: 0, background: "white", color: isUrgent ? T.danger : T.emerald, border: "none", borderRadius: "7px", padding: "5px 10px", fontWeight: 900, fontSize: "9px", cursor: cancelling ? "wait" : "pointer", fontFamily: "inherit", boxShadow: "0 2px 6px rgba(0,0,0,0.2)" }}>
+        <button onClick={handleCancel} disabled={cancelling} style={{ background: "white", color: isUrgent ? T.danger : T.emerald, border: "none", borderRadius: "8px", padding: "6px 12px", fontWeight: 800, fontSize: "10px", cursor: cancelling ? "wait" : "pointer", fontFamily: "'Inter', sans-serif" }}>
           {cancelling ? "..." : "✕ CANCEL"}
         </button>
       </div>
@@ -403,23 +824,7 @@ function TopCancelBar({ order, onCancelled }: { order: Order; onCancelled: () =>
   );
 }
 
-function OrderReadyAlert({ order, onClose }: { order: Order; onClose: () => void }) {
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(74,139,74,0.4)", zIndex: 90, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", backdropFilter: "blur(8px)", animation: "fadeIn 0.3s ease" }}>
-      <div style={{ background: T.ivory, borderRadius: "18px", padding: "20px 16px", textAlign: "center", maxWidth: "280px", width: "100%", border: `3px solid ${T.success}`, boxShadow: "0 18px 50px rgba(74,139,74,0.5)", animation: "scaleIn 0.4s cubic-bezier(0.34,1.56,0.64,1)" }}>
-        <div style={{ fontSize: "48px", marginBottom: "6px", animation: "bounce-dot 1s infinite" }}>🔔</div>
-        <h2 style={{ fontWeight: 900, fontSize: "18px", color: T.success, margin: "0 0 3px", fontFamily: "'Playfair Display', serif" }}>Order is Ready!</h2>
-        <p style={{ color: T.textMuted, fontSize: "11px", margin: "0 0 10px" }}>
-          <strong style={{ color: T.emerald }}>#{order.orderNumber}</strong>
-        </p>
-        <button onClick={onClose} style={{ width: "100%", padding: "10px", borderRadius: "9px", border: "none", background: `linear-gradient(135deg, #2d6a2d, ${T.success})`, color: "white", fontWeight: 900, cursor: "pointer", fontSize: "12px", fontFamily: "inherit" }}>
-          Got it ✓
-        </button>
-      </div>
-    </div>
-  );
-}
-
+// ─────────── MAIN ───────────
 export default function CustomerOrderPage() {
   const params = useParams();
   const router = useRouter();
@@ -431,21 +836,16 @@ export default function CustomerOrderPage() {
   const [allOrders, setAllOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<ExtendedCartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"menu" | "order" | "info">("menu");
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchFocused, setSearchFocused] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<ExtendedMenuItem | null>(null);
   const [showCustomerPopup, setShowCustomerPopup] = useState(false);
   const [customerData, setCustomerData] = useState<{ name: string; phone: string } | null>(null);
-  const [showWelcomeBack, setShowWelcomeBack] = useState(false);
-  const [welcomeMessage, setWelcomeMessage] = useState<{ name: string; type: "normal" | "birthday" | "anniversary" } | null>(null);
-  const [readyAlertOrder, setReadyAlertOrder] = useState<Order | null>(null);
   const prevStatusRef = useRef<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
-  const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
@@ -459,22 +859,6 @@ export default function CustomerOrderPage() {
       try {
         const data = JSON.parse(saved);
         setCustomerData({ name: data.name, phone: data.phone });
-        const today = new Date();
-        const mm = String(today.getMonth() + 1).padStart(2, "0");
-        const dd = String(today.getDate()).padStart(2, "0");
-        const todayMMDD = `${mm}-${dd}`;
-        let msgType: "normal" | "birthday" | "anniversary" = "normal";
-        if (data.birthdate) {
-          const bdMMDD = data.birthdate.slice(5);
-          if (bdMMDD === todayMMDD) msgType = "birthday";
-        }
-        if (data.anniversary && msgType === "normal") {
-          const annMMDD = data.anniversary.slice(5);
-          if (annMMDD === todayMMDD) msgType = "anniversary";
-        }
-        setWelcomeMessage({ name: data.name, type: msgType });
-        setShowWelcomeBack(true);
-        setTimeout(() => setShowWelcomeBack(false), 5000);
       } catch { }
     }
   }, []);
@@ -520,29 +904,18 @@ export default function CustomerOrderPage() {
         if (!orderRes.data.data) return;
         const newOrder: Order = orderRes.data.data;
         const prevStatus = prevStatusRef.current;
-
         if (prevStatus && prevStatus !== newOrder.status) {
           const messages: Record<string, { title: string; body: string }> = {
-            kotSent: { title: "☕ Order Confirmed!", body: "Chef started preparing your order" },
-            partially_ready: { title: "🔔 Almost Ready!", body: "Some items are ready" },
-            ready: { title: "✅ Order is Ready!", body: "Waiter will be with you shortly!" },
-            cancelled: { title: "❌ Order Cancelled", body: "Contact staff if needed" },
-            settled: { title: "🙏 Thank You!", body: "Hope you enjoyed your visit" },
+            kotSent: { title: "☕ Confirmed!", body: "Chef started preparing" },
+            partially_ready: { title: "🔔 Almost Ready!", body: "Some items ready" },
+            ready: { title: "✅ Ready!", body: "Waiter coming!" },
           };
           const msg = messages[newOrder.status];
           if (msg) {
             playNotificationBeep();
             showBrowserNotification(msg.title, msg.body);
-            if (newOrder.status === "ready") setReadyAlertOrder(newOrder);
-          }
-          if (["settled", "cancelled"].includes(newOrder.status)) {
-            setTimeout(() => {
-              localStorage.removeItem("gb_active_table");
-              localStorage.removeItem("gb_active_order");
-            }, 5000);
           }
         }
-
         prevStatusRef.current = newOrder.status;
         setExistingOrder(newOrder);
       } catch { }
@@ -551,37 +924,35 @@ export default function CustomerOrderPage() {
   }, [existingOrder, tableId]);
 
   const queuePosition = existingOrder
-    ? allOrders
-      .filter(o => ["kotSent", "open"].includes(o.status) && o._id !== existingOrder._id)
-      .filter(o => new Date(o.createdAt).getTime() < new Date(existingOrder.createdAt).getTime())
-      .length
+    ? allOrders.filter(o => ["kotSent", "open"].includes(o.status) && o._id !== existingOrder._id)
+      .filter(o => new Date(o.createdAt).getTime() < new Date(existingOrder.createdAt).getTime()).length
     : undefined;
 
-  const addToCart = useCallback((item: MenuItem) => {
+  const handleAddToCart = (item: ExtendedMenuItem, qty: number, variants: { groupName: string; selected: string[]; }[], modifier: number) => {
+    const cartKey = item._id + JSON.stringify(variants);
     setCart(prev => {
-      const ex = prev.find(c => c.menuItemId === item._id);
-      if (ex) return prev.map(c => c.menuItemId === item._id ? { ...c, quantity: c.quantity + 1 } : c);
-      return [...prev, { menuItemId: item._id, name: item.name, price: item.price, quantity: 1, notes: "", isVeg: true }];
+      const existing = prev.find(c => (c.menuItemId + JSON.stringify(c.variants)) === cartKey);
+      if (existing) {
+        return prev.map(c => (c.menuItemId + JSON.stringify(c.variants)) === cartKey ? { ...c, quantity: c.quantity + qty } : c);
+      }
+      return [...prev, {
+        menuItemId: item._id, name: item.name, price: item.price, quantity: qty,
+        notes: "", isVeg: true, variants, totalPriceModifier: modifier,
+        imageUrl: item.imageUrl,
+      }];
     });
-  }, []);
+  };
 
-  const removeFromCart = useCallback((itemId: string) => {
+  const updateQty = (cartKey: string, delta: number) => {
     setCart(prev => {
-      const ex = prev.find(c => c.menuItemId === itemId);
-      if (!ex) return prev;
-      if (ex.quantity === 1) return prev.filter(c => c.menuItemId !== itemId);
-      return prev.map(c => c.menuItemId === itemId ? { ...c, quantity: c.quantity - 1 } : c);
+      const existing = prev.find(c => (c.menuItemId + JSON.stringify(c.variants)) === cartKey);
+      if (!existing) return prev;
+      if (existing.quantity + delta <= 0) {
+        return prev.filter(c => (c.menuItemId + JSON.stringify(c.variants)) !== cartKey);
+      }
+      return prev.map(c => (c.menuItemId + JSON.stringify(c.variants)) === cartKey ? { ...c, quantity: c.quantity + delta } : c);
     });
-  }, []);
-
-  const updateQty = useCallback((itemId: string, delta: number) => {
-    if (delta > 0) { const item = menu.flatMap(c => c.items).find(i => i._id === itemId); if (item) addToCart(item); }
-    else removeFromCart(itemId);
-  }, [menu, addToCart, removeFromCart]);
-
-  const updateNote = useCallback((itemId: string, note: string) => {
-    setCart(prev => prev.map(c => c.menuItemId === itemId ? { ...c, notes: note } : c));
-  }, []);
+  };
 
   const handlePlaceOrderClick = () => {
     setIsCartOpen(false);
@@ -596,12 +967,23 @@ export default function CustomerOrderPage() {
     placeOrder(data);
   };
 
-  const placeOrder = async (customer?: { name: string; phone: string; birthdate?: string; anniversary?: string }) => {
+  const placeOrder = async (customer?: { name: string; phone: string }) => {
     if (cart.length === 0) return;
     setIsPlacing(true);
     try {
+      // Convert cart to order items with variant info in notes
+      const orderItems = cart.map(c => ({
+        menuItemId: c.menuItemId,
+        name: c.name,
+        price: c.price + (c.totalPriceModifier || 0),
+        quantity: c.quantity,
+        notes: c.variants && c.variants.length > 0
+          ? c.variants.flatMap(v => v.selected).join(", ")
+          : c.notes,
+        isVeg: c.isVeg,
+      }));
       const res = await orderApi.createOrder({
-        tableId, items: cart, createdBy: "customer",
+        tableId, items: orderItems, createdBy: "customer",
         customerName: customer?.name || "",
         customerPhone: customer?.phone || "",
       });
@@ -613,223 +995,205 @@ export default function CustomerOrderPage() {
       localStorage.setItem("gb_active_order", newOrder._id);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to place order");
-    } finally {
-      setIsPlacing(false);
-    }
+    } finally { setIsPlacing(false); }
   };
 
-  const handleCancelled = () => {
-    setExistingOrder(null);
-    prevStatusRef.current = null;
-  };
+  const handleCancelled = () => { setExistingOrder(null); prevStatusRef.current = null; };
 
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
-  const totalCartValue = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-  const filteredMenu = searchQuery
-    ? menu.map(cat => ({ ...cat, items: cat.items.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase())) })).filter(cat => cat.items.length > 0)
-    : menu;
+  const totalCartValue = cart.reduce((s, i) => s + (i.price + (i.totalPriceModifier || 0)) * i.quantity, 0);
+  const activeCategoryItems = searchQuery
+    ? menu.flatMap(c => c.items as ExtendedMenuItem[]).filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : (menu.find(c => c._id === activeCategoryId(activeCategory))?.items as ExtendedMenuItem[] || []);
+
+  function activeCategoryId(id: string) { return id; }
 
   if (error) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", background: T.cream }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "42px", marginBottom: "10px" }}>☕</div>
-          <h2 style={{ fontWeight: 900, color: T.emerald, margin: "0 0 5px", fontSize: "16px" }}>Something went wrong</h2>
+          <div style={{ fontSize: "44px", marginBottom: "10px" }}>☕</div>
+          <h2 style={{ fontWeight: 800, color: T.emerald, margin: "0 0 5px", fontSize: "16px" }}>Something went wrong</h2>
           <p style={{ color: T.textMuted, marginBottom: "14px", fontSize: "12px" }}>{error}</p>
-          <button onClick={() => router.push("/")} style={{ background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, border: "none", borderRadius: "10px", padding: "11px 22px", fontWeight: 800, cursor: "pointer", fontSize: "12px", fontFamily: "inherit" }}>Back to Home</button>
+          <Button variant="primary" onClick={() => router.push("/")}>Back to Home</Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: T.cream, display: "flex", flexDirection: "column", width: "100%", margin: "0 auto", position: "relative", overflowX: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: T.cream, display: "flex", flexDirection: "column", width: "100%", margin: "0 auto", overflowX: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Nunito:wght@400;600;700;800;900&display=swap');
-        html, body { overflow-x: hidden; margin: 0; padding: 0; max-width: 100vw; width: 100%; }
-        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; font-family: 'Nunito', sans-serif; }
-        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-        @keyframes scaleIn { from{transform:scale(0.9);opacity:0} to{transform:scale(1);opacity:1} }
-        @keyframes slideDown { from{transform:translateX(-50%) translateY(-16px);opacity:0} to{transform:translateX(-50%) translateY(0);opacity:1} }
-        @keyframes slideUp { from{transform:translateY(10px);opacity:0} to{transform:translateY(0);opacity:1} }
-        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
-        @keyframes bounce-dot { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
-        @keyframes pulse-urgent { 0%,100%{filter:brightness(1)} 50%{filter:brightness(1.15)} }
-        @keyframes gold-shine { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-        ::-webkit-scrollbar { display:none; }
-        button,input { font-family:'Nunito',sans-serif; }
+        html, body { overflow-x: hidden; margin: 0; padding: 0; max-width: 100vw; }
       `}</style>
 
-      {showWelcomeBack && welcomeMessage && <WelcomeBackPopup message={welcomeMessage} onClose={() => setShowWelcomeBack(false)} />}
       {showCustomerPopup && <CustomerDataPopup onSubmit={handleCustomerDataSubmit} onSkip={() => { setShowCustomerPopup(false); placeOrder(); }} />}
-      {readyAlertOrder && <OrderReadyAlert order={readyAlertOrder} onClose={() => setReadyAlertOrder(null)} />}
 
       {existingOrder && !["settled", "cancelled"].includes(existingOrder.status) && (
         <TopCancelBar order={existingOrder} onCancelled={handleCancelled} />
       )}
 
-      <header style={{ background: `linear-gradient(180deg, ${T.emerald} 0%, ${T.emeraldMid} 100%)`, position: "sticky", top: 0, zIndex: 30, boxShadow: `0 2px 10px rgba(15,61,46,0.3)` }}>
-        <div style={{ height: "3px", background: `linear-gradient(90deg, ${T.goldDark}, ${T.gold}, ${T.goldLight}, ${T.gold}, ${T.goldDark})`, backgroundSize: "200% 100%", animation: "gold-shine 3s linear infinite" }} />
-        <div style={{ padding: "9px 10px 6px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0, flex: 1 }}>
-            <div style={{ width: "34px", height: "34px", borderRadius: "9px", overflow: "hidden", flexShrink: 0, background: T.emerald, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <img src="/logo-small.png" alt="GB" style={{ width: "34px", height: "34px", objectFit: "contain" }} />
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <h1 style={{ fontWeight: 800, fontSize: "15px", color: T.gold, margin: 0, fontFamily: "'Playfair Display', serif", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Golden Beans</h1>
-              <p style={{ fontSize: "9px", color: "rgba(212,165,116,0.7)", margin: 0, fontWeight: 700 }}>{table ? `TABLE ${table.tableNumber}` : "..."}</p>
-            </div>
+      {/* Header */}
+      <header style={{
+        background: `linear-gradient(180deg, ${T.cream} 0%, ${T.ivory} 100%)`,
+        position: "sticky", top: 0, zIndex: 30,
+        padding: "12px 16px 0",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+          <div style={{ width: "40px", height: "40px", borderRadius: "12px", overflow: "hidden", background: T.emerald, flexShrink: 0 }}>
+            <img src="/logo-small.png" alt="GB" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "4px", background: "rgba(74,139,74,0.2)", border: `1px solid rgba(74,139,74,0.4)`, borderRadius: "99px", padding: "2px 7px", flexShrink: 0 }}>
-            <div style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.success }} />
-            <span style={{ fontSize: "9px", color: T.success, fontWeight: 800 }}>🌿 VEG</span>
+
+          <div style={{ flex: 1, textAlign: "center", padding: "0 12px" }}>
+            <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", fontWeight: 800, color: T.emerald, margin: 0, letterSpacing: "-0.02em" }}>
+              Golden Beans
+            </p>
+            <p style={{ fontSize: "10px", color: T.textMuted, margin: "1px 0 0", fontWeight: 600 }}>
+              {table ? `Table ${table.tableNumber}` : "..."}
+            </p>
           </div>
+
+          <button style={{ width: "40px", height: "40px", borderRadius: "12px", background: T.emerald, color: T.gold, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icons.Search size={16} />
+          </button>
         </div>
 
-        <div style={{ padding: "0 10px 7px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "7px", background: searchFocused ? T.ivory : "rgba(255,255,255,0.1)", border: `1.5px solid ${searchFocused ? T.gold : "rgba(212,165,116,0.3)"}`, borderRadius: "10px", padding: "8px 10px", transition: "all 0.25s ease" }}>
-            <span style={{ fontSize: "12px", flexShrink: 0 }}>🔍</span>
-            <input type="text" placeholder="Search dishes..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)}
-              style={{ flex: 1, background: "none", border: "none", fontSize: "12px", color: searchFocused ? T.text : "rgba(255,255,255,0.85)", fontWeight: 600, outline: "none", minWidth: 0 }}
-            />
-            {searchQuery && <button onClick={() => setSearchQuery("")} style={{ background: "rgba(255,255,255,0.2)", border: "none", borderRadius: "50%", width: "15px", height: "15px", cursor: "pointer", fontSize: "8px", color: "white", flexShrink: 0 }}>✕</button>}
-          </div>
+        {/* Welcome */}
+        <div style={{ marginBottom: "14px" }}>
+          <p style={{ fontSize: "13px", color: T.textMuted, fontWeight: 600, margin: "0 0 2px" }}>
+            Welcome{customerData ? "," : "!"}
+          </p>
+          <h1 style={{
+            fontFamily: "'Playfair Display', serif",
+            fontSize: "26px", fontWeight: 800,
+            color: T.emerald, margin: 0,
+            letterSpacing: "-0.02em", lineHeight: 1.1,
+          }}>
+            {customerData?.name || "Order Now"} ☕
+          </h1>
         </div>
-
-        {!searchQuery && menu.length > 0 && (
-          <div style={{ display: "flex", gap: "4px", overflowX: "auto", padding: "0 10px 9px", scrollbarWidth: "none" }}>
-            {menu.map((cat, idx) => (
-              <button key={cat._id} onClick={() => {
-                setActiveCategory(cat._id);
-                categoryRefs.current[cat._id]?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }} style={{
-                flexShrink: 0, display: "flex", alignItems: "center", gap: "4px",
-                padding: "5px 10px", borderRadius: "99px", fontSize: "10px", fontWeight: 800,
-                border: `1.5px solid ${activeCategory === cat._id ? T.gold : "rgba(212,165,116,0.3)"}`,
-                cursor: "pointer",
-                background: activeCategory === cat._id ? `linear-gradient(135deg, ${T.gold}, ${T.goldLight})` : "rgba(255,255,255,0.08)",
-                color: activeCategory === cat._id ? T.emerald : T.gold,
-                boxShadow: activeCategory === cat._id ? `0 2px 8px rgba(212,165,116,0.4)` : "none",
-                animation: `slideUp 0.3s ${idx * 0.06}s ease both`,
-                whiteSpace: "nowrap",
-              }}>
-                <span style={{ fontSize: "11px" }}>{cat.icon}</span>
-                <span>{cat.name}</span>
-              </button>
-            ))}
-          </div>
-        )}
       </header>
 
-      <main style={{ flex: 1, overflowY: "auto", paddingBottom: "64px" }}>
-        {existingOrder && !["settled", "cancelled"].includes(existingOrder.status) && (
-          <LiveOrderTracker order={existingOrder} queuePosition={queuePosition} />
+      {/* Live Order Tracker */}
+      {existingOrder && !["settled", "cancelled"].includes(existingOrder.status) && (
+        <LiveOrderTracker order={existingOrder} queuePosition={queuePosition} />
+      )}
+
+      {/* Main with Vertical Tabs */}
+      <main style={{ flex: 1, display: "flex", paddingBottom: "80px" }}>
+        {/* Vertical Category Tabs */}
+        {menu.length > 0 && (
+          <VerticalCategoryTabs
+            categories={menu}
+            activeCategoryId={activeCategory}
+            onSelect={setActiveCategory}
+          />
         )}
 
-        {activeTab === "menu" && (
-          <div style={{ padding: "6px 0" }}>
-            {loading ? (
-              <div style={{ padding: "10px" }}>{[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}</div>
-            ) : filteredMenu.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "42px 16px" }}>
-                <div style={{ fontSize: "38px", marginBottom: "6px" }}>☕</div>
-                <p style={{ fontWeight: 800, color: T.emerald, fontSize: "13px" }}>Nothing found</p>
-              </div>
-            ) : filteredMenu.map((cat, catIdx) => (
-              <div key={cat._id} ref={el => { categoryRefs.current[cat._id] = el; }} style={{ marginBottom: "4px", animation: `slideUp 0.4s ${catIdx * 0.08}s ease both` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 10px 7px" }}>
-                  <div style={{ width: "28px", height: "28px", borderRadius: "9px", background: CATEGORY_BG[cat.name] || `linear-gradient(145deg, ${T.emerald}, ${T.emeraldMid})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "15px", boxShadow: "0 2px 8px rgba(15,61,46,0.2)", flexShrink: 0 }}>{cat.icon}</div>
-                  <div>
-                    <h2 style={{ fontWeight: 900, fontSize: "14px", color: T.emerald, margin: 0, fontFamily: "'Playfair Display', serif" }}>{cat.name}</h2>
-                    <p style={{ fontSize: "9px", color: T.goldDark, margin: 0, fontWeight: 700 }}>{cat.items.length} items</p>
-                  </div>
-                </div>
-                <div style={{ padding: "0 10px" }}>
-                  {cat.items.map(item => (
-                    <MenuItemCard key={item._id} item={item} cartQty={cart.find(c => c.menuItemId === item._id)?.quantity || 0} onAdd={addToCart} onRemove={removeFromCart} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {activeTab === "order" && (
-          <div style={{ padding: "10px" }}>
-            {!existingOrder ? (
-              <div style={{ textAlign: "center", padding: "42px 16px" }}>
-                <div style={{ fontSize: "42px", marginBottom: "8px" }}>☕</div>
-                <p style={{ fontWeight: 900, fontSize: "14px", color: T.emerald, fontFamily: "'Playfair Display', serif" }}>No Active Order</p>
-                <button onClick={() => setActiveTab("menu")} style={{ marginTop: "10px", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, border: "none", borderRadius: "10px", padding: "11px 22px", fontWeight: 900, cursor: "pointer", fontSize: "12px", fontFamily: "inherit" }}>Browse Menu</button>
-              </div>
-            ) : (
-              <LiveOrderTracker order={existingOrder} queuePosition={queuePosition} />
-            )}
-          </div>
-        )}
-
-        {activeTab === "info" && (
-          <div style={{ padding: "10px", display: "flex", flexDirection: "column", gap: "7px" }}>
-            <div style={{ background: `linear-gradient(145deg, ${T.emerald}, ${T.emeraldMid})`, borderRadius: "18px", padding: "20px 14px", textAlign: "center" }}>
-              <img src="/logo-header.png" alt="GB" style={{ width: "80px", height: "80px", objectFit: "contain", marginBottom: "8px" }} />
-              <h2 style={{ fontWeight: 800, fontSize: "18px", color: T.gold, margin: "0 0 2px", fontFamily: "'Playfair Display', serif" }}>Golden Beans</h2>
-              <p style={{ color: "rgba(212,165,116,0.7)", fontSize: "10px", margin: "0 0 5px", fontWeight: 600 }}>Cafe & Bistro</p>
-              <span style={{ background: "rgba(74,139,74,0.25)", color: T.success, fontSize: "9px", padding: "2px 8px", borderRadius: "99px", fontWeight: 800 }}>🌿 100% Pure Vegetarian</span>
+        {/* Products Grid */}
+        <div style={{ flex: 1, padding: "12px 14px 12px 12px" }}>
+          {loading ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} height="200px" style={{ borderRadius: "20px" }} />
+              ))}
             </div>
-            {[
-              { icon: "📍", label: "ADDRESS", value: "123, MG Road, Surat" },
-              { icon: "📞", label: "PHONE", value: "+91 98765 43210" },
-              { icon: "🕐", label: "HOURS", value: "7:00 AM – 11:00 PM" },
-              { icon: "📶", label: "WI-FI", value: "GoldenBeans_Guest" },
-            ].map(({ icon, label, value }) => (
-              <div key={label} style={{ background: T.ivory, borderRadius: "10px", padding: "9px 11px", display: "flex", alignItems: "center", gap: "9px", boxShadow: "0 2px 6px rgba(15,61,46,0.05)", border: `1px solid ${T.creamDark}` }}>
-                <div style={{ width: "30px", height: "30px", borderRadius: "8px", background: T.cream, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", flexShrink: 0 }}>{icon}</div>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <p style={{ fontSize: "8px", color: T.emerald, margin: "0 0 1px", fontWeight: 800, letterSpacing: "0.8px" }}>{label}</p>
-                  <p style={{ fontSize: "11px", color: T.text, margin: 0, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis" }}>{value}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+          ) : activeCategoryItems.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "40px 16px" }}>
+              <div style={{ fontSize: "40px", marginBottom: "8px" }}>☕</div>
+              <p style={{ fontWeight: 700, color: T.emerald, fontSize: "14px" }}>No items here yet</p>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+              {activeCategoryItems.map((item, idx) => {
+                const cartQty = cart.filter(c => c.menuItemId === item._id).reduce((s, c) => s + c.quantity, 0);
+                return (
+                  <div key={item._id} style={{ animation: `gb-fadeInUp 0.3s ${idx * 0.05}s ease both` }}>
+                    <ProductCard item={item} cartQty={cartQty} onTap={() => setSelectedItem(item)} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </main>
 
-      <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: T.ivory, borderTop: `2px solid ${T.creamDark}`, zIndex: 30, display: "flex", boxShadow: `0 -5px 15px rgba(15,61,46,0.1)` }}>
+      {/* Bottom Navigation */}
+      <nav style={{ position: "fixed", bottom: "16px", left: "50%", transform: "translateX(-50%)", background: T.emerald, borderRadius: "99px", padding: "8px", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 8px 32px rgba(15,61,46,0.4)", zIndex: 40 }}>
         {[
-          { id: "menu", label: "Menu", icon: "🍽️" },
-          { id: "order", label: "Order", icon: "📋" },
-          { id: "info", label: "About", icon: "☕" },
+          { id: "menu", icon: <Icons.Menu size={18} /> },
+          { id: "home", icon: <Icons.Home size={18} /> },
+          { id: "info", icon: <Icons.Coffee size={18} /> },
         ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id as typeof activeTab)} style={{
-            flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
-            padding: "7px 0 6px", background: "none", border: "none", cursor: "pointer",
-            color: activeTab === tab.id ? T.emerald : T.textDim, position: "relative",
-          }}>
-            {activeTab === tab.id && <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: "22px", height: "3px", background: `linear-gradient(90deg, ${T.emerald}, ${T.emeraldLight})`, borderRadius: "0 0 4px 4px" }} />}
-            <span style={{ fontSize: "18px", transform: activeTab === tab.id ? "scale(1.1)" : "scale(1)", transition: "transform 0.2s" }}>{tab.icon}</span>
-            <span style={{ fontSize: "9px", fontWeight: 800, marginTop: "1px" }}>{tab.label}</span>
-            {tab.id === "order" && existingOrder && !["settled", "cancelled"].includes(existingOrder.status) && <div style={{ position: "absolute", top: "5px", right: "calc(50% - 14px)", width: "5px", height: "5px", borderRadius: "50%", background: T.gold, border: "2px solid white" }} />}
+          <button key={tab.id} style={{ width: "44px", height: "44px", borderRadius: "50%", background: "transparent", color: "rgba(212,165,116,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {tab.icon}
           </button>
         ))}
-        <button onClick={() => cart.length > 0 && setIsCartOpen(true)} style={{
-          flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
-          padding: "7px 0 6px", background: "none", border: "none",
-          cursor: cart.length > 0 ? "pointer" : "default",
-          color: cart.length > 0 ? T.emerald : T.textDim, position: "relative",
-        }}>
-          <div style={{ position: "relative" }}>
-            <span style={{ fontSize: "18px" }}>🛒</span>
-            {totalCartItems > 0 && <span style={{ position: "absolute", top: "-3px", right: "-7px", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, color: T.emerald, fontSize: "8px", width: "14px", height: "14px", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, border: "2px solid white" }}>{totalCartItems}</span>}
-          </div>
-          <span style={{ fontSize: "9px", fontWeight: 800, marginTop: "1px" }}>
-            {totalCartItems > 0 ? `₹${totalCartValue.toFixed(0)}` : "Cart"}
-          </span>
+        <button
+          onClick={() => cart.length > 0 && setIsCartOpen(true)}
+          style={{
+            width: "52px", height: "52px",
+            borderRadius: "50%",
+            background: cart.length > 0 ? `linear-gradient(135deg, ${T.gold}, ${T.goldLight})` : "rgba(212,165,116,0.3)",
+            color: T.emerald,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            position: "relative",
+            boxShadow: cart.length > 0 ? "0 6px 20px rgba(212,165,116,0.5)" : "none",
+            transition: "all 250ms ease",
+          }}
+        >
+          <Icons.Cart size={20} />
+          {totalCartItems > 0 && (
+            <div style={{
+              position: "absolute", top: "-4px", right: "-4px",
+              minWidth: "20px", height: "20px",
+              padding: "0 5px",
+              borderRadius: "99px",
+              background: T.danger,
+              color: "white",
+              fontSize: "10px", fontWeight: 800,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              border: "2px solid white",
+              fontFamily: "'DM Sans', sans-serif",
+            }}>
+              {totalCartItems}
+            </div>
+          )}
         </button>
       </nav>
 
-      <CartDrawer cart={cart} isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} onUpdateQty={updateQty} onUpdateNote={updateNote} onPlaceOrder={handlePlaceOrderClick} isPlacing={isPlacing} existingOrder={existingOrder} />
+      {/* Cart Total Floating */}
+      {cart.length > 0 && (
+        <div style={{
+          position: "fixed", bottom: "84px", left: "50%", transform: "translateX(-50%)",
+          background: T.gold, color: T.emerald,
+          padding: "5px 14px", borderRadius: "99px",
+          fontWeight: 800, fontSize: "12px",
+          boxShadow: "0 4px 14px rgba(212,165,116,0.5)",
+          zIndex: 41,
+          fontFamily: "'DM Sans', sans-serif",
+        }}>
+          ₹{totalCartValue.toFixed(0)}
+        </div>
+      )}
+
+      {/* Modals */}
+      <ProductDetailModal
+        item={selectedItem}
+        isOpen={!!selectedItem}
+        onClose={() => setSelectedItem(null)}
+        onAddToCart={handleAddToCart}
+      />
+
+      <CartDrawer
+        cart={cart}
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        onUpdateQty={updateQty}
+        onPlaceOrder={handlePlaceOrderClick}
+        isPlacing={isPlacing}
+        existingOrder={existingOrder}
+      />
     </div>
   );
 }
