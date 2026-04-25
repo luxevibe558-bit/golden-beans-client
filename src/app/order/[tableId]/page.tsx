@@ -6,7 +6,7 @@ import { menuApi, orderApi, tableApi } from "@/lib/api";
 import { getThumbnailUrl, getHeroUrl } from "@/lib/cloudinary";
 import { Icons, Pill, Button, Skeleton } from "@/components/PremiumUI";
 import LiveOrderTracker from "@/components/LiveOrderTracker";
-import type { MenuCategory, MenuItem, CartItem, Table, Order } from "@/types";
+import type { MenuCategory, MenuItem, CartItem, Table, Order, VariantGroup } from "@/types";
 
 const T = {
   emerald: "#0F3D2E",
@@ -26,26 +26,13 @@ const T = {
   danger: "#C0392B",
 };
 
-interface VariantOption {
-  name: string;
-  priceModifier: number;
-  isDefault?: boolean;
-}
-
-interface VariantGroup {
-  name: string;
-  required: boolean;
-  multiSelect: boolean;
-  options: VariantOption[];
-}
-
-
-
 interface ExtendedCartItem extends CartItem {
   variants?: { groupName: string; selected: string[]; }[];
   totalPriceModifier?: number;
   imageUrl?: string;
 }
+
+type BottomTab = "menu" | "order" | "cart" | "info";
 
 function playNotificationBeep() {
   try {
@@ -78,7 +65,7 @@ async function showBrowserNotification(title: string, body: string) {
   } catch { }
 }
 
-// ─────────── Image Placeholder for items without photos ───────────
+// ─────────── Image Placeholder ───────────
 function ItemImagePlaceholder({ name, size = 100 }: { name: string; size?: number }) {
   const initials = name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
   return (
@@ -91,13 +78,14 @@ function ItemImagePlaceholder({ name, size = 100 }: { name: string; size?: numbe
       fontFamily: "'Playfair Display', serif",
       letterSpacing: "0.03em",
       boxShadow: "inset 0 -3px 8px rgba(0,0,0,0.2), 0 4px 12px rgba(15,61,46,0.15)",
+      flexShrink: 0,
     }}>
       {initials}
     </div>
   );
 }
 
-// ─────────── Vertical Category Tabs (Larista-style) ───────────
+// ─────────── Vertical Category Tabs ───────────
 function VerticalCategoryTabs({ categories, activeCategoryId, onSelect }: {
   categories: MenuCategory[];
   activeCategoryId: string;
@@ -147,7 +135,7 @@ function VerticalCategoryTabs({ categories, activeCategoryId, onSelect }: {
   );
 }
 
-// ─────────── Premium Product Card (Larista-style) ───────────
+// ─────────── Product Card ───────────
 function ProductCard({ item, onTap, cartQty }: {
   item: MenuItem;
   onTap: () => void;
@@ -167,18 +155,12 @@ function ProductCard({ item, onTap, cartQty }: {
         border: `1px solid ${T.creamDark}`,
         overflow: "hidden",
       }}
-      onMouseEnter={e => {
-        e.currentTarget.style.transform = "translateY(-3px)";
-        e.currentTarget.style.boxShadow = "0 12px 32px rgba(15,61,46,0.12), 0 4px 8px rgba(15,61,46,0.06)";
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.transform = "";
-        e.currentTarget.style.boxShadow = "0 4px 16px rgba(15,61,46,0.06), 0 1px 4px rgba(15,61,46,0.04)";
-      }}
       onMouseDown={e => { e.currentTarget.style.transform = "scale(0.98)"; }}
-      onMouseUp={e => { e.currentTarget.style.transform = "translateY(-3px)"; }}
+      onMouseUp={e => { e.currentTarget.style.transform = ""; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = ""; }}
+      onTouchStart={e => { e.currentTarget.style.transform = "scale(0.98)"; }}
+      onTouchEnd={e => { e.currentTarget.style.transform = ""; }}
     >
-      {/* Bestseller Badge */}
       {item.tags?.includes("bestseller") && (
         <div style={{
           position: "absolute", top: "8px", left: "8px",
@@ -194,11 +176,7 @@ function ProductCard({ item, onTap, cartQty }: {
         </div>
       )}
 
-      {/* Image */}
-      <div style={{
-        display: "flex", justifyContent: "center", marginBottom: "12px",
-        position: "relative",
-      }}>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: "12px", position: "relative" }}>
         {item.imageUrl ? (
           <div style={{
             width: "100px", height: "100px",
@@ -211,7 +189,8 @@ function ProductCard({ item, onTap, cartQty }: {
             <img
               src={getThumbnailUrl(item.imageUrl)}
               alt={item.name}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }}
+              draggable={false}
               loading="lazy"
             />
           </div>
@@ -219,12 +198,10 @@ function ProductCard({ item, onTap, cartQty }: {
           <ItemImagePlaceholder name={item.name} size={100} />
         )}
 
-        {/* Veg Indicator */}
         <div style={{
           position: "absolute", bottom: "0", right: "calc(50% - 50px - 4px)",
           width: "20px", height: "20px",
-          background: T.success,
-          borderRadius: "5px",
+          background: T.success, borderRadius: "5px",
           display: "flex", alignItems: "center", justifyContent: "center",
           border: "2px solid white",
         }}>
@@ -232,7 +209,6 @@ function ProductCard({ item, onTap, cartQty }: {
         </div>
       </div>
 
-      {/* Name */}
       <p style={{
         fontWeight: 800, fontSize: "14px",
         color: T.text, margin: "0 0 4px",
@@ -242,7 +218,6 @@ function ProductCard({ item, onTap, cartQty }: {
         whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
       }}>{item.name}</p>
 
-      {/* Price + Rating */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px", padding: "0 4px" }}>
         <span style={{
           fontFamily: "'DM Sans', sans-serif",
@@ -258,7 +233,6 @@ function ProductCard({ item, onTap, cartQty }: {
         </div>
       </div>
 
-      {/* Add Button */}
       <button
         onClick={(e) => { e.stopPropagation(); onTap(); }}
         style={{
@@ -282,20 +256,16 @@ function ProductCard({ item, onTap, cartQty }: {
         }}
       >
         {cartQty > 0 ? (
-          <>
-            <Icons.Check size={12} /> ADDED ({cartQty})
-          </>
+          <><Icons.Check size={12} /> ADDED ({cartQty})</>
         ) : (
-          <>
-            <Icons.Plus size={12} /> ADD
-          </>
+          <><Icons.Plus size={12} /> ADD</>
         )}
       </button>
     </div>
   );
 }
 
-// ─────────── Product Detail Modal with Variants ───────────
+// ─────────── Product Detail Modal ───────────
 function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
   item: MenuItem | null;
   isOpen: boolean;
@@ -308,7 +278,6 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
   useEffect(() => {
     if (item) {
       setQuantity(1);
-      // Set default selections
       const defaults: Record<string, string[]> = {};
       item.variantGroups?.forEach(group => {
         const def = group.options.find(o => o.isDefault);
@@ -338,7 +307,6 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
     });
   };
 
-  // Calculate total price modifier
   let priceModifier = 0;
   item.variantGroups?.forEach(group => {
     const selected = selections[group.name] || [];
@@ -381,7 +349,6 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
           overflow: "hidden",
         }}
       >
-        {/* Hero Image */}
         <div style={{
           position: "relative",
           height: "260px",
@@ -392,7 +359,8 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
             <img
               src={getHeroUrl(item.imageUrl)}
               alt={item.name}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              draggable={false}
+              style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }}
             />
           ) : (
             <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -400,15 +368,11 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
             </div>
           )}
 
-          {/* Curved bottom */}
           <div style={{
             position: "absolute", bottom: "-1px", left: 0, right: 0,
-            height: "32px",
-            background: T.ivory,
-            borderRadius: "32px 32px 0 0",
+            height: "32px", background: T.ivory, borderRadius: "32px 32px 0 0",
           }} />
 
-          {/* Close button */}
           <button
             onClick={onClose}
             style={{
@@ -426,7 +390,6 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
             <Icons.Close size={18} />
           </button>
 
-          {/* Veg + Best badges */}
           <div style={{ position: "absolute", top: "16px", left: "16px", display: "flex", gap: "6px" }}>
             <Pill variant="success" size="sm" icon={<Icons.Leaf size={10} />}>VEG</Pill>
             {item.tags?.includes("bestseller") && (
@@ -435,9 +398,7 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
           </div>
         </div>
 
-        {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px 0" }}>
-          {/* Name + Rating */}
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "8px", gap: "12px" }}>
             <h2 style={{
               fontFamily: "'Playfair Display', serif",
@@ -453,15 +414,13 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
             </div>
           </div>
 
-          {/* Description */}
           {item.description && (
             <p style={{ fontSize: "13px", color: T.textMuted, margin: "0 0 16px", lineHeight: 1.5, fontWeight: 500 }}>
               {item.description}
             </p>
           )}
 
-          {/* Variant Groups */}
-          {item.variantGroups?.map((group, gIdx) => (
+          {item.variantGroups?.map((group: VariantGroup, gIdx: number) => (
             <div key={group.name} style={{ marginBottom: "20px", animation: `gb-fadeInUp 0.3s ${gIdx * 0.08}s ease both` }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
                 <h3 style={{
@@ -469,9 +428,7 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
                   fontSize: "16px", fontWeight: 700,
                   color: T.emerald, margin: 0, letterSpacing: "-0.01em",
                 }}>{group.name}</h3>
-                {group.required && (
-                  <Pill variant="danger" size="sm">Required</Pill>
-                )}
+                {group.required && <Pill variant="danger" size="sm">Required</Pill>}
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: group.options.length > 3 ? "1fr 1fr" : `repeat(${group.options.length}, 1fr)`, gap: "8px" }}>
@@ -515,12 +472,7 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
           ))}
         </div>
 
-        {/* Footer with Quantity + Add to Cart */}
-        <div style={{
-          padding: "14px 20px 20px",
-          borderTop: `1px solid ${T.border}`,
-          background: T.ivory,
-        }}>
+        <div style={{ padding: "14px 20px 20px", borderTop: `1px solid ${T.border}`, background: T.ivory }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
             <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 700 }}>Quantity</span>
             <div style={{
@@ -531,7 +483,7 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
             }}>
               <button
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                style={{ width: "36px", height: "36px", background: "none", border: "none", color: T.gold, fontSize: "18px", fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                style={{ width: "36px", height: "36px", background: "none", border: "none", color: T.gold, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
               >
                 <Icons.Minus size={14} />
               </button>
@@ -542,7 +494,7 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
               }}>{quantity}</span>
               <button
                 onClick={() => setQuantity(quantity + 1)}
-                style={{ width: "36px", height: "36px", background: "none", border: "none", color: T.gold, fontSize: "18px", fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                style={{ width: "36px", height: "36px", background: "none", border: "none", color: T.gold, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
               >
                 <Icons.Plus size={14} />
               </button>
@@ -554,9 +506,7 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
             style={{
               width: "100%",
               background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`,
-              color: T.gold,
-              border: "none",
-              borderRadius: "16px",
+              color: T.gold, border: "none", borderRadius: "16px",
               padding: "16px 22px",
               fontFamily: "'Inter', sans-serif",
               fontWeight: 800, fontSize: "15px",
@@ -587,7 +537,7 @@ function CustomerDataPopup({ onSubmit, onSkip }: {
 
   const handleSubmit = () => {
     if (step === 1) {
-      if (!name.trim() || phone.length < 10) return alert("Please enter valid name and 10-digit phone number");
+      if (!name.trim() || phone.length < 10) return alert("Please enter valid name and 10-digit phone");
       setStep(2);
     } else {
       onSubmit({ name, phone, birthdate, anniversary });
@@ -614,13 +564,13 @@ function CustomerDataPopup({ onSubmit, onSkip }: {
               <div>
                 <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "4px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Your Name *</label>
                 <input type="text" placeholder="e.g. Nirav" value={name} onChange={e => setName(e.target.value)} autoFocus
-                  style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${name ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "14px", fontWeight: 600, outline: "none", boxSizing: "border-box", fontFamily: "'Inter', sans-serif" }}
+                  style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${name ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "16px", fontWeight: 600, outline: "none", boxSizing: "border-box", fontFamily: "'Inter', sans-serif" }}
                 />
               </div>
               <div>
                 <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "4px", letterSpacing: "0.05em", textTransform: "uppercase" }}>Mobile Number *</label>
                 <input type="tel" placeholder="10-digit number" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                  style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${phone.length === 10 ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "14px", fontWeight: 600, outline: "none", boxSizing: "border-box", fontFamily: "'Inter', sans-serif" }}
+                  style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${phone.length === 10 ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "16px", fontWeight: 600, outline: "none", boxSizing: "border-box", fontFamily: "'Inter', sans-serif" }}
                 />
               </div>
             </div>
@@ -629,13 +579,13 @@ function CustomerDataPopup({ onSubmit, onSkip }: {
               <div>
                 <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "4px", letterSpacing: "0.05em", textTransform: "uppercase" }}>🎂 Birthday (Optional)</label>
                 <input type="date" value={birthdate} onChange={e => setBirthdate(e.target.value)}
-                  style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${birthdate ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "13px", fontWeight: 600, outline: "none", boxSizing: "border-box", fontFamily: "'Inter', sans-serif" }}
+                  style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${birthdate ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "16px", fontWeight: 600, outline: "none", boxSizing: "border-box", fontFamily: "'Inter', sans-serif" }}
                 />
               </div>
               <div>
                 <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "4px", letterSpacing: "0.05em", textTransform: "uppercase" }}>💑 Anniversary (Optional)</label>
                 <input type="date" value={anniversary} onChange={e => setAnniversary(e.target.value)}
-                  style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${anniversary ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "13px", fontWeight: 600, outline: "none", boxSizing: "border-box", fontFamily: "'Inter', sans-serif" }}
+                  style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${anniversary ? T.gold : T.creamDark}`, background: T.cream, color: T.text, fontSize: "16px", fontWeight: 600, outline: "none", boxSizing: "border-box", fontFamily: "'Inter', sans-serif" }}
                 />
               </div>
             </div>
@@ -650,110 +600,6 @@ function CustomerDataPopup({ onSubmit, onSkip }: {
         </div>
       </div>
     </div>
-  );
-}
-
-// ─────────── Cart Drawer ───────────
-function CartDrawer({ cart, isOpen, onClose, onUpdateQty, onPlaceOrder, isPlacing, existingOrder }: {
-  cart: ExtendedCartItem[]; isOpen: boolean; onClose: () => void;
-  onUpdateQty: (id: string, delta: number) => void;
-  onPlaceOrder: () => void; isPlacing: boolean; existingOrder: Order | null;
-}) {
-  const subtotal = cart.reduce((s, i) => s + (i.price + (i.totalPriceModifier || 0)) * i.quantity, 0);
-  const tax = subtotal * 0.05;
-  const total = subtotal + tax;
-  const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
-
-  return (
-    <>
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,61,46,0.7)", zIndex: 60, opacity: isOpen ? 1 : 0, pointerEvents: isOpen ? "auto" : "none", transition: "opacity 350ms", backdropFilter: "blur(6px)" }} />
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: T.ivory, zIndex: 70, borderRadius: "24px 24px 0 0", maxHeight: "88vh", display: "flex", flexDirection: "column", transform: isOpen ? "translateY(0)" : "translateY(100%)", transition: "transform 400ms cubic-bezier(0.32, 0.72, 0, 1)", boxShadow: "0 -20px 48px rgba(15,61,46,0.25)" }}>
-        <div style={{ height: "3px", background: `linear-gradient(90deg, ${T.goldDark}, ${T.gold}, ${T.goldLight}, ${T.gold}, ${T.goldDark})`, borderRadius: "3px 3px 0 0" }} />
-        <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 4px" }}>
-          <div style={{ width: "32px", height: "4px", borderRadius: "99px", background: T.creamDark }} />
-        </div>
-
-        <div style={{ padding: "8px 18px 14px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <h2 style={{ fontWeight: 800, fontSize: "22px", color: T.emerald, margin: 0, fontFamily: "'Playfair Display', serif", letterSpacing: "-0.02em" }}>My Order</h2>
-            <p style={{ fontSize: "12px", color: T.textMuted, margin: "3px 0 0" }}>You have {totalItems} item{totalItems !== 1 ? "s" : ""} in your cart</p>
-          </div>
-          <button onClick={onClose} style={{ width: "32px", height: "32px", borderRadius: "50%", background: T.cream, border: `1px solid ${T.creamDark}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMuted }}>
-            <Icons.Close size={14} />
-          </button>
-        </div>
-
-        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
-          {cart.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "48px 0" }}>
-              <div style={{ width: "72px", height: "72px", margin: "0 auto 16px", borderRadius: "20px", background: T.cream, display: "flex", alignItems: "center", justifyContent: "center", color: T.emerald }}>
-                <Icons.Cart size={32} />
-              </div>
-              <p style={{ fontWeight: 800, fontSize: "15px", color: T.emerald, margin: 0 }}>Cart is empty</p>
-              <p style={{ fontSize: "12px", color: T.textMuted, margin: "4px 0 0" }}>Add some delicious items!</p>
-            </div>
-          ) : cart.map(item => (
-            <div key={item.menuItemId + JSON.stringify(item.variants)} style={{
-              background: T.cream,
-              borderRadius: "16px",
-              padding: "12px",
-              marginBottom: "10px",
-              border: `1px solid ${T.creamDark}`,
-              display: "flex",
-              gap: "12px",
-            }}>
-              {/* Image */}
-              <div style={{ flexShrink: 0 }}>
-                {item.imageUrl ? (
-                  <img src={getThumbnailUrl(item.imageUrl)} alt={item.name} style={{ width: "60px", height: "60px", borderRadius: "12px", objectFit: "cover" }} />
-                ) : (
-                  <ItemImagePlaceholder name={item.name} size={60} />
-                )}
-              </div>
-
-              {/* Info */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontWeight: 800, fontSize: "14px", color: T.text, margin: "0 0 2px" }}>{item.name}</p>
-                {item.variants && item.variants.length > 0 && (
-                  <p style={{ fontSize: "10px", color: T.textMuted, margin: "0 0 4px", fontWeight: 600 }}>
-                    {item.variants.flatMap(v => v.selected).join(", ")}
-                  </p>
-                )}
-                <p style={{ fontWeight: 800, fontSize: "13px", color: T.emerald, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
-                  ₹{((item.price + (item.totalPriceModifier || 0)) * item.quantity).toFixed(0)}
-                </p>
-              </div>
-
-              {/* Quantity */}
-              <div style={{ display: "flex", alignItems: "center", background: T.emerald, borderRadius: "10px", overflow: "hidden", height: "fit-content", boxShadow: "0 3px 8px rgba(15,61,46,0.2)" }}>
-                <button onClick={() => onUpdateQty(item.menuItemId + JSON.stringify(item.variants), -1)} style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icons.Minus size={12} /></button>
-                <span style={{ fontWeight: 900, color: T.gold, fontSize: "12px", minWidth: "20px", textAlign: "center", fontFamily: "'DM Sans', sans-serif" }}>{item.quantity}</span>
-                <button onClick={() => onUpdateQty(item.menuItemId + JSON.stringify(item.variants), 1)} style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, fontWeight: 900, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icons.Plus size={12} /></button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {cart.length > 0 && (
-          <div style={{ padding: "12px 18px 22px", borderTop: `1px solid ${T.border}` }}>
-            <div style={{ background: T.cream, borderRadius: "14px", padding: "12px 14px", marginBottom: "10px", border: `1px solid ${T.creamDark}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: T.textMuted, marginBottom: "4px" }}>
-                <span>Subtotal</span><span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: T.text }}>₹{subtotal.toFixed(0)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: T.textMuted, paddingBottom: "8px", borderBottom: `1px dashed ${T.creamDark}`, marginBottom: "8px" }}>
-                <span>Taxes (5%)</span><span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: T.text }}>₹{tax.toFixed(0)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "16px", color: T.emerald }}>
-                <span>Total</span><span style={{ fontFamily: "'DM Sans', sans-serif", fontVariantNumeric: "tabular-nums" }}>₹{total.toFixed(0)}</span>
-              </div>
-            </div>
-            <Button variant="primary" size="xl" fullWidth onClick={onPlaceOrder} loading={isPlacing}>
-              Proceed to Checkout
-            </Button>
-          </div>
-        )}
-      </div>
-    </>
   );
 }
 
@@ -818,6 +664,207 @@ function TopCancelBar({ order, onCancelled }: { order: Order; onCancelled: () =>
   );
 }
 
+// ─────────── Cart Tab View ───────────
+function CartView({ cart, onUpdateQty, onPlaceOrder, isPlacing }: {
+  cart: ExtendedCartItem[];
+  onUpdateQty: (key: string, delta: number) => void;
+  onPlaceOrder: () => void;
+  isPlacing: boolean;
+}) {
+  const subtotal = cart.reduce((s, i) => s + (i.price + (i.totalPriceModifier || 0)) * i.quantity, 0);
+  const tax = subtotal * 0.05;
+  const total = subtotal + tax;
+  const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
+
+  return (
+    <div style={{ padding: "16px 14px 100px" }}>
+      <h2 style={{
+        fontWeight: 800, fontSize: "22px", color: T.emerald, margin: "0 0 4px",
+        fontFamily: "'Playfair Display', serif", letterSpacing: "-0.02em",
+      }}>My Cart</h2>
+      <p style={{ fontSize: "12px", color: T.textMuted, margin: "0 0 16px" }}>
+        {totalItems > 0 ? `${totalItems} item${totalItems !== 1 ? "s" : ""} in cart` : "Cart is empty"}
+      </p>
+
+      {cart.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "60px 20px" }}>
+          <div style={{ width: "80px", height: "80px", margin: "0 auto 16px", borderRadius: "20px", background: T.cream, display: "flex", alignItems: "center", justifyContent: "center", color: T.emerald }}>
+            <Icons.Cart size={36} />
+          </div>
+          <p style={{ fontWeight: 800, fontSize: "16px", color: T.emerald, margin: "0 0 4px" }}>Your cart is empty</p>
+          <p style={{ fontSize: "12px", color: T.textMuted, margin: 0 }}>Browse the menu to add items</p>
+        </div>
+      ) : (
+        <>
+          {cart.map(item => (
+            <div key={item.menuItemId + JSON.stringify(item.variants)} style={{
+              background: T.ivory,
+              borderRadius: "16px",
+              padding: "12px",
+              marginBottom: "10px",
+              border: `1px solid ${T.creamDark}`,
+              display: "flex",
+              gap: "12px",
+              boxShadow: "0 2px 6px rgba(15,61,46,0.05)",
+            }}>
+              <div style={{ flexShrink: 0 }}>
+                {item.imageUrl ? (
+                  <img src={getThumbnailUrl(item.imageUrl)} alt={item.name} draggable={false} style={{ width: "60px", height: "60px", borderRadius: "12px", objectFit: "cover", pointerEvents: "none" }} />
+                ) : (
+                  <ItemImagePlaceholder name={item.name} size={60} />
+                )}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontWeight: 800, fontSize: "14px", color: T.text, margin: "0 0 2px" }}>{item.name}</p>
+                {item.variants && item.variants.length > 0 && item.variants.some(v => v.selected.length > 0) && (
+                  <p style={{ fontSize: "10px", color: T.textMuted, margin: "0 0 4px", fontWeight: 600 }}>
+                    {item.variants.flatMap(v => v.selected).join(", ")}
+                  </p>
+                )}
+                <p style={{ fontWeight: 800, fontSize: "13px", color: T.emerald, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
+                  ₹{((item.price + (item.totalPriceModifier || 0)) * item.quantity).toFixed(0)}
+                </p>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", background: T.emerald, borderRadius: "10px", overflow: "hidden", height: "fit-content", boxShadow: "0 3px 8px rgba(15,61,46,0.2)" }}>
+                <button onClick={() => onUpdateQty(item.menuItemId + JSON.stringify(item.variants), -1)} style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icons.Minus size={12} /></button>
+                <span style={{ fontWeight: 900, color: T.gold, fontSize: "12px", minWidth: "20px", textAlign: "center", fontFamily: "'DM Sans', sans-serif" }}>{item.quantity}</span>
+                <button onClick={() => onUpdateQty(item.menuItemId + JSON.stringify(item.variants), 1)} style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icons.Plus size={12} /></button>
+              </div>
+            </div>
+          ))}
+
+          <div style={{ background: T.ivory, borderRadius: "16px", padding: "14px", marginTop: "14px", border: `1px solid ${T.creamDark}`, boxShadow: "0 2px 6px rgba(15,61,46,0.05)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: T.textMuted, marginBottom: "5px" }}>
+              <span>Subtotal</span>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: T.text }}>₹{subtotal.toFixed(0)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: T.textMuted, paddingBottom: "9px", borderBottom: `1px dashed ${T.creamDark}`, marginBottom: "9px" }}>
+              <span>Taxes (5%)</span>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: T.text }}>₹{tax.toFixed(0)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "16px", color: T.emerald }}>
+              <span>Total</span>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontVariantNumeric: "tabular-nums" }}>₹{total.toFixed(0)}</span>
+            </div>
+          </div>
+
+          <div style={{ marginTop: "14px" }}>
+            <Button variant="primary" size="xl" fullWidth onClick={onPlaceOrder} loading={isPlacing}>
+              Proceed to Checkout
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─────────── Order Tab View ───────────
+function OrderView({ order, queuePosition }: { order: Order | null; queuePosition?: number }) {
+  if (!order) {
+    return (
+      <div style={{ padding: "16px 14px 100px" }}>
+        <h2 style={{
+          fontWeight: 800, fontSize: "22px", color: T.emerald, margin: "0 0 4px",
+          fontFamily: "'Playfair Display', serif", letterSpacing: "-0.02em",
+        }}>My Orders</h2>
+        <p style={{ fontSize: "12px", color: T.textMuted, margin: "0 0 16px" }}>Your active orders will appear here</p>
+
+        <div style={{ textAlign: "center", padding: "60px 20px" }}>
+          <div style={{ width: "80px", height: "80px", margin: "0 auto 16px", borderRadius: "20px", background: T.cream, display: "flex", alignItems: "center", justifyContent: "center", color: T.emerald }}>
+            <Icons.Receipt size={36} />
+          </div>
+          <p style={{ fontWeight: 800, fontSize: "16px", color: T.emerald, margin: "0 0 4px" }}>No active orders</p>
+          <p style={{ fontSize: "12px", color: T.textMuted, margin: 0 }}>Place an order to see live tracking here</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ paddingBottom: "100px" }}>
+      <div style={{ padding: "16px 14px 0" }}>
+        <h2 style={{
+          fontWeight: 800, fontSize: "22px", color: T.emerald, margin: "0 0 4px",
+          fontFamily: "'Playfair Display', serif", letterSpacing: "-0.02em",
+        }}>My Order</h2>
+        <p style={{ fontSize: "12px", color: T.textMuted, margin: "0 0 12px" }}>Live tracking</p>
+      </div>
+      <LiveOrderTracker order={order} queuePosition={queuePosition} />
+    </div>
+  );
+}
+
+// ─────────── Info Tab View ───────────
+function InfoView({ table }: { table: Table | null }) {
+  return (
+    <div style={{ padding: "16px 14px 100px" }}>
+      <h2 style={{
+        fontWeight: 800, fontSize: "22px", color: T.emerald, margin: "0 0 4px",
+        fontFamily: "'Playfair Display', serif", letterSpacing: "-0.02em",
+      }}>About Us</h2>
+      <p style={{ fontSize: "12px", color: T.textMuted, margin: "0 0 16px" }}>Golden Beans Cafe & Bistro</p>
+
+      <div style={{ background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, borderRadius: "20px", padding: "20px", marginBottom: "12px", boxShadow: "0 8px 20px rgba(15,61,46,0.25)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+          <img src="/logo-small.png" alt="GB" style={{ width: "48px", height: "48px", borderRadius: "12px" }} draggable={false} />
+          <div>
+            <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", fontWeight: 800, color: T.gold, margin: 0, letterSpacing: "-0.02em" }}>
+              Golden Beans
+            </p>
+            <p style={{ fontSize: "10px", color: "rgba(212,165,116,0.8)", margin: "2px 0 0", fontWeight: 600, letterSpacing: "0.1em" }}>
+              CAFE & BISTRO
+            </p>
+          </div>
+        </div>
+        <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.85)", margin: 0, lineHeight: 1.6 }}>
+          Premium 100% pure vegetarian cafe in Surat. Handcrafted coffee, fresh snacks, and authentic flavors.
+        </p>
+      </div>
+
+      {table && (
+        <div style={{ background: T.ivory, borderRadius: "16px", padding: "14px", marginBottom: "12px", border: `1px solid ${T.creamDark}`, display: "flex", alignItems: "center", gap: "12px" }}>
+          <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: T.cream, display: "flex", alignItems: "center", justifyContent: "center", color: T.emerald }}>
+            <Icons.ChairFill size={20} />
+          </div>
+          <div>
+            <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", margin: 0 }}>Your Table</p>
+            <p style={{ fontWeight: 800, fontSize: "14px", color: T.emerald, margin: "2px 0 0" }}>Table {table.tableNumber}</p>
+          </div>
+        </div>
+      )}
+
+      <div style={{ background: T.ivory, borderRadius: "16px", padding: "14px", marginBottom: "12px", border: `1px solid ${T.creamDark}`, display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: T.cream, display: "flex", alignItems: "center", justifyContent: "center", color: T.emerald }}>
+          <Icons.Phone size={18} />
+        </div>
+        <div>
+          <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", margin: 0 }}>Contact</p>
+          <p style={{ fontWeight: 800, fontSize: "14px", color: T.emerald, margin: "2px 0 0" }}>+91 XXXXX XXXXX</p>
+        </div>
+      </div>
+
+      <div style={{ background: T.ivory, borderRadius: "16px", padding: "14px", marginBottom: "12px", border: `1px solid ${T.creamDark}`, display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: T.cream, display: "flex", alignItems: "center", justifyContent: "center", color: T.emerald }}>
+          <Icons.Location size={18} />
+        </div>
+        <div>
+          <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", margin: 0 }}>Location</p>
+          <p style={{ fontWeight: 800, fontSize: "14px", color: T.emerald, margin: "2px 0 0" }}>Surat, Gujarat</p>
+        </div>
+      </div>
+
+      <div style={{ marginTop: "20px", textAlign: "center", padding: "16px" }}>
+        <Pill variant="success" size="md" icon={<Icons.Leaf size={11} />}>
+          100% Pure Vegetarian
+        </Pill>
+      </div>
+    </div>
+  );
+}
+
 // ─────────── MAIN ───────────
 export default function CustomerOrderPage() {
   const params = useParams();
@@ -831,10 +878,9 @@ export default function CustomerOrderPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [cart, setCart] = useState<ExtendedCartItem[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<BottomTab>("menu");
   const [isPlacing, setIsPlacing] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("");
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [showCustomerPopup, setShowCustomerPopup] = useState(false);
   const [customerData, setCustomerData] = useState<{ name: string; phone: string } | null>(null);
@@ -949,7 +995,6 @@ export default function CustomerOrderPage() {
   };
 
   const handlePlaceOrderClick = () => {
-    setIsCartOpen(false);
     if (customerData) placeOrder(customerData);
     else setShowCustomerPopup(true);
   };
@@ -965,7 +1010,6 @@ export default function CustomerOrderPage() {
     if (cart.length === 0) return;
     setIsPlacing(true);
     try {
-      // Convert cart to order items with variant info in notes
       const orderItems = cart.map(c => ({
         menuItemId: c.menuItemId,
         name: c.name,
@@ -987,6 +1031,7 @@ export default function CustomerOrderPage() {
       prevStatusRef.current = newOrder.status;
       localStorage.setItem("gb_active_table", tableId);
       localStorage.setItem("gb_active_order", newOrder._id);
+      setActiveTab("order"); // Switch to Order tab automatically
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Failed to place order");
     } finally { setIsPlacing(false); }
@@ -995,12 +1040,7 @@ export default function CustomerOrderPage() {
   const handleCancelled = () => { setExistingOrder(null); prevStatusRef.current = null; };
 
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
-  const totalCartValue = cart.reduce((s, i) => s + (i.price + (i.totalPriceModifier || 0)) * i.quantity, 0);
-  const activeCategoryItems = searchQuery
-    ? menu.flatMap(c => c.items as MenuItem[]).filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : (menu.find(c => c._id === activeCategoryId(activeCategory))?.items as MenuItem[] || []);
-
-  function activeCategoryId(id: string) { return id; }
+  const activeCategoryItems = (menu.find(c => c._id === activeCategory)?.items || []) as MenuItem[];
 
   if (error) {
     return (
@@ -1016,9 +1056,45 @@ export default function CustomerOrderPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: T.cream, display: "flex", flexDirection: "column", width: "100%", margin: "0 auto", overflowX: "hidden" }}>
+    <div className="customer-app" style={{ minHeight: "100vh", background: T.cream, display: "flex", flexDirection: "column", width: "100%", margin: "0 auto", overflowX: "hidden" }}>
       <style>{`
-        html, body { overflow-x: hidden; margin: 0; padding: 0; max-width: 100vw; }
+        html, body {
+          overflow-x: hidden;
+          margin: 0;
+          padding: 0;
+          max-width: 100vw;
+          touch-action: pan-y;
+          overscroll-behavior: none;
+        }
+
+        .customer-app {
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          user-select: none;
+          -webkit-touch-callout: none;
+          -webkit-tap-highlight-color: transparent;
+        }
+
+        .customer-app input, .customer-app textarea {
+          -webkit-user-select: text;
+          user-select: text;
+        }
+
+        .customer-app img {
+          -webkit-user-drag: none;
+          -khtml-user-drag: none;
+          -moz-user-drag: none;
+          -o-user-drag: none;
+          user-drag: none;
+          pointer-events: none;
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+          html, body {
+            -webkit-touch-callout: none;
+          }
+        }
       `}</style>
 
       {showCustomerPopup && <CustomerDataPopup onSubmit={handleCustomerDataSubmit} onSkip={() => { setShowCustomerPopup(false); placeOrder(); }} />}
@@ -1031,11 +1107,11 @@ export default function CustomerOrderPage() {
       <header style={{
         background: `linear-gradient(180deg, ${T.cream} 0%, ${T.ivory} 100%)`,
         position: "sticky", top: 0, zIndex: 30,
-        padding: "12px 16px 0",
+        padding: "12px 16px 12px",
       }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
           <div style={{ width: "40px", height: "40px", borderRadius: "12px", overflow: "hidden", background: T.emerald, flexShrink: 0 }}>
-            <img src="/logo-small.png" alt="GB" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+            <img src="/logo-small.png" alt="GB" draggable={false} style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }} />
           </div>
 
           <div style={{ flex: 1, textAlign: "center", padding: "0 12px" }}>
@@ -1047,146 +1123,150 @@ export default function CustomerOrderPage() {
             </p>
           </div>
 
-          <button style={{ width: "40px", height: "40px", borderRadius: "12px", background: T.emerald, color: T.gold, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <Icons.Search size={16} />
-          </button>
+          <div style={{ width: "40px", height: "40px", borderRadius: "12px", background: T.emerald, color: T.gold, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icons.Coffee size={16} />
+          </div>
         </div>
 
-        {/* Welcome */}
-        <div style={{ marginBottom: "14px" }}>
-          <p style={{ fontSize: "13px", color: T.textMuted, fontWeight: 600, margin: "0 0 2px" }}>
-            Welcome{customerData ? "," : "!"}
-          </p>
-          <h1 style={{
-            fontFamily: "'Playfair Display', serif",
-            fontSize: "26px", fontWeight: 800,
-            color: T.emerald, margin: 0,
-            letterSpacing: "-0.02em", lineHeight: 1.1,
-          }}>
-            {customerData?.name || "Order Now"} ☕
-          </h1>
-        </div>
+        {activeTab === "menu" && (
+          <div>
+            <p style={{ fontSize: "13px", color: T.textMuted, fontWeight: 600, margin: "0 0 2px" }}>
+              Welcome{customerData ? "," : "!"}
+            </p>
+            <h1 style={{
+              fontFamily: "'Playfair Display', serif",
+              fontSize: "24px", fontWeight: 800,
+              color: T.emerald, margin: 0,
+              letterSpacing: "-0.02em", lineHeight: 1.1,
+            }}>
+              {customerData?.name || "Order Now"} ☕
+            </h1>
+          </div>
+        )}
       </header>
 
-      {/* Live Order Tracker */}
-      {existingOrder && !["settled", "cancelled"].includes(existingOrder.status) && (
-        <LiveOrderTracker order={existingOrder} queuePosition={queuePosition} />
-      )}
+      {/* Main Tab Content */}
+      <main style={{ flex: 1, paddingBottom: "80px" }}>
+        {activeTab === "menu" && (
+          <div style={{ display: "flex", paddingBottom: "12px" }}>
+            {menu.length > 0 && (
+              <VerticalCategoryTabs
+                categories={menu}
+                activeCategoryId={activeCategory}
+                onSelect={setActiveCategory}
+              />
+            )}
 
-      {/* Main with Vertical Tabs */}
-      <main style={{ flex: 1, display: "flex", paddingBottom: "80px" }}>
-        {/* Vertical Category Tabs */}
-        {menu.length > 0 && (
-          <VerticalCategoryTabs
-            categories={menu}
-            activeCategoryId={activeCategory}
-            onSelect={setActiveCategory}
+            <div style={{ flex: 1, padding: "12px 14px 12px 12px" }}>
+              {loading ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Skeleton key={i} height="200px" style={{ borderRadius: "20px" }} />
+                  ))}
+                </div>
+              ) : activeCategoryItems.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 16px" }}>
+                  <div style={{ fontSize: "40px", marginBottom: "8px" }}>☕</div>
+                  <p style={{ fontWeight: 700, color: T.emerald, fontSize: "14px" }}>No items here yet</p>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  {activeCategoryItems.map((item, idx) => {
+                    const cartQty = cart.filter(c => c.menuItemId === item._id).reduce((s, c) => s + c.quantity, 0);
+                    return (
+                      <div key={item._id} style={{ animation: `gb-fadeInUp 0.3s ${idx * 0.05}s ease both` }}>
+                        <ProductCard item={item} cartQty={cartQty} onTap={() => setSelectedItem(item)} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "cart" && (
+          <CartView
+            cart={cart}
+            onUpdateQty={updateQty}
+            onPlaceOrder={handlePlaceOrderClick}
+            isPlacing={isPlacing}
           />
         )}
 
-        {/* Products Grid */}
-        <div style={{ flex: 1, padding: "12px 14px 12px 12px" }}>
-          {loading ? (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-              {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} height="200px" style={{ borderRadius: "20px" }} />
-              ))}
-            </div>
-          ) : activeCategoryItems.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "40px 16px" }}>
-              <div style={{ fontSize: "40px", marginBottom: "8px" }}>☕</div>
-              <p style={{ fontWeight: 700, color: T.emerald, fontSize: "14px" }}>No items here yet</p>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-              {activeCategoryItems.map((item, idx) => {
-                const cartQty = cart.filter(c => c.menuItemId === item._id).reduce((s, c) => s + c.quantity, 0);
-                return (
-                  <div key={item._id} style={{ animation: `gb-fadeInUp 0.3s ${idx * 0.05}s ease both` }}>
-                    <ProductCard item={item} cartQty={cartQty} onTap={() => setSelectedItem(item)} />
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        {activeTab === "order" && (
+          <OrderView order={existingOrder} queuePosition={queuePosition} />
+        )}
+
+        {activeTab === "info" && (
+          <InfoView table={table} />
+        )}
       </main>
 
       {/* Bottom Navigation */}
-      <nav style={{ position: "fixed", bottom: "16px", left: "50%", transform: "translateX(-50%)", background: T.emerald, borderRadius: "99px", padding: "8px", display: "flex", alignItems: "center", gap: "6px", boxShadow: "0 8px 32px rgba(15,61,46,0.4)", zIndex: 40 }}>
+      <nav style={{
+        position: "fixed", bottom: "12px", left: "50%", transform: "translateX(-50%)",
+        background: T.emerald, borderRadius: "99px",
+        padding: "6px",
+        display: "flex", alignItems: "center", gap: "4px",
+        boxShadow: "0 8px 32px rgba(15,61,46,0.4)",
+        zIndex: 40,
+        border: `1px solid rgba(212,165,116,0.2)`,
+      }}>
         {[
-          { id: "menu", icon: <Icons.Menu size={18} /> },
-          { id: "home", icon: <Icons.Home size={18} /> },
-          { id: "info", icon: <Icons.Coffee size={18} /> },
-        ].map(tab => (
-          <button key={tab.id} style={{ width: "44px", height: "44px", borderRadius: "50%", background: "transparent", color: "rgba(212,165,116,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {tab.icon}
-          </button>
-        ))}
-        <button
-          onClick={() => cart.length > 0 && setIsCartOpen(true)}
-          style={{
-            width: "52px", height: "52px",
-            borderRadius: "50%",
-            background: cart.length > 0 ? `linear-gradient(135deg, ${T.gold}, ${T.goldLight})` : "rgba(212,165,116,0.3)",
-            color: T.emerald,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            position: "relative",
-            boxShadow: cart.length > 0 ? "0 6px 20px rgba(212,165,116,0.5)" : "none",
-            transition: "all 250ms ease",
-          }}
-        >
-          <Icons.Cart size={20} />
-          {totalCartItems > 0 && (
-            <div style={{
-              position: "absolute", top: "-4px", right: "-4px",
-              minWidth: "20px", height: "20px",
-              padding: "0 5px",
-              borderRadius: "99px",
-              background: T.danger,
-              color: "white",
-              fontSize: "10px", fontWeight: 800,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              border: "2px solid white",
-              fontFamily: "'DM Sans', sans-serif",
-            }}>
-              {totalCartItems}
-            </div>
-          )}
-        </button>
+          { id: "menu" as BottomTab, icon: <Icons.Menu size={18} />, label: "Menu" },
+          { id: "order" as BottomTab, icon: <Icons.Receipt size={18} />, label: "Order", badge: existingOrder ? "•" : null },
+          { id: "cart" as BottomTab, icon: <Icons.Cart size={18} />, label: "Cart", badge: totalCartItems > 0 ? totalCartItems : null },
+          { id: "info" as BottomTab, icon: <Icons.Coffee size={18} />, label: "Info" },
+        ].map(tab => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                background: isActive ? `linear-gradient(135deg, ${T.gold}, ${T.goldLight})` : "transparent",
+                color: isActive ? T.emerald : "rgba(212,165,116,0.7)",
+                borderRadius: "99px",
+                padding: isActive ? "10px 16px" : "10px 12px",
+                display: "flex", alignItems: "center", gap: "6px",
+                cursor: "pointer",
+                transition: "all 200ms cubic-bezier(0.16, 1, 0.3, 1)",
+                fontFamily: "'Inter', sans-serif",
+                fontWeight: 800, fontSize: "11px",
+                position: "relative",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {tab.icon}
+              {isActive && <span>{tab.label}</span>}
+              {tab.badge !== null && tab.badge !== undefined && !isActive && (
+                <div style={{
+                  position: "absolute", top: "4px", right: "4px",
+                  minWidth: typeof tab.badge === "number" ? "16px" : "8px",
+                  height: typeof tab.badge === "number" ? "16px" : "8px",
+                  padding: typeof tab.badge === "number" ? "0 4px" : "0",
+                  borderRadius: "99px",
+                  background: T.danger,
+                  color: "white",
+                  fontSize: "9px", fontWeight: 800,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  border: `2px solid ${T.emerald}`,
+                  fontFamily: "'DM Sans', sans-serif",
+                }}>
+                  {typeof tab.badge === "number" ? tab.badge : ""}
+                </div>
+              )}
+            </button>
+          );
+        })}
       </nav>
 
-      {/* Cart Total Floating */}
-      {cart.length > 0 && (
-        <div style={{
-          position: "fixed", bottom: "84px", left: "50%", transform: "translateX(-50%)",
-          background: T.gold, color: T.emerald,
-          padding: "5px 14px", borderRadius: "99px",
-          fontWeight: 800, fontSize: "12px",
-          boxShadow: "0 4px 14px rgba(212,165,116,0.5)",
-          zIndex: 41,
-          fontFamily: "'DM Sans', sans-serif",
-        }}>
-          ₹{totalCartValue.toFixed(0)}
-        </div>
-      )}
-
-      {/* Modals */}
       <ProductDetailModal
         item={selectedItem}
         isOpen={!!selectedItem}
         onClose={() => setSelectedItem(null)}
         onAddToCart={handleAddToCart}
-      />
-
-      <CartDrawer
-        cart={cart}
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        onUpdateQty={updateQty}
-        onPlaceOrder={handlePlaceOrderClick}
-        isPlacing={isPlacing}
-        existingOrder={existingOrder}
       />
     </div>
   );
