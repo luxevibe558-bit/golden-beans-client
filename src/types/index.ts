@@ -15,6 +15,19 @@ export interface RecipeItem {
   quantityUsed: number;
 }
 
+export interface VariantOption {
+  name: string;
+  priceModifier: number;
+  isDefault?: boolean;
+}
+
+export interface VariantGroup {
+  name: string;
+  required: boolean;
+  multiSelect: boolean;
+  options: VariantOption[];
+}
+
 export interface MenuItem {
   _id: string;
   name: string;
@@ -22,11 +35,15 @@ export interface MenuItem {
   price: number;
   category: Category | string;
   imageUrl: string;
+  imagePublicId?: string;
   isVeg: boolean;
   isAvailable: boolean;
   preparationTime: number;
   tags: string[];
   recipe: RecipeItem[];
+  variantGroups?: VariantGroup[];
+  rating?: number;
+  reviewCount?: number;
   sortOrder: number;
 }
 
