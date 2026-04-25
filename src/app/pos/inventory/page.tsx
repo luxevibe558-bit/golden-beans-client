@@ -3,303 +3,406 @@
 import { useState, useEffect, useCallback } from "react";
 import POSSidebar from "@/components/POSSidebar";
 import { inventoryApi } from "@/lib/api";
-import type { Ingredient } from "@/types";
+import { Card, Pill, StatCard, EmptyState, Skeleton, Icons, Button, Input, Modal } from "@/components/PremiumUI";
+
+const T = {
+  emerald: "#0F3D2E",
+  emeraldMid: "#1A5340",
+  emeraldLight: "#2D7A5F",
+  gold: "#D4A574",
+  goldDark: "#B08550",
+  cream: "#FAF6F0",
+  ivory: "#FFFBF5",
+  border: "#E5DCC9",
+  text: "#1A1208",
+  textMuted: "#7A6B54",
+  textDim: "#A89B80",
+  success: "#4A8B4A",
+  danger: "#C0392B",
+  warning: "#D4A574",
+};
+
+interface Ingredient {
+  _id: string;
+  name: string;
+  unit: string;
+  currentStock: number;
+  lowStockThreshold: number;
+  costPerUnit: number;
+}
+
+interface IngredientsResponse {
+  data: { data: Ingredient[] };
+}
+
+function getStockStatus(current: number, threshold: number) {
+  if (current === 0) return { label: "Out of Stock", color: T.danger, variant: "danger" as const };
+  if (current < threshold) return { label: "Low Stock", color: T.warning, variant: "warning" as const };
+  if (current < threshold * 2) return { label: "Adequate", color: T.success, variant: "success" as const };
+  return { label: "Well Stocked", color: T.success, variant: "success" as const };
+}
 
 export default function InventoryPage() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "low">("all");
-  const [showForm, setShowForm] = useState(false);
-  const [editItem, setEditItem] = useState<Ingredient | null>(null);
-  const [restockItem, setRestockItem] = useState<Ingredient | null>(null);
-  const [restockQty, setRestockQty] = useState("");
-  const [toast, setToast] = useState("");
-  const [form, setForm] = useState({
-    name: "", unit: "grams", stockQuantity: "", lowStockThreshold: "", costPerUnit: "",
-  });
-
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "low" | "out">("all");
+  const [restockModal, setRestockModal] = useState<Ingredient | null>(null);
+  const [restockAmount, setRestockAmount] = useState("");
+  const [editModal, setEditModal] = useState<Ingredient | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", unit: "", currentStock: "", lowStockThreshold: "", costPerUnit: "" });
+  const [addModal, setAddModal] = useState(false);
+  const [addForm, setAddForm] = useState({ name: "", unit: "grams", currentStock: "", lowStockThreshold: "", costPerUnit: "" });
 
   const load = useCallback(async () => {
     try {
-      const res = await inventoryApi.getAll();
+      const res = await (inventoryApi as { getIngredients: () => Promise<IngredientsResponse> }).getIngredients();
       setIngredients(res.data.data);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const openCreate = () => {
-    setEditItem(null);
-    setForm({ name: "", unit: "grams", stockQuantity: "", lowStockThreshold: "100", costPerUnit: "" });
-    setShowForm(true);
-  };
-
-  const openEdit = (item: Ingredient) => {
-    setEditItem(item);
-    setForm({
-      name: item.name, unit: item.unit,
-      stockQuantity: item.stockQuantity.toString(),
-      lowStockThreshold: item.lowStockThreshold.toString(),
-      costPerUnit: item.costPerUnit.toString(),
-    });
-    setShowForm(true);
-  };
-
-  const handleSave = async () => {
-    if (!form.name) return alert("Name required");
-    try {
-      const payload = {
-        ...form,
-        stockQuantity: parseFloat(form.stockQuantity) || 0,
-        lowStockThreshold: parseFloat(form.lowStockThreshold) || 100,
-        costPerUnit: parseFloat(form.costPerUnit) || 0,
-      };
-      if (editItem) {
-        await inventoryApi.update(editItem._id, payload);
-        showToast("✅ Updated");
-      } else {
-        await inventoryApi.create(payload);
-        showToast("✅ Ingredient added");
-      }
-      setShowForm(false);
-      load();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Error";
-      showToast(`❌ ${msg}`);
-    }
-  };
-
   const handleRestock = async () => {
-    if (!restockItem || !restockQty) return;
+    if (!restockModal || !restockAmount) return;
     try {
-      await inventoryApi.restock(restockItem._id, parseFloat(restockQty));
-      showToast(`✅ Restocked ${restockItem.name}`);
-      setRestockItem(null);
-      setRestockQty("");
+      const newStock = restockModal.currentStock + parseFloat(restockAmount);
+      await (inventoryApi as { updateIngredient: (id: string, data: { currentStock: number }) => Promise<unknown> }).updateIngredient(restockModal._id, { currentStock: newStock });
+      setRestockModal(null);
+      setRestockAmount("");
       load();
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Error";
-      showToast(`❌ ${msg}`);
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  const handleDelete = async (item: Ingredient) => {
-    if (!confirm(`Delete "${item.name}"?`)) return;
+  const handleEdit = async () => {
+    if (!editModal) return;
     try {
-      await inventoryApi.delete(item._id);
-      showToast("🗑 Deleted");
+      await (inventoryApi as { updateIngredient: (id: string, data: Record<string, unknown>) => Promise<unknown> }).updateIngredient(editModal._id, {
+        name: editForm.name,
+        unit: editForm.unit,
+        currentStock: parseFloat(editForm.currentStock) || 0,
+        lowStockThreshold: parseFloat(editForm.lowStockThreshold) || 0,
+        costPerUnit: parseFloat(editForm.costPerUnit) || 0,
+      });
+      setEditModal(null);
       load();
     } catch (e) { console.error(e); }
   };
 
-  const lowCount = ingredients.filter((i) => i.stockQuantity <= i.lowStockThreshold).length;
-  const displayed = filter === "low"
-    ? ingredients.filter((i) => i.stockQuantity <= i.lowStockThreshold)
-    : ingredients;
+  const handleAdd = async () => {
+    if (!addForm.name) return;
+    try {
+      await (inventoryApi as { createIngredient: (data: Record<string, unknown>) => Promise<unknown> }).createIngredient({
+        name: addForm.name,
+        unit: addForm.unit,
+        currentStock: parseFloat(addForm.currentStock) || 0,
+        lowStockThreshold: parseFloat(addForm.lowStockThreshold) || 0,
+        costPerUnit: parseFloat(addForm.costPerUnit) || 0,
+      });
+      setAddModal(false);
+      setAddForm({ name: "", unit: "grams", currentStock: "", lowStockThreshold: "", costPerUnit: "" });
+      load();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this ingredient permanently?")) return;
+    try {
+      await (inventoryApi as { deleteIngredient: (id: string) => Promise<unknown> }).deleteIngredient(id);
+      load();
+    } catch (e) { console.error(e); }
+  };
+
+  const openEdit = (ing: Ingredient) => {
+    setEditForm({
+      name: ing.name,
+      unit: ing.unit,
+      currentStock: String(ing.currentStock),
+      lowStockThreshold: String(ing.lowStockThreshold),
+      costPerUnit: String(ing.costPerUnit),
+    });
+    setEditModal(ing);
+  };
+
+  const filtered = ingredients
+    .filter(i => i.name.toLowerCase().includes(search.toLowerCase()))
+    .filter(i => {
+      if (filter === "low") return i.currentStock < i.lowStockThreshold && i.currentStock > 0;
+      if (filter === "out") return i.currentStock === 0;
+      return true;
+    });
+
+  const total = ingredients.length;
+  const lowCount = ingredients.filter(i => i.currentStock < i.lowStockThreshold && i.currentStock > 0).length;
+  const outCount = ingredients.filter(i => i.currentStock === 0).length;
+  const totalValue = ingredients.reduce((s, i) => s + i.currentStock * i.costPerUnit, 0);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div style={{ minHeight: "100vh", background: T.cream, display: "flex" }}>
       <POSSidebar />
-      <div className="flex-1 ml-16 lg:ml-56 overflow-hidden flex flex-col">
-        <header className="bg-white border-b border-surface-200 px-6 py-4 flex-shrink-0 flex items-center justify-between">
-          <div>
-            <h1 className="font-display font-bold text-surface-900 text-xl">Inventory</h1>
-            <div className="flex gap-3 mt-1">
-              <span className="text-xs text-surface-500">{ingredients.length} ingredients</span>
-              {lowCount > 0 && (
-                <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
-                  ⚠️ {lowCount} low stock
-                </span>
-              )}
+
+      <div style={{ flex: 1, marginLeft: "64px", display: "flex", flexDirection: "column" }}>
+        <header style={{
+          background: T.ivory,
+          borderBottom: `1px solid ${T.border}`,
+          padding: "20px 24px",
+          boxShadow: "0 1px 2px rgba(15,61,46,0.04)",
+        }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
+            <div>
+              <h1 style={{
+                fontFamily: "'Playfair Display', serif",
+                fontSize: "28px", fontWeight: 800,
+                color: T.emerald, margin: "0 0 4px",
+                letterSpacing: "-0.02em", lineHeight: 1.1,
+              }}>
+                Inventory
+              </h1>
+              <p style={{ fontSize: "12px", color: T.textMuted, margin: 0, fontWeight: 500 }}>
+                Track ingredients, stock levels, and inventory value
+              </p>
             </div>
+
+            <Button variant="primary" icon={<Icons.Plus size={14} />} onClick={() => setAddModal(true)}>
+              Add Ingredient
+            </Button>
           </div>
-          <div className="flex gap-2">
-            <div className="flex rounded-xl overflow-hidden border border-surface-200">
-              <button
-                onClick={() => setFilter("all")}
-                className={`px-3 py-1.5 text-xs font-semibold ${filter === "all" ? "bg-surface-950 text-white" : "bg-white text-surface-600"}`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => setFilter("low")}
-                className={`px-3 py-1.5 text-xs font-semibold ${filter === "low" ? "bg-red-600 text-white" : "bg-white text-surface-600"}`}
-              >
-                Low Stock {lowCount > 0 && `(${lowCount})`}
-              </button>
-            </div>
-            <button onClick={openCreate} className="btn-primary text-sm">+ Add Ingredient</button>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
+            <StatCard label="Total Items" value={total} icon={<Icons.Box size={18} />} variant="default" />
+            <StatCard label="Low Stock" value={lowCount} icon={<Icons.Bell size={18} />} variant="warning" subtitle="Need reorder" />
+            <StatCard label="Out of Stock" value={outCount} icon={<Icons.Close size={18} />} variant="danger" subtitle="Critical" />
+            <StatCard label="Total Value" value={`₹${totalValue.toFixed(0)}`} icon={<Icons.Money size={18} />} variant="gold" subtitle="Stock worth" />
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <div className="space-y-2">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton h-16 rounded-xl" />)}</div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-surface-100 shadow-card overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-surface-50 border-b border-surface-100">
-                  <tr>
-                    <th className="text-left px-5 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wide">Ingredient</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wide">Stock</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wide hidden md:table-cell">Low Threshold</th>
-                    <th className="text-right px-5 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wide hidden lg:table-cell">Cost/Unit</th>
-                    <th className="text-center px-5 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wide">Status</th>
-                    <th className="text-center px-5 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wide">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface-50">
-                  {displayed.map((item) => {
-                    const isLow = item.stockQuantity <= item.lowStockThreshold;
-                    const pct = Math.min(100, (item.stockQuantity / (item.lowStockThreshold * 3)) * 100);
-                    return (
-                      <tr key={item._id} className={`hover:bg-surface-50 transition-colors ${isLow ? "bg-red-50/30" : ""}`}>
-                        <td className="px-5 py-3">
-                          <p className="font-semibold text-surface-900 text-sm">{item.name}</p>
-                          <p className="text-xs text-surface-400">{item.unit}</p>
-                        </td>
-                        <td className="px-5 py-3 text-right">
-                          <div className="flex flex-col items-end gap-1">
-                            <span className={`font-bold text-sm ${isLow ? "text-red-600" : "text-surface-900"}`}>
-                              {item.stockQuantity} {item.unit}
-                            </span>
-                            <div className="w-24 h-1.5 bg-surface-100 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${isLow ? "bg-red-500" : pct > 60 ? "bg-green-500" : "bg-amber-500"}`}
-                                style={{ width: `${pct}%` }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 text-right hidden md:table-cell">
-                          <span className="text-sm text-surface-600">{item.lowStockThreshold} {item.unit}</span>
-                        </td>
-                        <td className="px-5 py-3 text-right hidden lg:table-cell">
-                          <span className="text-sm text-surface-600">₹{item.costPerUnit}</span>
-                        </td>
-                        <td className="px-5 py-3 text-center">
-                          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${isLow ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
-                            {isLow ? "⚠️ Low" : "✓ OK"}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              onClick={() => { setRestockItem(item); setRestockQty(""); }}
-                              className="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-semibold transition-colors"
-                            >
-                              + Restock
-                            </button>
-                            <button
-                              onClick={() => openEdit(item)}
-                              className="p-1.5 rounded-lg hover:bg-surface-100 text-surface-500 text-sm"
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              onClick={() => handleDelete(item)}
-                              className="p-1.5 rounded-lg hover:bg-red-50 text-surface-500 hover:text-red-500 text-sm"
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {displayed.length === 0 && (
-                <div className="text-center py-12 text-surface-400">
-                  <p>No ingredients found</p>
-                </div>
-              )}
+        <div style={{ padding: "16px 24px 0" }}>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ flex: 1, minWidth: "240px" }}>
+              <Input icon={<Icons.Search size={14} />} placeholder="Search ingredients..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
-          )}
+            <div style={{ display: "flex", gap: "6px", background: T.ivory, padding: "4px", borderRadius: "12px", border: `1px solid ${T.border}` }}>
+              {[
+                { id: "all", label: "All", count: total },
+                { id: "low", label: "Low", count: lowCount },
+                { id: "out", label: "Out", count: outCount },
+              ].map(({ id, label, count }) => (
+                <button
+                  key={id}
+                  onClick={() => setFilter(id as typeof filter)}
+                  style={{
+                    padding: "8px 14px", borderRadius: "8px",
+                    fontSize: "12px", fontWeight: 700,
+                    background: filter === id ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : "transparent",
+                    color: filter === id ? T.gold : T.textMuted,
+                    cursor: "pointer", transition: "all 150ms",
+                    fontFamily: "'Inter', sans-serif",
+                  }}
+                >
+                  {label} <span style={{ opacity: 0.7, marginLeft: "3px", fontFamily: "'DM Sans', sans-serif" }}>{count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
+
+        <main style={{ flex: 1, padding: "16px 24px 24px", overflowY: "auto" }}>
+          {loading ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} height="68px" style={{ borderRadius: "12px" }} />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              icon={<Icons.Box size={32} color={T.emerald} />}
+              title={search ? "No ingredients found" : "Start tracking your inventory"}
+              description={search ? "Try a different search term." : "Add your first ingredient to get started."}
+              action={!search && (
+                <Button variant="primary" icon={<Icons.Plus size={14} />} onClick={() => setAddModal(true)}>
+                  Add First Ingredient
+                </Button>
+              )}
+            />
+          ) : (
+            <Card padding="none">
+              {/* Table Header */}
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 2fr) 100px 100px 100px 110px 130px",
+                gap: "12px",
+                padding: "12px 18px",
+                borderBottom: `1px solid ${T.border}`,
+                background: T.cream,
+                borderRadius: "16px 16px 0 0",
+              }}>
+                {["Ingredient", "Stock", "Low at", "Cost/Unit", "Status", "Actions"].map(h => (
+                  <span key={h} style={{ fontSize: "10px", fontWeight: 800, color: T.textMuted, letterSpacing: "0.08em", textTransform: "uppercase" }}>{h}</span>
+                ))}
+              </div>
+
+              {/* Rows */}
+              {filtered.map((ing, idx) => {
+                const status = getStockStatus(ing.currentStock, ing.lowStockThreshold);
+                return (
+                  <div
+                    key={ing._id}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 2fr) 100px 100px 100px 110px 130px",
+                      gap: "12px",
+                      padding: "14px 18px",
+                      borderBottom: idx === filtered.length - 1 ? "none" : `1px solid ${T.border}`,
+                      alignItems: "center",
+                      transition: "background 150ms",
+                      animation: `gb-fadeInUp 0.3s ${idx * 0.03}s cubic-bezier(0.16, 1, 0.3, 1) both`,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = T.cream; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = ""; }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: "14px", fontWeight: 700, color: T.text, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {ing.name}
+                      </p>
+                    </div>
+                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "13px", fontWeight: 700, color: T.text, fontVariantNumeric: "tabular-nums" }}>
+                      {ing.currentStock} <span style={{ color: T.textDim, fontWeight: 600 }}>{ing.unit}</span>
+                    </span>
+                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "12px", color: T.textMuted, fontVariantNumeric: "tabular-nums" }}>
+                      {ing.lowStockThreshold} {ing.unit}
+                    </span>
+                    <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "13px", fontWeight: 700, color: T.emerald, fontVariantNumeric: "tabular-nums" }}>
+                      ₹{ing.costPerUnit}
+                    </span>
+                    <Pill variant={status.variant} size="sm">
+                      {status.label}
+                    </Pill>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <Button size="sm" variant="primary" onClick={() => setRestockModal(ing)} icon={<Icons.Plus size={11} />}>
+                        Restock
+                      </Button>
+                      <button
+                        onClick={() => openEdit(ing)}
+                        style={{
+                          width: "30px", height: "30px",
+                          borderRadius: "8px",
+                          background: T.cream, border: `1px solid ${T.border}`,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          cursor: "pointer", color: T.emerald, transition: "all 150ms",
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = T.emerald; e.currentTarget.style.color = T.gold; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = T.cream; e.currentTarget.style.color = T.emerald; }}
+                      >
+                        <Icons.Edit size={13} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(ing._id)}
+                        style={{
+                          width: "30px", height: "30px",
+                          borderRadius: "8px",
+                          background: T.cream, border: `1px solid ${T.border}`,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          cursor: "pointer", color: T.danger, transition: "all 150ms",
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = "#FCE8E6"; e.currentTarget.style.borderColor = T.danger; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = T.cream; e.currentTarget.style.borderColor = T.border; }}
+                      >
+                        <Icons.Trash size={13} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </Card>
+          )}
+        </main>
       </div>
 
-      {/* Add/Edit Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-scale-in">
-            <div className="p-5 border-b border-surface-100 flex items-center justify-between">
-              <h2 className="font-display font-bold">{editItem ? "Edit Ingredient" : "Add Ingredient"}</h2>
-              <button onClick={() => setShowForm(false)} className="text-surface-400 hover:text-surface-700">✕</button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-surface-700 mb-1">Name *</label>
-                <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-field" placeholder="Coffee Beans" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-surface-700 mb-1">Unit</label>
-                  <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} className="input-field">
-                    {["grams", "kg", "ml", "litre", "pcs", "dozen"].map((u) => <option key={u}>{u}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-surface-700 mb-1">Stock Qty</label>
-                  <input type="number" value={form.stockQuantity} onChange={(e) => setForm({ ...form, stockQuantity: e.target.value })} className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-surface-700 mb-1">Low Alert At</label>
-                  <input type="number" value={form.lowStockThreshold} onChange={(e) => setForm({ ...form, lowStockThreshold: e.target.value })} className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-surface-700 mb-1">Cost/Unit (₹)</label>
-                  <input type="number" value={form.costPerUnit} onChange={(e) => setForm({ ...form, costPerUnit: e.target.value })} className="input-field" />
-                </div>
-              </div>
-            </div>
-            <div className="p-5 pt-0 flex gap-3">
-              <button onClick={() => setShowForm(false)} className="btn-secondary flex-1">Cancel</button>
-              <button onClick={handleSave} className="btn-primary flex-1">{editItem ? "Save" : "Add"}</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Restock Modal */}
-      {restockItem && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm animate-scale-in">
-            <div className="p-5 border-b border-surface-100">
-              <h2 className="font-display font-bold">Restock: {restockItem.name}</h2>
-              <p className="text-sm text-surface-500">Current: {restockItem.stockQuantity} {restockItem.unit}</p>
+      <Modal isOpen={!!restockModal} onClose={() => setRestockModal(null)} title="Restock Ingredient">
+        {restockModal && (
+          <>
+            <div style={{ background: T.cream, borderRadius: "12px", padding: "12px 14px", marginBottom: "16px", border: `1px solid ${T.border}` }}>
+              <p style={{ fontSize: "11px", color: T.textMuted, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", margin: "0 0 4px" }}>Ingredient</p>
+              <p style={{ fontSize: "16px", fontWeight: 700, color: T.text, margin: "0 0 8px" }}>{restockModal.name}</p>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
+                <span style={{ color: T.textMuted }}>Current Stock:</span>
+                <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: T.text, fontVariantNumeric: "tabular-nums" }}>
+                  {restockModal.currentStock} {restockModal.unit}
+                </span>
+              </div>
             </div>
-            <div className="p-5">
-              <label className="block text-sm font-medium text-surface-700 mb-1">Add Quantity ({restockItem.unit})</label>
-              <input
-                type="number"
-                value={restockQty}
-                onChange={(e) => setRestockQty(e.target.value)}
-                className="input-field text-xl font-bold"
-                placeholder="500"
-                autoFocus
-              />
-              {restockQty && (
-                <p className="text-sm text-green-600 mt-1 font-medium">
-                  New stock: {restockItem.stockQuantity + parseFloat(restockQty)} {restockItem.unit}
-                </p>
-              )}
+            <Input
+              label={`Add Quantity (${restockModal.unit})`}
+              type="number"
+              placeholder={`e.g. 500`}
+              value={restockAmount}
+              onChange={e => setRestockAmount(e.target.value)}
+              autoFocus
+            />
+            <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
+              <Button variant="secondary" fullWidth onClick={() => setRestockModal(null)}>Cancel</Button>
+              <Button variant="primary" fullWidth onClick={handleRestock} disabled={!restockAmount}>
+                Confirm Restock
+              </Button>
             </div>
-            <div className="p-5 pt-0 flex gap-3">
-              <button onClick={() => setRestockItem(null)} className="btn-secondary flex-1">Cancel</button>
-              <button onClick={handleRestock} className="btn-primary flex-1">✓ Restock</button>
-            </div>
+          </>
+        )}
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal isOpen={!!editModal} onClose={() => setEditModal(null)} title="Edit Ingredient">
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <Input label="Name" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
+          <Input label="Unit" value={editForm.unit} onChange={e => setEditForm({ ...editForm, unit: e.target.value })} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+            <Input label="Current Stock" type="number" value={editForm.currentStock} onChange={e => setEditForm({ ...editForm, currentStock: e.target.value })} />
+            <Input label="Low Threshold" type="number" value={editForm.lowStockThreshold} onChange={e => setEditForm({ ...editForm, lowStockThreshold: e.target.value })} />
+          </div>
+          <Input label="Cost Per Unit (₹)" type="number" value={editForm.costPerUnit} onChange={e => setEditForm({ ...editForm, costPerUnit: e.target.value })} />
+          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+            <Button variant="secondary" fullWidth onClick={() => setEditModal(null)}>Cancel</Button>
+            <Button variant="primary" fullWidth onClick={handleEdit}>Save Changes</Button>
           </div>
         </div>
-      )}
+      </Modal>
 
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-surface-900 text-white px-6 py-3 rounded-2xl shadow-2xl z-50 animate-slide-up font-medium text-sm">
-          {toast}
+      {/* Add Modal */}
+      <Modal isOpen={addModal} onClose={() => setAddModal(false)} title="Add New Ingredient">
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <Input label="Name" placeholder="e.g. Coffee Beans" value={addForm.name} onChange={e => setAddForm({ ...addForm, name: e.target.value })} autoFocus />
+          <div>
+            <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "6px", letterSpacing: "0.5px", textTransform: "uppercase" }}>Unit</label>
+            <select
+              value={addForm.unit}
+              onChange={e => setAddForm({ ...addForm, unit: e.target.value })}
+              style={{
+                width: "100%", padding: "11px 14px", borderRadius: "10px",
+                border: `1.5px solid ${T.border}`, background: T.ivory,
+                color: T.text, fontSize: "14px", fontWeight: 500,
+                outline: "none", boxSizing: "border-box", fontFamily: "'Inter', sans-serif",
+              }}
+            >
+              {["grams", "kg", "ml", "liters", "pcs", "boxes"].map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+            <Input label="Initial Stock" type="number" placeholder="0" value={addForm.currentStock} onChange={e => setAddForm({ ...addForm, currentStock: e.target.value })} />
+            <Input label="Low Threshold" type="number" placeholder="0" value={addForm.lowStockThreshold} onChange={e => setAddForm({ ...addForm, lowStockThreshold: e.target.value })} />
+          </div>
+          <Input label="Cost Per Unit (₹)" type="number" placeholder="0" value={addForm.costPerUnit} onChange={e => setAddForm({ ...addForm, costPerUnit: e.target.value })} />
+          <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+            <Button variant="secondary" fullWidth onClick={() => setAddModal(false)}>Cancel</Button>
+            <Button variant="primary" fullWidth onClick={handleAdd} disabled={!addForm.name}>Add Ingredient</Button>
+          </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
