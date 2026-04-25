@@ -176,7 +176,7 @@ export default function InventoryPage() {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px" }}>
             <StatCard label="Total Items" value={total} icon={<Icons.Box size={18} />} variant="default" />
-            <StatCard label="Low Stock" value={lowCount} icon={<Icons.Bell size={18} />} variant="warning" subtitle="Need reorder" />
+            <StatCard label="Low Stock" value={lowCount} icon={<Icons.Bell size={18} />} variant="gold" subtitle="Need reorder" />
             <StatCard label="Out of Stock" value={outCount} icon={<Icons.Close size={18} />} variant="danger" subtitle="Critical" />
             <StatCard label="Total Value" value={`₹${totalValue.toFixed(0)}`} icon={<Icons.Money size={18} />} variant="gold" subtitle="Stock worth" />
           </div>
