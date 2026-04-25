@@ -3,16 +3,21 @@
 import { useEffect, useState } from "react";
 import type { Order } from "@/types";
 
-const BRAND = {
-  gold: "#C9A84C",
-  goldLight: "#E8C97A",
-  goldDark: "#A07830",
-  coffee: "#1A0E06",
-  coffeeMid: "#2C1A0E",
-  cream: "#FDF6E9",
-  creamDark: "#F0E0C0",
-  espresso: "#0D0700",
-  textMuted: "#9A7A5A",
+const T = {
+  emerald: "#0F3D2E",
+  emeraldMid: "#1A5340",
+  emeraldLight: "#2D7A5F",
+  sage: "#7A9E7E",
+  gold: "#D4A574",
+  goldLight: "#E8C895",
+  goldDark: "#B08550",
+  cream: "#FAF6F0",
+  creamDark: "#F0E8DA",
+  ivory: "#FFFBF5",
+  text: "#2C2418",
+  textMuted: "#7A6B54",
+  success: "#4A8B4A",
+  danger: "#C0392B",
 };
 
 interface Props {
@@ -21,10 +26,10 @@ interface Props {
 }
 
 const STAGES = [
-  { id: "pending_approval", label: "Confirming", icon: "⏳", description: "Staff reviewing" },
-  { id: "kotSent", label: "In Kitchen", icon: "👨‍🍳", description: "Chef preparing" },
-  { id: "partially_ready", label: "Almost Ready", icon: "🔔", description: "Some items done" },
-  { id: "ready", label: "Ready!", icon: "✅", description: "Coming to you" },
+  { id: "pending_approval", label: "Confirming", icon: "⏳" },
+  { id: "kotSent", label: "In Kitchen", icon: "👨‍🍳" },
+  { id: "partially_ready", label: "Almost", icon: "🔔" },
+  { id: "ready", label: "Ready!", icon: "✅" },
 ];
 
 function getStageIndex(status: string) {
@@ -40,8 +45,7 @@ function getStageIndex(status: string) {
 }
 
 function formatTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  return new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 }
 
 function useLiveTimer(startIso: string) {
@@ -68,121 +72,102 @@ export default function LiveOrderTracker({ order, queuePosition }: Props) {
 
   if (isCancelled) {
     return (
-      <div style={{ margin: "16px", padding: "20px", borderRadius: "24px", background: "linear-gradient(135deg,#7f1d1d,#991b1b)", border: "1px solid rgba(248,113,113,0.3)", textAlign: "center", boxShadow: "0 12px 32px rgba(220,38,38,0.3)" }}>
-        <div style={{ fontSize: "48px", marginBottom: "8px" }}>❌</div>
-        <p style={{ fontWeight: 900, fontSize: "18px", color: "white", margin: "0 0 4px", fontFamily: "'Playfair Display', serif" }}>Order Cancelled</p>
-        <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.7)", margin: 0, fontWeight: 600 }}>Please contact our staff if needed</p>
+      <div style={{ margin: "10px", padding: "16px", borderRadius: "16px", background: "linear-gradient(135deg, #7f1d1d, #991b1b)", textAlign: "center", boxShadow: "0 8px 20px rgba(192,57,43,0.3)" }}>
+        <div style={{ fontSize: "36px", marginBottom: "6px" }}>❌</div>
+        <p style={{ fontWeight: 900, fontSize: "14px", color: "white", margin: "0 0 3px", fontFamily: "'Playfair Display', serif" }}>Order Cancelled</p>
+        <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.7)", margin: 0, fontWeight: 600 }}>Contact staff if needed</p>
       </div>
     );
   }
 
   return (
-    <div style={{ margin: "16px", borderRadius: "24px", overflow: "hidden", background: `linear-gradient(145deg,${BRAND.coffee},${BRAND.coffeeMid})`, boxShadow: `0 12px 40px rgba(26,14,6,0.4)`, border: `1px solid rgba(201,168,76,0.2)` }}>
+    <div style={{ margin: "10px", borderRadius: "18px", overflow: "hidden", background: `linear-gradient(145deg, ${T.emerald}, ${T.emeraldMid})`, boxShadow: `0 8px 24px rgba(15,61,46,0.35)`, border: `1px solid rgba(212,165,116,0.2)` }}>
       <style>{`
-        @keyframes pulse-ready { 0%,100%{box-shadow:0 0 0 0 rgba(74,222,128,0.4)} 50%{box-shadow:0 0 0 16px rgba(74,222,128,0)} }
-        @keyframes bounce-subtle { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
-        @keyframes pulse-stage { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.08);opacity:0.9} }
+        @keyframes pulse-ready { 0%,100%{box-shadow:0 0 0 0 rgba(74,139,74,0.4)} 50%{box-shadow:0 0 0 12px rgba(74,139,74,0)} }
+        @keyframes bounce-subtle { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+        @keyframes pulse-stage { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.06);opacity:0.9} }
       `}</style>
 
-      {/* Top section — big status */}
-      <div style={{ padding: "20px 20px 0", textAlign: "center" }}>
-        <div style={{ display: "inline-block", animation: isReady ? "pulse-ready 1.5s infinite" : currentStage === 1 || currentStage === 2 ? "bounce-subtle 2s infinite" : "none", marginBottom: "8px" }}>
+      <div style={{ padding: "14px 14px 0", textAlign: "center" }}>
+        <div style={{ display: "inline-block", animation: isReady ? "pulse-ready 1.5s infinite" : currentStage === 1 || currentStage === 2 ? "bounce-subtle 2s infinite" : "none", marginBottom: "6px" }}>
           <div style={{
-            width: "72px", height: "72px", borderRadius: "50%",
+            width: "56px", height: "56px", borderRadius: "50%",
             background: isReady
-              ? "linear-gradient(135deg,#166534,#16a34a)"
-              : `linear-gradient(135deg,${BRAND.goldDark},${BRAND.gold})`,
+              ? "linear-gradient(135deg, #2d6a2d, #4A8B4A)"
+              : `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "36px", boxShadow: isReady
-              ? "0 8px 24px rgba(22,163,74,0.5)"
-              : `0 8px 24px rgba(201,168,76,0.4)`,
+            fontSize: "28px",
+            boxShadow: isReady ? "0 5px 14px rgba(74,139,74,0.5)" : `0 5px 14px rgba(212,165,116,0.4)`,
           }}>
             {STAGES[Math.min(currentStage, 3)].icon}
           </div>
         </div>
 
-        <p style={{ fontWeight: 900, fontSize: "22px", color: isReady ? "#4ade80" : BRAND.gold, margin: "4px 0", fontFamily: "'Playfair Display', serif" }}>
+        <p style={{ fontWeight: 900, fontSize: "18px", color: isReady ? "#86c686" : T.gold, margin: "3px 0", fontFamily: "'Playfair Display', serif" }}>
           {STAGES[Math.min(currentStage, 3)].label}
         </p>
-        <p style={{ fontSize: "13px", color: "rgba(201,168,76,0.7)", margin: "0 0 4px", fontWeight: 600 }}>
-          {STAGES[Math.min(currentStage, 3)].description}
-        </p>
 
-        {/* Info row */}
-        <div style={{ display: "flex", justifyContent: "center", gap: "12px", marginTop: "12px", flexWrap: "wrap" }}>
-          <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: "99px", padding: "4px 12px", display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ fontSize: "11px" }}>🎫</span>
-            <span style={{ fontSize: "11px", color: BRAND.gold, fontWeight: 800 }}>#{order.orderNumber}</span>
+        <div style={{ display: "flex", justifyContent: "center", gap: "6px", marginTop: "8px", flexWrap: "wrap" }}>
+          <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: "99px", padding: "3px 9px", display: "flex", alignItems: "center", gap: "4px" }}>
+            <span style={{ fontSize: "9px" }}>🎫</span>
+            <span style={{ fontSize: "10px", color: T.gold, fontWeight: 800 }}>#{order.orderNumber}</span>
           </div>
-          <div style={{ background: "rgba(255,255,255,0.08)", borderRadius: "99px", padding: "4px 12px", display: "flex", alignItems: "center", gap: "6px" }}>
-            <span style={{ fontSize: "11px" }}>⏱️</span>
-            <span style={{ fontSize: "11px", color: BRAND.gold, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+          <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: "99px", padding: "3px 9px", display: "flex", alignItems: "center", gap: "4px" }}>
+            <span style={{ fontSize: "9px" }}>⏱️</span>
+            <span style={{ fontSize: "10px", color: T.gold, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
               {mins}m {secs}s
             </span>
           </div>
           {queuePosition !== undefined && queuePosition > 0 && (
-            <div style={{ background: "rgba(96,165,250,0.15)", borderRadius: "99px", padding: "4px 12px", display: "flex", alignItems: "center", gap: "6px", border: "1px solid rgba(96,165,250,0.3)" }}>
-              <span style={{ fontSize: "11px" }}>📋</span>
-              <span style={{ fontSize: "11px", color: "#60a5fa", fontWeight: 800 }}>
-                {queuePosition === 1 ? "Next up!" : `${queuePosition} ahead of you`}
+            <div style={{ background: "rgba(96,165,250,0.2)", borderRadius: "99px", padding: "3px 9px", display: "flex", alignItems: "center", gap: "4px", border: "1px solid rgba(96,165,250,0.3)" }}>
+              <span style={{ fontSize: "9px" }}>📋</span>
+              <span style={{ fontSize: "10px", color: "#93c5fd", fontWeight: 800 }}>
+                {queuePosition === 1 ? "Next!" : `${queuePosition} ahead`}
               </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Progress stepper */}
-      <div style={{ padding: "24px 20px 16px", position: "relative" }}>
-        {/* Background line */}
-        <div style={{ position: "absolute", top: "32px", left: "36px", right: "36px", height: "3px", background: "rgba(255,255,255,0.1)", borderRadius: "3px" }} />
+      <div style={{ padding: "16px 14px 12px", position: "relative" }}>
+        <div style={{ position: "absolute", top: "27px", left: "28px", right: "28px", height: "2px", background: "rgba(255,255,255,0.1)", borderRadius: "2px" }} />
 
-        {/* Active progress line */}
         <div style={{
-          position: "absolute",
-          top: "32px",
-          left: "36px",
-          width: `calc(${(currentStage / (STAGES.length - 1)) * 100}% - ${36 / STAGES.length}px)`,
-          height: "3px",
-          background: isReady ? "linear-gradient(90deg,#166534,#16a34a)" : `linear-gradient(90deg,${BRAND.goldDark},${BRAND.gold})`,
-          borderRadius: "3px",
+          position: "absolute", top: "27px", left: "28px",
+          width: `calc((100% - 56px) * ${currentStage / (STAGES.length - 1)})`,
+          height: "2px",
+          background: isReady ? "linear-gradient(90deg, #2d6a2d, #4A8B4A)" : `linear-gradient(90deg, ${T.goldDark}, ${T.gold})`,
+          borderRadius: "2px",
           transition: "width 0.5s ease",
-          boxShadow: `0 0 12px ${isReady ? "#16a34a" : BRAND.gold}`,
+          boxShadow: `0 0 8px ${isReady ? "#4A8B4A" : T.gold}`,
         }} />
 
-        {/* Stages */}
         <div style={{ display: "flex", justifyContent: "space-between", position: "relative", zIndex: 1 }}>
           {STAGES.map((stage, idx) => {
             const isCompleted = idx < currentStage;
             const isCurrent = idx === currentStage;
-            const isPending = idx > currentStage;
 
             return (
-              <div key={stage.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px", flex: 1 }}>
+              <div key={stage.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px", flex: 1 }}>
                 <div style={{
-                  width: "36px", height: "36px", borderRadius: "50%",
+                  width: "30px", height: "30px", borderRadius: "50%",
                   background: isCompleted
-                    ? "linear-gradient(135deg,#166534,#16a34a)"
+                    ? "linear-gradient(135deg, #2d6a2d, #4A8B4A)"
                     : isCurrent
-                    ? `linear-gradient(135deg,${BRAND.goldDark},${BRAND.gold})`
-                    : "rgba(255,255,255,0.08)",
-                  border: `2px solid ${isCompleted ? "#16a34a" : isCurrent ? BRAND.gold : "rgba(255,255,255,0.15)"}`,
+                      ? `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`
+                      : "rgba(255,255,255,0.08)",
+                  border: `2px solid ${isCompleted ? "#4A8B4A" : isCurrent ? T.gold : "rgba(255,255,255,0.15)"}`,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "16px",
-                  boxShadow: isCurrent ? `0 4px 12px rgba(201,168,76,0.4)` : "none",
+                  fontSize: "13px",
                   animation: isCurrent ? "pulse-stage 2s infinite" : "none",
-                  transition: "all 0.3s ease",
                 }}>
-                  {isCompleted ? "✓" : isCurrent ? stage.icon : <span style={{ color: "rgba(201,168,76,0.3)", fontSize: "14px" }}>{idx + 1}</span>}
+                  {isCompleted ? "✓" : isCurrent ? stage.icon : <span style={{ color: "rgba(212,165,116,0.3)", fontSize: "11px" }}>{idx + 1}</span>}
                 </div>
                 <span style={{
-                  fontSize: "9px",
-                  fontWeight: 800,
-                  color: isCompleted ? "#4ade80" : isCurrent ? BRAND.gold : "rgba(201,168,76,0.4)",
-                  textAlign: "center",
-                  lineHeight: 1.3,
-                  letterSpacing: "0.3px",
+                  fontSize: "8px", fontWeight: 800,
+                  color: isCompleted ? "#86c686" : isCurrent ? T.gold : "rgba(212,165,116,0.4)",
+                  textAlign: "center", lineHeight: 1.2, letterSpacing: "0.3px",
                   textTransform: "uppercase",
-                  maxWidth: "70px",
                 }}>
                   {stage.label}
                 </span>
@@ -192,27 +177,26 @@ export default function LiveOrderTracker({ order, queuePosition }: Props) {
         </div>
       </div>
 
-      {/* Items preview */}
-      <div style={{ padding: "0 16px 16px" }}>
-        <div style={{ background: "rgba(255,255,255,0.05)", borderRadius: "16px", padding: "12px 14px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-            <span style={{ fontSize: "10px", fontWeight: 800, color: "rgba(201,168,76,0.6)", letterSpacing: "1px", textTransform: "uppercase" }}>Your Items</span>
-            <span style={{ fontSize: "11px", fontWeight: 800, color: BRAND.gold }}>
-              {order.items.filter(i => i.status === "ready" || i.status === "served").length} of {order.items.length} ready
+      <div style={{ padding: "0 12px 12px" }}>
+        <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: "12px", padding: "10px 11px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+            <span style={{ fontSize: "9px", fontWeight: 800, color: "rgba(212,165,116,0.6)", letterSpacing: "0.8px", textTransform: "uppercase" }}>Your Items</span>
+            <span style={{ fontSize: "10px", fontWeight: 800, color: T.gold }}>
+              {order.items.filter(i => i.status === "ready" || i.status === "served").length}/{order.items.length} ready
             </span>
           </div>
 
           {order.items.slice(0, 4).map(item => {
-            const dotColor = item.status === "ready" || item.status === "served" ? "#4ade80" : item.status === "preparing" ? BRAND.gold : "rgba(255,255,255,0.3)";
+            const dotColor = item.status === "ready" || item.status === "served" ? "#86c686" : item.status === "preparing" ? T.gold : "rgba(255,255,255,0.3)";
             return (
-              <div key={item._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 0" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
-                  <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: dotColor, flexShrink: 0, boxShadow: `0 0 6px ${dotColor}` }} />
-                  <span style={{ fontSize: "12px", color: "rgba(201,168,76,0.9)", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {item.name} <span style={{ color: "rgba(201,168,76,0.5)" }}>×{item.quantity}</span>
+              <div key={item._id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "3px 0", gap: "6px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", flex: 1, minWidth: 0 }}>
+                  <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: dotColor, flexShrink: 0, boxShadow: `0 0 4px ${dotColor}` }} />
+                  <span style={{ fontSize: "11px", color: "rgba(212,165,116,0.9)", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {item.name} <span style={{ color: "rgba(212,165,116,0.5)" }}>×{item.quantity}</span>
                   </span>
                 </div>
-                <span style={{ fontSize: "10px", fontWeight: 800, color: dotColor, textTransform: "uppercase", letterSpacing: "0.3px", flexShrink: 0, marginLeft: "8px" }}>
+                <span style={{ fontSize: "8px", fontWeight: 800, color: dotColor, textTransform: "uppercase", letterSpacing: "0.3px", flexShrink: 0 }}>
                   {item.status === "ready" || item.status === "served" ? "✓ Ready" : item.status === "preparing" ? "Cooking" : "Pending"}
                 </span>
               </div>
@@ -220,21 +204,20 @@ export default function LiveOrderTracker({ order, queuePosition }: Props) {
           })}
 
           {order.items.length > 4 && (
-            <p style={{ fontSize: "11px", color: "rgba(201,168,76,0.5)", margin: "6px 0 0", textAlign: "center", fontWeight: 700 }}>
-              +{order.items.length - 4} more items
+            <p style={{ fontSize: "10px", color: "rgba(212,165,116,0.5)", margin: "4px 0 0", textAlign: "center", fontWeight: 700 }}>
+              +{order.items.length - 4} more
             </p>
           )}
 
-          <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "8px", borderTop: "1px solid rgba(255,255,255,0.08)", marginTop: "8px" }}>
-            <span style={{ fontSize: "12px", fontWeight: 800, color: BRAND.gold }}>Total</span>
-            <span style={{ fontSize: "14px", fontWeight: 900, color: BRAND.gold }}>₹{order.totalAmount.toFixed(0)}</span>
+          <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "6px", borderTop: "1px solid rgba(255,255,255,0.08)", marginTop: "6px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 800, color: T.gold }}>Total</span>
+            <span style={{ fontSize: "13px", fontWeight: 900, color: T.gold }}>₹{order.totalAmount.toFixed(0)}</span>
           </div>
         </div>
       </div>
 
-      {/* Placed time */}
-      <div style={{ padding: "0 20px 16px" }}>
-        <p style={{ fontSize: "10px", color: "rgba(201,168,76,0.5)", margin: 0, textAlign: "center", fontWeight: 600 }}>
+      <div style={{ padding: "0 14px 12px" }}>
+        <p style={{ fontSize: "9px", color: "rgba(212,165,116,0.5)", margin: 0, textAlign: "center", fontWeight: 600 }}>
           Placed at {formatTime(order.createdAt)}
         </p>
       </div>
