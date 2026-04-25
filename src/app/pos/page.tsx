@@ -198,7 +198,7 @@ export default function POSPage() {
 
   const handleRejectApproval = async (orderId: string) => {
     try {
-      await orderApi.rejectOrder(orderId);
+      await orderApi.rejectOrder(orderId, "Rejected by staff");
       setPendingOrders(prev => prev.filter(o => o._id !== orderId));
       loadTables();
     } catch (e) { console.error(e); }
