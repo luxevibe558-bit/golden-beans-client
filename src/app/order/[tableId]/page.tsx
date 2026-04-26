@@ -1141,6 +1141,29 @@ export default function CustomerOrderPage() {
     if (securityStatus !== "passed") return;
     pollRef.current = setInterval(async () => {
       try {
+        // ─── SETTLEMENT WATCHER (Priority Check) ───
+        if (existingOrder) {
+          try {
+            const directRes = await orderApi.getOrder(existingOrder._id);
+            const directOrder: Order | null = directRes.data?.data;
+            if (directOrder) {
+              if (directOrder.status === "settled") {
+                localStorage.removeItem("gb_active_order");
+                localStorage.removeItem("gb_customer");
+                setSessionEndReason("Your bill has been settled. Thank you for visiting!");
+                setSecurityStatus("session_ended");
+                return;
+              }
+              if (directOrder.status === "cancelled") {
+                localStorage.removeItem("gb_active_order");
+                setSessionEndReason("Your order was cancelled.");
+                setSecurityStatus("session_ended");
+                return;
+              }
+            }
+          } catch { }
+        }
+
         const [orderRes, allRes] = await Promise.all([
           orderApi.getOrderByTable(tableId),
           orderApi.getKdsOrders(),
@@ -1148,24 +1171,6 @@ export default function CustomerOrderPage() {
         if (allRes.data.data) setAllOrders(allRes.data.data);
 
         const newOrder: Order | null = orderRes.data.data;
-
-        // ─── SETTLEMENT WATCHER ───
-        if (existingOrder && newOrder && newOrder._id === existingOrder._id) {
-          if (newOrder.status === "settled") {
-            // Bill paid! Kill session
-            localStorage.removeItem("gb_active_order");
-            localStorage.removeItem("gb_customer");
-            setSessionEndReason("Your bill has been settled. Thank you for visiting!");
-            setSecurityStatus("session_ended");
-            return;
-          }
-          if (newOrder.status === "cancelled") {
-            localStorage.removeItem("gb_active_order");
-            setSessionEndReason("Your order was cancelled.");
-            setSecurityStatus("session_ended");
-            return;
-          }
-        }
 
         if (!newOrder) return;
         const prevStatus = prevStatusRef.current;
