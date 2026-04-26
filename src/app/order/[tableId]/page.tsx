@@ -51,33 +51,55 @@ interface SecurityResult {
 // ═════════════════════════════════════════════════════════════
 // SECURITY CHECK PAGE
 // ═════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+// PREMIUM SECURITY CHECK SCREEN - Step by step verification
+// Replace the existing SecurityCheckScreen function in 
+// client-new/src/app/order/[tableId]/page.tsx
+// ════════════════════════════════════════════════════════════
+ 
+// FIND THIS in your page.tsx:
+//   function SecurityCheckScreen({ onPassed, onFailed }: {
+//     onPassed: () => void;
+//     onFailed: (result: SecurityResult) => void;
+//   }) {
+//     ...entire function...
+//   }
+ 
+// REPLACE WITH:
+ 
 function SecurityCheckScreen({ onPassed, onFailed }: {
   onPassed: () => void;
   onFailed: (result: SecurityResult) => void;
 }) {
-  const [status, setStatus] = useState<"checking" | "gps_request" | "wifi_request" | "checking_server">("checking");
-  const [progress, setProgress] = useState(0);
-
+  type CheckState = "pending" | "loading" | "success" | "failed";
+ 
+  const [gpsCheck, setGpsCheck] = useState<CheckState>("pending");
+  const [wifiCheck, setWifiCheck] = useState<CheckState>("pending");
+ 
   useEffect(() => {
     let mounted = true;
-
+ 
     async function runSecurityCheck() {
       try {
         // ─── Step 1: GPS Permission ───
-        setStatus("gps_request");
-        setProgress(20);
-
+        if (mounted) setGpsCheck("loading");
+        await new Promise(r => setTimeout(r, 400)); // brief loading state
+ 
         if (!("geolocation" in navigator)) {
-          if (mounted) onFailed({
-            allowed: false, ipAllowed: false, gpsAllowed: false,
-            gpsRequired: true, ipRequired: true,
-            distance: null, cafeName: "Golden Beans", cafeAddress: "",
-            cafePhone: "", wifiName: "GoldenBeans-WiFi",
-            reason: "GPS not supported on this device",
-          });
+          if (mounted) {
+            setGpsCheck("failed");
+            await new Promise(r => setTimeout(r, 600));
+            onFailed({
+              allowed: false, ipAllowed: false, gpsAllowed: false,
+              gpsRequired: true, ipRequired: true,
+              distance: null, cafeName: "Golden Beans", cafeAddress: "",
+              cafePhone: "", wifiName: "GoldenBeans-WiFi",
+              reason: "GPS not supported on this device",
+            });
+          }
           return;
         }
-
+ 
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
             enableHighAccuracy: true,
@@ -87,11 +109,12 @@ function SecurityCheckScreen({ onPassed, onFailed }: {
         }).catch(err => {
           throw new Error(err.code === 1 ? "DENIED" : err.code === 2 ? "UNAVAILABLE" : "TIMEOUT");
         });
-
-        setProgress(60);
-
+ 
+        if (mounted) setGpsCheck("success");
+        await new Promise(r => setTimeout(r, 500));
+ 
         // ─── Step 2: Server Check (IP + GPS) ───
-        setStatus("checking_server");
+        if (mounted) setWifiCheck("loading");
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
         const res = await fetch(`${apiUrl}/security/check`, {
           method: "POST",
@@ -101,19 +124,21 @@ function SecurityCheckScreen({ onPassed, onFailed }: {
             longitude: position.coords.longitude,
           }),
         });
-
+ 
         const data = await res.json();
-        setProgress(100);
-
-        if (!data.success) {
-          throw new Error(data.message || "Security check failed");
-        }
-
+        if (!data.success) throw new Error(data.message || "Security check failed");
+ 
         const result: SecurityResult = data.data;
-
+ 
         if (mounted) {
+          // Update individual checks
+          setGpsCheck(result.gpsAllowed ? "success" : "failed");
+          setWifiCheck(result.ipAllowed ? "success" : "failed");
+ 
+          await new Promise(r => setTimeout(r, 800));
+ 
           if (result.allowed) {
-            setTimeout(() => onPassed(), 400);
+            onPassed();
           } else {
             onFailed(result);
           }
@@ -122,10 +147,19 @@ function SecurityCheckScreen({ onPassed, onFailed }: {
         if (!mounted) return;
         const msg = err instanceof Error ? err.message : "Unknown error";
         const isGPSDenied = msg === "DENIED" || msg.includes("permission") || msg.includes("denied");
+ 
+        if (isGPSDenied || msg === "TIMEOUT" || msg === "UNAVAILABLE") {
+          setGpsCheck("failed");
+        } else {
+          setWifiCheck("failed");
+        }
+ 
+        await new Promise(r => setTimeout(r, 800));
+ 
         onFailed({
           allowed: false,
-          ipAllowed: false,
-          gpsAllowed: false,
+          ipAllowed: !msg.toLowerCase().includes("ip") && !msg.toLowerCase().includes("connect"),
+          gpsAllowed: !isGPSDenied && msg !== "TIMEOUT" && msg !== "UNAVAILABLE",
           gpsRequired: true,
           ipRequired: true,
           distance: null,
@@ -141,11 +175,11 @@ function SecurityCheckScreen({ onPassed, onFailed }: {
         });
       }
     }
-
+ 
     runSecurityCheck();
     return () => { mounted = false; };
   }, [onPassed, onFailed]);
-
+ 
   return (
     <div style={{
       minHeight: "100vh",
@@ -153,44 +187,174 @@ function SecurityCheckScreen({ onPassed, onFailed }: {
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: "20px",
     }}>
-      <div style={{ textAlign: "center", maxWidth: "320px", width: "100%" }}>
-        <img src="/logo-large.png" alt="Golden Beans" draggable={false} style={{ width: "120px", height: "120px", margin: "0 auto 24px", filter: "drop-shadow(0 8px 20px rgba(0,0,0,0.4))", pointerEvents: "none" }} />
-
-        <div style={{ marginBottom: "24px" }}>
-          <div style={{
-            width: "60px", height: "60px",
-            margin: "0 auto 14px",
-            borderRadius: "50%",
-            border: `3px solid rgba(212,165,116,0.2)`,
-            borderTopColor: T.gold,
-            animation: "gb-spin 1s linear infinite",
-          }} />
-          <h2 style={{
-            fontFamily: "'Playfair Display', serif",
-            fontSize: "22px", fontWeight: 800,
-            color: T.gold, margin: "0 0 8px",
-            letterSpacing: "-0.02em",
-          }}>Securing Your Session</h2>
-          <p style={{ fontSize: "13px", color: "rgba(212,165,116,0.7)", margin: 0, fontWeight: 600, lineHeight: 1.5 }}>
-            {status === "gps_request" && "Verifying your location..."}
-            {status === "checking_server" && "Confirming cafe network..."}
-            {status === "checking" && "Initializing..."}
-          </p>
-        </div>
-
-        <div style={{ background: "rgba(212,165,116,0.15)", borderRadius: "99px", height: "5px", overflow: "hidden", marginBottom: "20px" }}>
-          <div style={{
-            height: "100%",
-            width: `${progress}%`,
-            background: `linear-gradient(90deg, ${T.gold}, ${T.goldLight})`,
-            transition: "width 300ms ease",
-            borderRadius: "99px",
-          }} />
-        </div>
-
-        <p style={{ fontSize: "11px", color: "rgba(212,165,116,0.5)", margin: 0, fontWeight: 600 }}>
-          🔒 This protects against fake orders and spam
+      <div style={{ textAlign: "center", maxWidth: "360px", width: "100%" }}>
+        <img
+          src="/logo-large.png"
+          alt="Golden Beans"
+          draggable={false}
+          style={{
+            width: "110px", height: "110px",
+            margin: "0 auto 20px",
+            borderRadius: "24px",
+            boxShadow: "0 12px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(212,165,116,0.2)",
+            pointerEvents: "none",
+          }}
+        />
+ 
+        <h2 style={{
+          fontFamily: "'Playfair Display', serif",
+          fontSize: "24px", fontWeight: 800,
+          color: T.gold, margin: "0 0 6px",
+          letterSpacing: "-0.02em",
+        }}>Securing Your Session</h2>
+ 
+        <p style={{ fontSize: "12px", color: "rgba(212,165,116,0.7)", margin: "0 0 24px", fontWeight: 600, lineHeight: 1.5 }}>
+          Verifying you&apos;re at Golden Beans Cafe
         </p>
+ 
+        {/* ─── Check Items ─── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
+          <CheckItem
+            state={gpsCheck}
+            icon={<Icons.Location size={18} />}
+            title="Location Verification"
+            description={
+              gpsCheck === "pending" ? "Waiting to start..." :
+                gpsCheck === "loading" ? "Checking your location..." :
+                  gpsCheck === "success" ? "You're at the cafe ✓" :
+                    "Location not verified"
+            }
+          />
+ 
+          <CheckItem
+            state={wifiCheck}
+            icon={<Icons.Wifi size={18} />}
+            title="Network Verification"
+            description={
+              wifiCheck === "pending" ? "Waiting for location check..." :
+                wifiCheck === "loading" ? "Confirming cafe WiFi..." :
+                  wifiCheck === "success" ? "Connected to cafe network ✓" :
+                    "Network not verified"
+            }
+          />
+        </div>
+ 
+        <p style={{ fontSize: "10px", color: "rgba(212,165,116,0.45)", margin: 0, fontWeight: 600, lineHeight: 1.5 }}>
+          🔒 This protects against fake orders & spam<br />
+          Your privacy is our priority
+        </p>
+      </div>
+    </div>
+  );
+}
+ 
+// ─── CheckItem Component ───
+function CheckItem({ state, icon, title, description }: {
+  state: "pending" | "loading" | "success" | "failed";
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  const colors = {
+    pending: { bg: "rgba(255,255,255,0.04)", border: "rgba(212,165,116,0.15)", iconBg: "rgba(255,255,255,0.05)", iconColor: "rgba(212,165,116,0.4)", titleColor: "rgba(212,165,116,0.5)", descColor: "rgba(212,165,116,0.35)" },
+    loading: { bg: "rgba(212,165,116,0.08)", border: "rgba(212,165,116,0.35)", iconBg: "rgba(212,165,116,0.15)", iconColor: T.gold, titleColor: T.gold, descColor: "rgba(212,165,116,0.7)" },
+    success: { bg: "rgba(74,139,74,0.12)", border: "rgba(74,139,74,0.45)", iconBg: "rgba(74,139,74,0.25)", iconColor: "#86c686", titleColor: "#86c686", descColor: "rgba(134,198,134,0.85)" },
+    failed: { bg: "rgba(192,57,43,0.12)", border: "rgba(192,57,43,0.45)", iconBg: "rgba(192,57,43,0.25)", iconColor: "#fca5a5", titleColor: "#fca5a5", descColor: "rgba(252,165,165,0.85)" },
+  };
+  const c = colors[state];
+ 
+  return (
+    <div style={{
+      background: c.bg,
+      border: `1.5px solid ${c.border}`,
+      borderRadius: "16px",
+      padding: "12px 14px",
+      display: "flex",
+      alignItems: "center",
+      gap: "12px",
+      transition: "all 400ms cubic-bezier(0.16, 1, 0.3, 1)",
+      animation: state === "success" ? "gb-fadeInUp 300ms ease both" : undefined,
+      boxShadow: state === "success" ? "0 4px 16px rgba(74,139,74,0.15)" : state === "loading" ? "0 4px 16px rgba(212,165,116,0.2)" : state === "failed" ? "0 4px 16px rgba(192,57,43,0.15)" : "none",
+    }}>
+      {/* Icon */}
+      <div style={{
+        width: "40px", height: "40px",
+        borderRadius: "10px",
+        background: c.iconBg,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: c.iconColor,
+        flexShrink: 0,
+        transition: "all 300ms ease",
+      }}>
+        {icon}
+      </div>
+ 
+      {/* Info */}
+      <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+        <p style={{
+          fontWeight: 800, fontSize: "13px",
+          color: c.titleColor,
+          margin: "0 0 2px",
+          letterSpacing: "-0.01em",
+          transition: "color 300ms ease",
+        }}>{title}</p>
+        <p style={{
+          fontSize: "11px",
+          color: c.descColor,
+          margin: 0,
+          fontWeight: 600,
+          lineHeight: 1.4,
+          transition: "color 300ms ease",
+        }}>{description}</p>
+      </div>
+ 
+      {/* Status indicator */}
+      <div style={{ flexShrink: 0, width: "28px", height: "28px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {state === "pending" && (
+          <div style={{
+            width: "10px", height: "10px",
+            borderRadius: "50%",
+            border: "2px solid rgba(212,165,116,0.25)",
+          }} />
+        )}
+ 
+        {state === "loading" && (
+          <div style={{
+            width: "20px", height: "20px",
+            borderRadius: "50%",
+            border: `2.5px solid rgba(212,165,116,0.2)`,
+            borderTopColor: T.gold,
+            animation: "gb-spin 0.7s linear infinite",
+          }} />
+        )}
+ 
+        {state === "success" && (
+          <div style={{
+            width: "26px", height: "26px",
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, #4A8B4A, #2d6a2d)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "white",
+            boxShadow: "0 4px 12px rgba(74,139,74,0.5)",
+            animation: "gb-scaleInBounce 400ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+          }}>
+            <Icons.Check size={16} />
+          </div>
+        )}
+ 
+        {state === "failed" && (
+          <div style={{
+            width: "26px", height: "26px",
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, #C0392B, #d63b2a)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "white",
+            boxShadow: "0 4px 12px rgba(192,57,43,0.5)",
+            animation: "gb-scaleInBounce 400ms cubic-bezier(0.34, 1.56, 0.64, 1)",
+          }}>
+            <Icons.Close size={14} />
+          </div>
+        )}
       </div>
     </div>
   );
