@@ -1139,7 +1139,11 @@ export default function CustomerOrderPage() {
 
   useEffect(() => {
     if (securityStatus !== "passed") return;
-    pollRef.current = setInterval(async () => {
+
+    let cancelled = false;
+
+    const checkOrder = async () => {
+      if (cancelled) return;
       try {
         // ─── SETTLEMENT WATCHER (Priority Check) ───
         if (existingOrder) {
@@ -1168,20 +1172,42 @@ export default function CustomerOrderPage() {
           orderApi.getOrderByTable(tableId),
           orderApi.getKdsOrders(),
         ]);
+        if (cancelled) return;
         if (allRes.data.data) setAllOrders(allRes.data.data);
 
         const newOrder: Order | null = orderRes.data.data;
-
         if (!newOrder) return;
-        const prevStatus = prevStatusRef.current;
-        if (prevStatus && prevStatus !== newOrder.status) {
-          // Status notifications would go here
-        }
         prevStatusRef.current = newOrder.status;
         setExistingOrder(newOrder);
       } catch { }
-    }, 5000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    };
+
+    // Start polling every 5 seconds
+    pollRef.current = setInterval(checkOrder, 5000);
+
+    // Re-check immediately when page becomes visible (iPhone Safari fix)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        checkOrder();
+      }
+    };
+    const handleFocus = () => checkOrder();
+    const handlePageShow = () => checkOrder();
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("pageshow", handlePageShow);
+
+    // Initial check
+    checkOrder();
+
+    return () => {
+      cancelled = true;
+      if (pollRef.current) clearInterval(pollRef.current);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
   }, [securityStatus, tableId, existingOrder]);
 
   const queuePosition = existingOrder
