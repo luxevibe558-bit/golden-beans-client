@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { href: "/pos/tables", label: "Tables", icon: "🪑" },
   { href: "/pos/orders", label: "Orders", icon: "📋" },
   { href: "/pos/menu", label: "Menu", icon: "📖" },
+  { href: "/pos/promotions", label: "Promos", icon: "🎁" },
   { href: "/pos/inventory", label: "Stock", icon: "📦" },
   { href: "/pos/analytics", label: "Reports", icon: "📊" },
   { href: "/kds", label: "Kitchen", icon: "👨‍🍳" },
@@ -59,21 +60,21 @@ export default function POSSidebar() {
         </div>
       </div>
 
-      <nav style={{ flex: 1, overflowY: "auto", padding: "12px 8px", display: "flex", flexDirection: "column", gap: "4px" }}>
+      <nav style={{ flex: 1, overflowY: "auto", padding: "10px 6px", display: "flex", flexDirection: "column", gap: "3px" }}>
         {NAV_ITEMS.map(item => {
           const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
           return (
             <Link key={item.href} href={item.href} style={{ textDecoration: "none" }}>
               <div style={{
                 display: "flex", flexDirection: "column", alignItems: "center",
-                padding: "10px 4px", borderRadius: "12px", gap: "4px",
+                padding: "8px 4px", borderRadius: "10px", gap: "3px",
                 background: isActive ? `rgba(212,165,116,0.18)` : "transparent",
                 border: `1.5px solid ${isActive ? T.gold : "transparent"}`,
                 transition: "all 0.2s ease", cursor: "pointer",
                 boxShadow: isActive ? `0 4px 12px rgba(212,165,116,0.2)` : "none",
               }}>
-                <span style={{ fontSize: "20px" }}>{item.icon}</span>
-                <span style={{ fontSize: "9px", fontWeight: 800, color: isActive ? T.gold : T.textDim, letterSpacing: "0.3px" }}>
+                <span style={{ fontSize: "18px" }}>{item.icon}</span>
+                <span style={{ fontSize: "8px", fontWeight: 800, color: isActive ? T.gold : T.textDim, letterSpacing: "0.3px" }}>
                   {item.label}
                 </span>
               </div>
