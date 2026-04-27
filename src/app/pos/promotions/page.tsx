@@ -659,7 +659,7 @@ export default function PromotionsPage() {
 
         {/* Tab Switcher */}
         <div style={{ background: T.ivory, borderBottom: `1px solid ${T.border}`, padding: "12px 24px" }}>
-          <div style={{ display: "flex", gap: "5px", background: T.cream, padding: "4px", borderRadius: "10px", display: "inline-flex" }}>
+          <div style={{ display: "inline-flex", gap: "5px", background: T.cream, padding: "4px", borderRadius: "10px" }}>
             <button
               onClick={() => setTab("promotions")}
               style={{
