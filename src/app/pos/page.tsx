@@ -1,8 +1,7 @@
 "use client";
 
+import SettleBillModal from "@/components/SettleBillModal";
 import { useState, useEffect, useCallback, useRef } from "react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
 import POSSidebar from "@/components/POSSidebar";
 import { menuApi, orderApi, tableApi } from "@/lib/api";
 import type { MenuCategory, MenuItem, CartItem, Table, Order } from "@/types";
@@ -36,7 +35,6 @@ const ITEM_EMOJIS: Record<string, string> = {
   "Classic Omelette": "🍳", "Pancake Stack": "🥞",
 };
 
-// ─── Pending Approval Notification ───
 function PendingApprovalBell({ orders, onAccept, onReject }: {
   orders: Order[];
   onAccept: (id: string) => void;
@@ -85,8 +83,7 @@ function PendingApprovalBell({ orders, onAccept, onReject }: {
       {orders.map((order, idx) => (
         <div key={order._id} style={{
           background: T.ivory, borderRadius: "16px", padding: "16px", marginBottom: "10px",
-          border: `2px solid ${T.gold}`,
-          boxShadow: "0 16px 40px rgba(15,61,46,0.3)",
+          border: `2px solid ${T.gold}`, boxShadow: "0 16px 40px rgba(15,61,46,0.3)",
           animation: `slideInRight 0.4s ${idx * 0.1}s ease both`,
         }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
@@ -101,32 +98,22 @@ function PendingApprovalBell({ orders, onAccept, onReject }: {
               {timers[order._id] || 60}s
             </div>
           </div>
-
           <div style={{ background: T.cream, borderRadius: "10px", padding: "9px 11px", marginBottom: "10px", border: `1px solid ${T.creamDark}` }}>
             {order.items.slice(0, 3).map(item => (
               <div key={item._id} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
-                <span style={{ fontSize: "11px", color: T.text, fontWeight: 700 }}>
-                  {item.name} <span style={{ color: T.textMuted }}>×{item.quantity}</span>
-                </span>
+                <span style={{ fontSize: "11px", color: T.text, fontWeight: 700 }}>{item.name} <span style={{ color: T.textMuted }}>×{item.quantity}</span></span>
                 <span style={{ fontSize: "11px", color: T.emerald, fontWeight: 800 }}>₹{item.price * item.quantity}</span>
               </div>
             ))}
-            {order.items.length > 3 && (
-              <p style={{ fontSize: "10px", color: T.textMuted, margin: "3px 0 0", fontWeight: 700 }}>+{order.items.length - 3} more items</p>
-            )}
+            {order.items.length > 3 && <p style={{ fontSize: "10px", color: T.textMuted, margin: "3px 0 0", fontWeight: 700 }}>+{order.items.length - 3} more items</p>}
             <div style={{ borderTop: `1px dashed ${T.creamDark}`, paddingTop: "5px", marginTop: "5px", display: "flex", justifyContent: "space-between" }}>
               <span style={{ fontSize: "11px", fontWeight: 800, color: T.emerald }}>Total</span>
               <span style={{ fontSize: "13px", fontWeight: 900, color: T.emerald }}>₹{order.totalAmount.toFixed(0)}</span>
             </div>
           </div>
-
           <div style={{ display: "flex", gap: "6px" }}>
-            <button onClick={() => onReject(order._id)} style={{ flex: 1, padding: "9px", borderRadius: "9px", border: `1px solid ${T.danger}`, background: "white", color: T.danger, fontWeight: 800, cursor: "pointer", fontSize: "11px", fontFamily: "inherit" }}>
-              ✕ Reject
-            </button>
-            <button onClick={() => onAccept(order._id)} style={{ flex: 2, padding: "9px", borderRadius: "9px", border: "none", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, fontWeight: 900, cursor: "pointer", fontSize: "11px", fontFamily: "inherit", boxShadow: `0 4px 10px rgba(15,61,46,0.3)` }}>
-              ✓ Accept & Send
-            </button>
+            <button onClick={() => onReject(order._id)} style={{ flex: 1, padding: "9px", borderRadius: "9px", border: `1px solid ${T.danger}`, background: "white", color: T.danger, fontWeight: 800, cursor: "pointer", fontSize: "11px", fontFamily: "inherit" }}>✕ Reject</button>
+            <button onClick={() => onAccept(order._id)} style={{ flex: 2, padding: "9px", borderRadius: "9px", border: "none", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, fontWeight: 900, cursor: "pointer", fontSize: "11px", fontFamily: "inherit", boxShadow: `0 4px 10px rgba(15,61,46,0.3)` }}>✓ Accept & Send</button>
           </div>
         </div>
       ))}
@@ -135,7 +122,6 @@ function PendingApprovalBell({ orders, onAccept, onReject }: {
 }
 
 export default function POSPage() {
-  const router = useRouter();
   const [tables, setTables] = useState<Table[]>([]);
   const [menu, setMenu] = useState<MenuCategory[]>([]);
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
@@ -145,8 +131,7 @@ export default function POSPage() {
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [showSettleModal, setShowSettleModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [settleModalOrder, setSettleModalOrder] = useState<Order | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -171,9 +156,7 @@ export default function POSPage() {
   useEffect(() => {
     async function init() {
       try {
-        const [tablesRes, menuRes] = await Promise.all([
-          tableApi.getTables(), menuApi.getMenu(),
-        ]);
+        const [tablesRes, menuRes] = await Promise.all([tableApi.getTables(), menuApi.getMenu()]);
         setTables(tablesRes.data.data);
         setMenu(menuRes.data.data);
         if (menuRes.data.data.length > 0) setActiveCategory(menuRes.data.data[0]._id);
@@ -181,39 +164,24 @@ export default function POSPage() {
       finally { setLoading(false); }
     }
     init();
-    const iv = setInterval(() => {
-      loadTables();
-      loadPendingApprovals();
-    }, 5000);
+    const iv = setInterval(() => { loadTables(); loadPendingApprovals(); }, 5000);
     return () => clearInterval(iv);
   }, [loadTables, loadPendingApprovals]);
 
   const handleAcceptApproval = async (orderId: string) => {
-    try {
-      await orderApi.approveOrder(orderId);
-      setPendingOrders(prev => prev.filter(o => o._id !== orderId));
-      loadTables();
-    } catch (e) { console.error(e); }
+    try { await orderApi.approveOrder(orderId); setPendingOrders(prev => prev.filter(o => o._id !== orderId)); loadTables(); } catch (e) { console.error(e); }
   };
 
   const handleRejectApproval = async (orderId: string) => {
-    try {
-      await orderApi.rejectOrder(orderId, "Rejected by staff");
-      setPendingOrders(prev => prev.filter(o => o._id !== orderId));
-      loadTables();
-    } catch (e) { console.error(e); }
+    try { await orderApi.rejectOrder(orderId, "Rejected by staff"); setPendingOrders(prev => prev.filter(o => o._id !== orderId)); loadTables(); } catch (e) { console.error(e); }
   };
 
   const handleSelectTable = async (table: Table) => {
     setSelectedTable(table);
     if (table.currentOrderId) {
-      try {
-        const res = await orderApi.getOrderByTable(table._id);
-        setCurrentOrder(res.data.data || null);
-      } catch { setCurrentOrder(null); }
-    } else {
-      setCurrentOrder(null);
-    }
+      try { const res = await orderApi.getOrderByTable(table._id); setCurrentOrder(res.data.data || null); }
+      catch { setCurrentOrder(null); }
+    } else { setCurrentOrder(null); }
     setCart([]);
   };
 
@@ -237,37 +205,16 @@ export default function POSPage() {
   const sendKOT = async () => {
     if (!selectedTable || cart.length === 0) return;
     try {
-      const res = await orderApi.createOrder({
-        tableId: selectedTable._id, items: cart, createdBy: "pos",
-      });
+      const res = await orderApi.createOrder({ tableId: selectedTable._id, items: cart, createdBy: "pos" });
       setCurrentOrder(res.data.data);
       setCart([]);
       loadTables();
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to send KOT");
-    }
-  };
-
-  const settleOrder = async () => {
-    if (!currentOrder) return;
-    try {
-      await orderApi.settleOrder(currentOrder._id, {
-        paymentMethod,
-        amountPaid: currentOrder.totalAmount,
-      });
-      setShowSettleModal(false);
-      setCurrentOrder(null);
-      setSelectedTable(null);
-      loadTables();
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to settle");
-    }
+    } catch (err: unknown) { alert(err instanceof Error ? err.message : "Failed to send KOT"); }
   };
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const tax = subtotal * 0.05;
   const total = subtotal + tax;
-
   const filteredMenu = searchQuery
     ? menu.map(cat => ({ ...cat, items: cat.items.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase())) })).filter(cat => cat.items.length > 0)
     : menu;
@@ -286,12 +233,7 @@ export default function POSPage() {
       `}</style>
 
       <POSSidebar />
-
-      <PendingApprovalBell
-        orders={pendingOrders}
-        onAccept={handleAcceptApproval}
-        onReject={handleRejectApproval}
-      />
+      <PendingApprovalBell orders={pendingOrders} onAccept={handleAcceptApproval} onReject={handleRejectApproval} />
 
       <div style={{ flex: 1, marginLeft: "64px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <header style={{ background: T.ivory, borderBottom: `1px solid ${T.border}`, padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 2px 8px rgba(15,61,46,0.05)" }}>
@@ -301,7 +243,6 @@ export default function POSPage() {
               {currentTime.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} • {currentTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
             </p>
           </div>
-
           <div style={{ display: "flex", gap: "10px" }}>
             {[
               { label: "Available", count: tables.filter(t => t.status === "available").length, color: T.success },
@@ -317,7 +258,7 @@ export default function POSPage() {
         </header>
 
         <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr 380px", overflow: "hidden" }}>
-          {/* Left Pane - Tables */}
+          {/* Tables */}
           <div style={{ borderRight: `1px solid ${T.border}`, padding: "16px", overflowY: "auto" }}>
             <h2 style={{ fontWeight: 900, fontSize: "16px", color: T.emerald, margin: "0 0 12px", fontFamily: "'Playfair Display', serif" }}>SELECT TABLE</h2>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))", gap: "8px" }}>
@@ -326,36 +267,29 @@ export default function POSPage() {
                 const isOccupied = table.status === "occupied";
                 return (
                   <button key={table._id} onClick={() => handleSelectTable(table)} style={{
-                    aspectRatio: "1", background: isSelected
-                      ? `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`
-                      : isOccupied ? "#fee" : T.ivory,
+                    aspectRatio: "1", background: isSelected ? `linear-gradient(135deg, ${T.gold}, ${T.goldLight})` : isOccupied ? "#fee" : T.ivory,
                     border: `2px solid ${isSelected ? T.goldDark : isOccupied ? T.danger : T.creamDark}`,
-                    borderRadius: "12px", cursor: "pointer", display: "flex",
-                    flexDirection: "column", alignItems: "center", justifyContent: "center",
-                    fontWeight: 900, fontSize: "13px",
+                    borderRadius: "12px", cursor: "pointer", display: "flex", flexDirection: "column",
+                    alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: "13px",
                     color: isSelected ? T.emerald : isOccupied ? T.danger : T.emerald,
                     transition: "all 0.2s ease", fontFamily: "inherit",
                     boxShadow: isSelected ? `0 4px 12px rgba(212,165,116,0.4)` : "none",
                   }}>
                     <span style={{ fontSize: "11px", opacity: 0.7 }}>Table</span>
                     <span style={{ fontSize: "16px" }}>{table.tableNumber}</span>
-                    <span style={{ fontSize: "8px", marginTop: "2px", opacity: 0.7 }}>
-                      {isOccupied ? "Active" : "Free"}
-                    </span>
+                    <span style={{ fontSize: "8px", marginTop: "2px", opacity: 0.7 }}>{isOccupied ? "Active" : "Free"}</span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Middle Pane - Menu */}
+          {/* Menu */}
           <div style={{ borderRight: `1px solid ${T.border}`, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             <div style={{ padding: "16px 16px 10px", borderBottom: `1px solid ${T.border}` }}>
               <input type="text" placeholder="🔍 Search menu items..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: `1px solid ${T.creamDark}`, background: T.cream, fontSize: "13px", fontWeight: 600, outline: "none", color: T.text, boxSizing: "border-box" }}
-              />
+                style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: `1px solid ${T.creamDark}`, background: T.cream, fontSize: "13px", fontWeight: 600, outline: "none", color: T.text, boxSizing: "border-box" }} />
             </div>
-
             {!searchQuery && menu.length > 0 && (
               <div style={{ display: "flex", gap: "5px", overflowX: "auto", padding: "10px 16px", borderBottom: `1px solid ${T.border}` }}>
                 {menu.map(cat => (
@@ -365,13 +299,10 @@ export default function POSPage() {
                     background: activeCategory === cat._id ? T.emerald : "white",
                     color: activeCategory === cat._id ? T.gold : T.emerald,
                     cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
-                  }}>
-                    {cat.icon} {cat.name}
-                  </button>
+                  }}>{cat.icon} {cat.name}</button>
                 ))}
               </div>
             )}
-
             <div style={{ flex: 1, overflowY: "auto", padding: "12px" }}>
               {loading ? (
                 <p style={{ textAlign: "center", color: T.textMuted, padding: "30px", fontWeight: 700, fontSize: "13px" }}>Loading menu...</p>
@@ -382,8 +313,7 @@ export default function POSPage() {
                       background: T.ivory, border: `1px solid ${T.creamDark}`, borderRadius: "12px",
                       padding: "10px 9px", cursor: item.isAvailable ? "pointer" : "not-allowed",
                       opacity: item.isAvailable ? 1 : 0.5, fontFamily: "inherit",
-                      transition: "all 0.2s ease", textAlign: "center",
-                      boxShadow: "0 2px 6px rgba(15,61,46,0.05)",
+                      transition: "all 0.2s ease", textAlign: "center", boxShadow: "0 2px 6px rgba(15,61,46,0.05)",
                     }}>
                       <div style={{ fontSize: "26px", marginBottom: "4px" }}>{ITEM_EMOJIS[item.name] || "🍽️"}</div>
                       <p style={{ fontWeight: 800, fontSize: "11px", color: T.text, margin: "0 0 2px", lineHeight: 1.2 }}>{item.name}</p>
@@ -395,16 +325,15 @@ export default function POSPage() {
             </div>
           </div>
 
-          {/* Right Pane - Order Summary */}
+          {/* Order Summary */}
           <div style={{ display: "flex", flexDirection: "column", background: T.ivory }}>
             <div style={{ padding: "16px", borderBottom: `1px solid ${T.border}` }}>
               <h2 style={{ fontWeight: 900, fontSize: "15px", color: T.emerald, margin: 0, fontFamily: "'Playfair Display', serif" }}>
-                {currentOrder ? `Active Order` : selectedTable ? "New Order" : "No Table Selected"}
+                {currentOrder ? "Active Order" : selectedTable ? "New Order" : "No Table Selected"}
               </h2>
               {selectedTable && (
                 <p style={{ fontSize: "11px", color: T.textMuted, margin: "3px 0 0", fontWeight: 700 }}>
-                  Table {selectedTable.tableNumber}
-                  {currentOrder && ` • #${currentOrder.orderNumber}`}
+                  Table {selectedTable.tableNumber}{currentOrder && ` • #${currentOrder.orderNumber}`}
                 </p>
               )}
             </div>
@@ -448,15 +377,10 @@ export default function POSPage() {
               )}
 
               {!currentOrder && cart.length === 0 && selectedTable && (
-                <p style={{ textAlign: "center", color: T.textDim, padding: "30px 16px", fontSize: "13px", fontWeight: 700 }}>
-                  Select items from menu
-                </p>
+                <p style={{ textAlign: "center", color: T.textDim, padding: "30px 16px", fontSize: "13px", fontWeight: 700 }}>Select items from menu</p>
               )}
-
               {!selectedTable && (
-                <p style={{ textAlign: "center", color: T.textDim, padding: "30px 16px", fontSize: "13px", fontWeight: 700 }}>
-                  Select a table to begin
-                </p>
+                <p style={{ textAlign: "center", color: T.textDim, padding: "30px 16px", fontSize: "13px", fontWeight: 700 }}>Select a table to begin</p>
               )}
             </div>
 
@@ -475,7 +399,6 @@ export default function POSPage() {
                     </div>
                   </div>
                 )}
-
                 {cart.length > 0 && (
                   <button onClick={sendKOT} style={{
                     width: "100%", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`,
@@ -483,20 +406,15 @@ export default function POSPage() {
                     padding: "11px", fontWeight: 900, fontSize: "13px", cursor: "pointer",
                     boxShadow: `0 6px 16px rgba(15,61,46,0.3)`, fontFamily: "inherit",
                     marginBottom: currentOrder ? "6px" : 0,
-                  }}>
-                    📤 Send KOT
-                  </button>
+                  }}>📤 Send KOT</button>
                 )}
-
                 {currentOrder && (
-                  <button onClick={() => setShowSettleModal(true)} style={{
+                  <button onClick={() => setSettleModalOrder(currentOrder)} style={{
                     width: "100%", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
                     color: T.emerald, border: "none", borderRadius: "10px",
                     padding: "11px", fontWeight: 900, fontSize: "13px", cursor: "pointer",
                     boxShadow: `0 6px 16px rgba(212,165,116,0.4)`, fontFamily: "inherit",
-                  }}>
-                    💰 Settle Bill (₹{currentOrder.totalAmount.toFixed(0)})
-                  </button>
+                  }}>💰 Settle Bill (₹{currentOrder.totalAmount.toFixed(0)})</button>
                 )}
               </div>
             )}
@@ -504,43 +422,18 @@ export default function POSPage() {
         </div>
       </div>
 
-      {/* Settle Modal */}
-      {showSettleModal && currentOrder && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,61,46,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", backdropFilter: "blur(8px)" }}>
-          <div style={{ background: T.ivory, borderRadius: "20px", padding: "20px", maxWidth: "380px", width: "100%", boxShadow: "0 24px 60px rgba(15,61,46,0.4)" }}>
-            <div style={{ height: "4px", background: `linear-gradient(90deg, ${T.goldDark}, ${T.gold}, ${T.goldLight}, ${T.gold}, ${T.goldDark})`, borderRadius: "4px", marginBottom: "16px" }} />
-            <h2 style={{ fontWeight: 900, fontSize: "20px", color: T.emerald, margin: "0 0 4px", fontFamily: "'Playfair Display', serif" }}>Settle Bill</h2>
-            <p style={{ fontSize: "12px", color: T.textMuted, margin: "0 0 16px", fontWeight: 600 }}>Order #{currentOrder.orderNumber}</p>
-
-            <div style={{ background: T.cream, borderRadius: "12px", padding: "12px", marginBottom: "14px", border: `1px solid ${T.creamDark}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: "18px", color: T.emerald }}>
-                <span>Total</span><span>₹{currentOrder.totalAmount.toFixed(0)}</span>
-              </div>
-            </div>
-
-            <p style={{ fontSize: "11px", fontWeight: 800, color: T.textMuted, marginBottom: "8px", letterSpacing: "0.5px", textTransform: "uppercase" }}>Payment Method</p>
-            <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
-              {["cash", "card", "upi"].map(method => (
-                <button key={method} onClick={() => setPaymentMethod(method)} style={{
-                  flex: 1, padding: "12px", borderRadius: "10px",
-                  border: `2px solid ${paymentMethod === method ? T.emerald : T.creamDark}`,
-                  background: paymentMethod === method ? T.emerald : T.cream,
-                  color: paymentMethod === method ? T.gold : T.text,
-                  fontWeight: 800, cursor: "pointer", fontSize: "12px",
-                  textTransform: "capitalize", fontFamily: "inherit",
-                }}>{method}</button>
-              ))}
-            </div>
-
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={() => setShowSettleModal(false)} style={{ flex: 1, padding: "11px", borderRadius: "10px", border: `1px solid ${T.creamDark}`, background: "white", color: T.textMuted, fontWeight: 700, cursor: "pointer", fontSize: "13px", fontFamily: "inherit" }}>Cancel</button>
-              <button onClick={settleOrder} style={{ flex: 2, padding: "11px", borderRadius: "10px", border: "none", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, fontWeight: 900, cursor: "pointer", fontSize: "13px", fontFamily: "inherit" }}>
-                ✓ Confirm Payment
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SettleBillModal
+        order={settleModalOrder}
+        isOpen={!!settleModalOrder}
+        onClose={() => setSettleModalOrder(null)}
+        onSettled={() => {
+          setSettleModalOrder(null);
+          setCurrentOrder(null);
+          setSelectedTable(null);
+          loadTables();
+          loadPendingApprovals();
+        }}
+      />
     </div>
   );
 }
