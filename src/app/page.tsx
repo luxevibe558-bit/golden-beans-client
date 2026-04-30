@@ -31,6 +31,17 @@ export default function HomePage() {
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
   useEffect(() => {
+    // PWA standalone mode માં waiter app open કરો
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      const path = window.location.pathname;
+      if (path === '/' || path === '/waiter-app') {
+        router.replace('/waiter');
+        return;
+      }
+    }
+  }, [router]);
+
+  useEffect(() => {
     async function checkActiveOrder() {
       try {
         const savedTableId = localStorage.getItem("gb_active_table");
