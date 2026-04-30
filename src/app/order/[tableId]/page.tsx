@@ -1763,6 +1763,7 @@ export default function CustomerOrderPage() {
         .customer-app input, .customer-app textarea { -webkit-user-select: text; user-select: text; }
         .customer-app img { -webkit-user-drag: none; user-drag: none; pointer-events: none; }
         @keyframes gb-shimmer { 0% { background-position: 200% center; } 100% { background-position: -200% center; } }
+@keyframes cartBadgeBounce { 0%,100% { transform: scale(1); } 30% { transform: scale(1.5); } 60% { transform: scale(0.9); } 80% { transform: scale(1.1); } }
       `}</style>
 
       {showCustomerPopup && <CustomerDataPopup onSubmit={handleCustomerDataSubmit} onSkip={() => { setShowCustomerPopup(false); placeOrder(); }} />}
@@ -1850,7 +1851,7 @@ export default function CustomerOrderPage() {
               {tab.icon}
               {isActive && <span>{tab.label}</span>}
               {tab.badge !== null && !isActive && (
-                <div style={{
+                <div key={typeof tab.badge === "number" ? tab.badge : "dot"} style={{
                   position: "absolute", top: "4px", right: "4px",
                   minWidth: typeof tab.badge === "number" ? "16px" : "8px",
                   height: typeof tab.badge === "number" ? "16px" : "8px",
@@ -1859,6 +1860,7 @@ export default function CustomerOrderPage() {
                   fontSize: "9px", fontWeight: 800,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   border: `2px solid ${T.emerald}`, fontFamily: "'DM Sans', sans-serif",
+                  animation: "cartBadgeBounce 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97)",
                 }}>{typeof tab.badge === "number" ? tab.badge : ""}</div>
               )}
             </button>
