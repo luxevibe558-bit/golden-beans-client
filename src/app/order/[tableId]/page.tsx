@@ -205,11 +205,11 @@ function SecurityCheckScreen({ onPassed, onFailed }: {
           margin: "0 auto 20px",
           border: "3px solid rgba(212,165,116,0.5)",
           boxShadow: "0 0 0 6px rgba(212,165,116,0.1), 0 12px 32px rgba(0,0,0,0.4)",
-          background: "#0F3D2E",
+          background: "#1A1A1A",
           flexShrink: 0,
         }}>
           <img src="/logo-large.png" alt="Golden Beans" draggable={false}
-            style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none", mixBlendMode: "multiply" }} />
+            style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
         </div>
  
         <h2 style={{
@@ -391,7 +391,7 @@ function AwarenessScreen({ result, onRetry }: { result: SecurityResult; onRetry:
   marginBottom: "20px",
   border: "3px solid rgba(212,165,116,0.5)",
   boxShadow: "0 0 0 6px rgba(212,165,116,0.1), 0 8px 24px rgba(0,0,0,0.4)",
-  background: "#0F3D2E",
+  background: "#1A1A1A",
 }}>
   <img src="/logo-large.png" alt="Golden Beans" draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
 </div>
