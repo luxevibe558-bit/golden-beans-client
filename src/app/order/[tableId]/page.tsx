@@ -209,7 +209,7 @@ function SecurityCheckScreen({ onPassed, onFailed }: {
           flexShrink: 0,
         }}>
           <img src="/logo-large.png" alt="Golden Beans" draggable={false}
-            style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+            style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none", mixBlendMode: "multiply" }} />
         </div>
  
         <h2 style={{
