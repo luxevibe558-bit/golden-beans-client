@@ -2,7 +2,7 @@
   "name": "Golden Beans Cafe",
   "short_name": "Golden Beans",
   "description": "Golden Beans Cafe & Bistro - Order Management",
-  "start_url": "/",
+  "start_url": "/waiter",
   "display": "standalone",
   "background_color": "#FAF6F0",
   "theme_color": "#0F3D2E",
