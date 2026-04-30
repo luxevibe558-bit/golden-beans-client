@@ -121,3 +121,12 @@ export const crmCaptureApi = {
       body: JSON.stringify(data),
     }).then((r) => r.json()),
 };
+
+// ===== FEEDBACK =====
+export const feedbackApi = {
+  getAll: () =>
+    fetch(`${API_BASE}/feedback/all`).then((r) => r.json()),
+
+  getAnalytics: () =>
+    fetch(`${API_BASE}/feedback/analytics`).then((r) => r.json()),
+};

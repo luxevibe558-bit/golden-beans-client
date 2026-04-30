@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { href: "/pos/inventory", label: "Stock", icon: "📦" },
   { href: "/pos/dues", label: "Dues", icon: "📒" },
   { href: "/pos/requests", label: "Requests", icon: "🔔" },
+  { href: "/pos/feedback", label: "Feedback", icon: "⭐" },
   { href: "/pos/crm", label: "CRM", icon: "👥" },
   { href: "/pos/analytics", label: "Reports", icon: "📊" },
   { href: "/kds", label: "Kitchen", icon: "👨‍🍳" },
