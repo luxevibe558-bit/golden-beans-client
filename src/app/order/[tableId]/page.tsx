@@ -592,9 +592,9 @@ function SessionEndedScreen({ reason, onRestart }: { reason: string; onRestart: 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          orderId: localStorage.getItem('gb_active_order') || 'unknown',
-          tableId: 'unknown',
-          tableNumber: 'unknown',
+          orderId: localStorage.getItem('gb_settled_order_id') || 'unknown',
+          tableId: localStorage.getItem('gb_settled_table') || 'unknown',
+          tableNumber: localStorage.getItem('gb_settled_table') || 'unknown',
           rating,
           categories,
           comment,
@@ -1606,6 +1606,9 @@ export default function CustomerOrderPage() {
             const directOrder: Order | null = directRes.data?.data;
             if (directOrder) {
               if (directOrder.status === "settled") {
+                // orderId save કરો feedback માટે — remove પહેલા
+                localStorage.setItem("gb_settled_order_id", existingOrder._id);
+                localStorage.setItem("gb_settled_table", existingOrder.tableNumber || tableId);
                 localStorage.removeItem("gb_active_order");
                 localStorage.removeItem("gb_customer");
                 setSessionEndReason("Your bill has been settled. Thank you for visiting!");
