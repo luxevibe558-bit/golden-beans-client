@@ -31,13 +31,11 @@ export default function HomePage() {
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
 
   useEffect(() => {
-    // PWA standalone mode માં waiter app open કરો
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      const path = window.location.pathname;
-      if (path === '/' || path === '/waiter-app') {
-        router.replace('/waiter');
-        return;
-      }
+    // PWA waiter mode check
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('pwa') === 'waiter') {
+      router.replace('/waiter');
+      return;
     }
   }, [router]);
 

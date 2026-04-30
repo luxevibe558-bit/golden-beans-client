@@ -2,7 +2,7 @@
   "name": "Golden Beans Waiter",
   "short_name": "GB Waiter",
   "description": "Golden Beans Cafe Waiter App",
-  "start_url": "/waiter-app",
+  "start_url": "/?pwa=waiter",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0F3D2E",
