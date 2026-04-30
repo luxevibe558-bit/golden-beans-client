@@ -52,7 +52,8 @@ export default function WaiterHelpSheet({ tableId, tableNumber }: Props) {
         style={{
           position: 'fixed',
           bottom: '90px',
-          right: '16px',
+          left: '16px',
+          right: 'auto',
           zIndex: 999,
           background: 'linear-gradient(135deg, #0F3D2E, #1A5340)',
           color: '#E8C895',
