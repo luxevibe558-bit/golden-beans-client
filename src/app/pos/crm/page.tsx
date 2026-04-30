@@ -344,7 +344,7 @@ export default function CRMPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const res = await orderApi.getOrders({});
+      const res = await orderApi.getOrders({ all: "true" });
       const allOrders: Order[] = res.data.data || [];
       setOrders(allOrders);
 

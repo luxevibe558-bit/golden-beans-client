@@ -290,7 +290,7 @@ export default function ReportsPage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await orderApi.getOrders({ date });
+      const res = await orderApi.getOrders({ date, all: "true" });
       setOrders(res.data.data);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
