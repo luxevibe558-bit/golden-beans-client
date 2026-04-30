@@ -151,11 +151,17 @@ export default function WaiterApp() {
     if (screen !== 'app' || !sessionToken) return;
     fetchLive(sessionToken);
     fetchHistory(sessionToken);
-    pollRef.current = setInterval(() => {
-      fetchLive(sessionToken);
+    pollRef.current = setInterval(async () => {
+      await fetchLive(sessionToken);
+      // Pending requests હોય તો દર 5 sec એ sound વાગે
+      setLiveRequests(prev => {
+        const hasPending = prev.some(r => r.status === 'pending');
+        if (hasPending) playAlarm();
+        return prev;
+      });
     }, 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [screen, sessionToken, fetchLive, fetchHistory]);
+  }, [screen, sessionToken, fetchLive, fetchHistory, playAlarm]);
 
   // ─── Login ──────────────────────────────────────────────────────────────
   
