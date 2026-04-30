@@ -57,20 +57,25 @@ export default function WaiterHelpSheet({ tableId, tableNumber }: Props) {
           background: 'linear-gradient(135deg, #C84B31, #E85D3A)',
           color: '#FFFFFF',
           border: '2px solid #FF7A5C',
-          borderRadius: '50px',
-          padding: '10px 16px',
-          fontSize: '13px',
+          borderRadius: '50%',
+          width: '52px',
+          height: '52px',
+          padding: '0',
+          fontSize: '11px',
           fontWeight: '700',
           fontFamily: 'DM Sans, sans-serif',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
-          gap: '6px',
+          justifyContent: 'center',
+          gap: '3px',
           boxShadow: '0 4px 16px rgba(200,75,49,0.45)',
           cursor: 'pointer',
           letterSpacing: '0.3px',
         }}
       >
-        <span style={{ fontSize: '16px' }}>🙋</span> Help
+        <span style={{ fontSize: '20px' }}>🙋</span>
+<span style={{ fontSize: '10px', lineHeight: '1' }}>Help</span>
       </button>
 
       {/* Backdrop */}
