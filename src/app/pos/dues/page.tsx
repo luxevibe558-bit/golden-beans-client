@@ -425,7 +425,7 @@ export default function DueLedgerPage() {
               label="Customers"
               value={uniqueCustomers}
               icon={<Icons.Users size={18} />}
-              variant="warning"
+              variant="gold"
               subtitle="With pending dues"
             />
             <StatCard
