@@ -255,7 +255,7 @@ function ItemEditModal({ item, categories, isOpen, onClose, onSaved }: {
   onSaved: () => void;
 }) {
   const isNew = !item;
-  const [tab, setTab] = useState<"details" | "photo" | "variants">("details");
+  const [tab, setTab] = useState<"details" | "photo" | "variants" | "recipe">("details");
   const [name, setName] = useState(item?.name || "");
   const [description, setDescription] = useState(item?.description || "");
   const [price, setPrice] = useState(String(item?.price || ""));
@@ -267,6 +267,20 @@ function ItemEditModal({ item, categories, isOpen, onClose, onSaved }: {
   const [tags, setTags] = useState<string[]>(item?.tags || []);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [recipe, setRecipe] = useState<{ingredient: string; ingredientName: string; quantityUsed: number}[]>(
+    (item?.recipe || []).map((r: any) => ({
+      ingredient: typeof r.ingredient === 'object' ? r.ingredient._id : r.ingredient,
+      ingredientName: typeof r.ingredient === 'object' ? r.ingredient.name : '',
+      quantityUsed: r.quantityUsed,
+    }))
+  );
+  const [ingredients, setIngredients] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://golden-beans-server.onrender.com/api'}/inventory`)
+      .then(r => r.json())
+      .then(d => setIngredients(d.data || []));
+  }, []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -302,6 +316,10 @@ function ItemEditModal({ item, categories, isOpen, onClose, onSaved }: {
         variantGroups,
         tags,
         isVeg: true,
+        recipe: recipe.filter(r => r.ingredient).map(r => ({
+          ingredient: r.ingredient,
+          quantityUsed: r.quantityUsed,
+        })),
       };
       if (isNew) {
         await (menuApi as { createItem?: (data: typeof payload) => Promise<unknown> }).createItem?.(payload)
@@ -374,6 +392,7 @@ function ItemEditModal({ item, categories, isOpen, onClose, onSaved }: {
           { id: "details", label: "Details", icon: <Icons.Edit size={12} /> },
           { id: "photo", label: "Photo", icon: <Icons.Camera size={12} /> },
           { id: "variants", label: "Variants", icon: <Icons.Sparkle size={12} /> },
+          { id: "recipe", label: "Recipe", icon: <Icons.Box size={12} /> },
         ].map(t => (
           <button
             key={t.id}
@@ -519,6 +538,58 @@ function ItemEditModal({ item, categories, isOpen, onClose, onSaved }: {
         </div>
       )}
 
+      {/* Recipe Tab */}
+      {tab === "recipe" && (
+        <div>
+          <p style={{ fontSize: "12px", color: T.textMuted, marginBottom: "12px", lineHeight: 1.5 }}>
+            Recipe set કરો — order place થાય ત્યારે automatically inventory deduct થશે.
+          </p>
+
+          {recipe.map((r, idx) => (
+            <div key={idx} style={{ display: "flex", gap: "8px", marginBottom: "8px", alignItems: "center" }}>
+              <select
+                value={r.ingredient}
+                onChange={e => {
+                  const ing = ingredients.find((i: any) => i._id === e.target.value);
+                  setRecipe(prev => prev.map((item, i) => i === idx ? { ...item, ingredient: e.target.value, ingredientName: ing?.name || '' } : item));
+                }}
+                style={{ flex: 2, padding: "9px 10px", borderRadius: "9px", border: `1px solid ${T.border}`, background: T.ivory, fontSize: "13px", outline: "none", fontFamily: "inherit", color: T.text }}
+              >
+                <option value="">Select Ingredient</option>
+                {ingredients.map((ing: any) => (
+                  <option key={ing._id} value={ing._id}>{ing.name} ({ing.unit})</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                placeholder="Qty"
+                value={r.quantityUsed}
+                min={0}
+                onChange={e => setRecipe(prev => prev.map((item, i) => i === idx ? { ...item, quantityUsed: parseFloat(e.target.value) || 0 } : item))}
+                style={{ flex: 1, padding: "9px 10px", borderRadius: "9px", border: `1px solid ${T.border}`, background: T.ivory, fontSize: "13px", outline: "none", fontFamily: "'DM Sans', sans-serif", boxSizing: "border-box" }}
+              />
+              <button onClick={() => setRecipe(prev => prev.filter((_, i) => i !== idx))}
+                style={{ width: "32px", height: "36px", borderRadius: "9px", background: "white", border: `1px solid ${T.border}`, color: T.danger, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Icons.Close size={12} />
+              </button>
+            </div>
+          ))}
+
+          <button onClick={() => setRecipe(prev => [...prev, { ingredient: '', ingredientName: '', quantityUsed: 1 }])}
+            style={{ width: "100%", padding: "10px", borderRadius: "10px", border: `1.5px dashed ${T.border}`, background: T.cream, color: T.textMuted, fontSize: "13px", fontWeight: 700, cursor: "pointer", fontFamily: "inherit", marginTop: "4px" }}>
+            + Add Ingredient
+          </button>
+
+          {recipe.length > 0 && (
+            <div style={{ marginTop: "12px", padding: "10px 12px", background: `${T.success}15`, borderRadius: "10px", border: `1px solid ${T.success}33` }}>
+              <p style={{ fontSize: "11px", color: T.success, fontWeight: 700, margin: 0 }}>
+                ✓ {recipe.filter(r => r.ingredient).length} ingredient(s) linked — inventory auto-deduct enabled
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+      
       {/* Variants Tab */}
       {tab === "variants" && (
         <div>
