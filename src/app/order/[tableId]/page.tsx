@@ -32,6 +32,16 @@ interface ExtendedCartItem extends CartItem {
   imageUrl?: string;
 }
 
+interface AppliedDiscount {
+  promotionId: string;
+  name: string;
+  description: string;
+  discount: number;
+  type: "auto" | "code";
+  code?: string;
+  promoCodeId?: string;
+}
+
 type BottomTab = "menu" | "order" | "cart" | "info";
 
 interface SecurityResult {
@@ -970,45 +980,309 @@ function TopCancelBar({ order, onCancelled }: { order: Order; onCancelled: () =>
   );
 }
 
-function CartView({ cart, onUpdateQty, onPlaceOrder, isPlacing }: { cart: ExtendedCartItem[]; onUpdateQty: (k: string, d: number) => void; onPlaceOrder: () => void; isPlacing: boolean; }) {
+function CartView({
+  cart,
+  onUpdateQty,
+  onPlaceOrder,
+  isPlacing,
+  appliedDiscount,
+  onDiscountChange,
+}: {
+  cart: ExtendedCartItem[];
+  onUpdateQty: (k: string, d: number) => void;
+  onPlaceOrder: () => void;
+  isPlacing: boolean;
+  appliedDiscount: AppliedDiscount | null;
+  onDiscountChange: (d: AppliedDiscount | null) => void;
+}) {
+  const [promoCode, setPromoCode] = useState("");
+  const [validating, setValidating] = useState(false);
+  const [codeError, setCodeError] = useState("");
+  const [autoChecking, setAutoChecking] = useState(false);
+
   const subtotal = cart.reduce((s, i) => s + (i.price + (i.totalPriceModifier || 0)) * i.quantity, 0);
-  const tax = subtotal * 0.05; const total = subtotal + tax;
+  const discount = appliedDiscount?.discount || 0;
+  const discountedSubtotal = Math.max(0, subtotal - discount);
+  const tax = discountedSubtotal * 0.05;
+  const total = discountedSubtotal + tax;
   const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
+
+  // ─── Auto-check promotions when cart changes ───
+  useEffect(() => {
+    if (cart.length === 0 || appliedDiscount?.type === "code") {
+      // Don't auto-check if user has manually applied code
+      if (cart.length === 0) onDiscountChange(null);
+      return;
+    }
+
+    const items = cart.map(c => ({
+      menuItemId: c.menuItemId,
+      name: c.name,
+      price: c.price + (c.totalPriceModifier || 0),
+      quantity: c.quantity,
+    }));
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+
+    setAutoChecking(true);
+    fetch(`${apiUrl}/promotions/calculate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items, subtotal }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.data?.applied) {
+          onDiscountChange({
+            ...d.data.applied,
+            type: "auto",
+          });
+        } else if (appliedDiscount?.type === "auto") {
+          onDiscountChange(null);
+        }
+      })
+      .catch(() => { })
+      .finally(() => setAutoChecking(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.length, subtotal]);
+
+  const handleApplyCode = async () => {
+    if (!promoCode.trim()) return;
+    setValidating(true);
+    setCodeError("");
+    try {
+      const items = cart.map(c => ({
+        menuItemId: c.menuItemId,
+        name: c.name,
+        price: c.price + (c.totalPriceModifier || 0),
+        quantity: c.quantity,
+      }));
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+      const res = await fetch(`${apiUrl}/promotions/codes/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: promoCode.trim(), items, subtotal }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        setCodeError(data.message || "Invalid code");
+        return;
+      }
+      onDiscountChange({
+        ...data.data,
+        type: "code",
+        code: data.data.code,
+      });
+      setPromoCode("");
+    } catch (e: unknown) {
+      setCodeError(e instanceof Error ? e.message : "Failed to apply");
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handleRemoveDiscount = () => {
+    onDiscountChange(null);
+    setPromoCode("");
+    setCodeError("");
+  };
+
   return (
     <div style={{ padding: "16px 14px 100px" }}>
       <h2 style={{ fontWeight: 800, fontSize: "22px", color: T.emerald, margin: "0 0 4px", fontFamily: "'Playfair Display', serif" }}>My Cart</h2>
-      <p style={{ fontSize: "12px", color: T.textMuted, margin: "0 0 16px" }}>{totalItems > 0 ? `${totalItems} item${totalItems !== 1 ? "s" : ""}` : "Cart empty"}</p>
+      <p style={{ fontSize: "12px", color: T.textMuted, margin: "0 0 16px" }}>
+        {totalItems > 0 ? `${totalItems} item${totalItems !== 1 ? "s" : ""}` : "Cart empty"}
+      </p>
+
       {cart.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px" }}>
-          <div style={{ width: "80px", height: "80px", margin: "0 auto 16px", borderRadius: "20px", background: T.cream, display: "flex", alignItems: "center", justifyContent: "center", color: T.emerald }}><Icons.Cart size={36} /></div>
+          <div style={{ width: "80px", height: "80px", margin: "0 auto 16px", borderRadius: "20px", background: T.cream, display: "flex", alignItems: "center", justifyContent: "center", color: T.emerald }}>
+            <Icons.Cart size={36} />
+          </div>
           <p style={{ fontWeight: 800, fontSize: "16px", color: T.emerald, margin: "0 0 4px" }}>Cart is empty</p>
           <p style={{ fontSize: "12px", color: T.textMuted, margin: 0 }}>Browse menu to add</p>
         </div>
       ) : (
         <>
           {cart.map(item => (
-            <div key={item.menuItemId + JSON.stringify(item.variants)} style={{ background: T.ivory, borderRadius: "16px", padding: "12px", marginBottom: "10px", border: `1px solid ${T.creamDark}`, display: "flex", gap: "12px" }}>
+            <div key={item.menuItemId + JSON.stringify(item.variants)} style={{
+              background: T.ivory, borderRadius: "16px", padding: "12px",
+              marginBottom: "10px", border: `1px solid ${T.creamDark}`,
+              display: "flex", gap: "12px",
+            }}>
               <div style={{ flexShrink: 0 }}>
-                {item.imageUrl ? <img src={getThumbnailUrl(item.imageUrl)} alt={item.name} draggable={false} style={{ width: "60px", height: "60px", borderRadius: "12px", objectFit: "cover", pointerEvents: "none" }} /> : <ItemImagePlaceholder name={item.name} size={60} />}
+                {item.imageUrl ? (
+                  <img src={getThumbnailUrl(item.imageUrl)} alt={item.name} draggable={false}
+                    style={{ width: "60px", height: "60px", borderRadius: "12px", objectFit: "cover", pointerEvents: "none" }} />
+                ) : (
+                  <ItemImagePlaceholder name={item.name} size={60} />
+                )}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontWeight: 800, fontSize: "14px", color: T.text, margin: "0 0 2px" }}>{item.name}</p>
-                {item.variants && item.variants.some(v => v.selected.length > 0) && <p style={{ fontSize: "10px", color: T.textMuted, margin: "0 0 4px", fontWeight: 600 }}>{item.variants.flatMap(v => v.selected).join(", ")}</p>}
-                <p style={{ fontWeight: 800, fontSize: "13px", color: T.emerald, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>₹{((item.price + (item.totalPriceModifier || 0)) * item.quantity).toFixed(0)}</p>
+                {item.variants && item.variants.some(v => v.selected.length > 0) && (
+                  <p style={{ fontSize: "10px", color: T.textMuted, margin: "0 0 4px", fontWeight: 600 }}>
+                    {item.variants.flatMap(v => v.selected).join(", ")}
+                  </p>
+                )}
+                <p style={{ fontWeight: 800, fontSize: "13px", color: T.emerald, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
+                  ₹{((item.price + (item.totalPriceModifier || 0)) * item.quantity).toFixed(0)}
+                </p>
               </div>
               <div style={{ display: "flex", alignItems: "center", background: T.emerald, borderRadius: "10px", overflow: "hidden", height: "fit-content" }}>
-                <button onClick={() => onUpdateQty(item.menuItemId + JSON.stringify(item.variants), -1)} style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icons.Minus size={12} /></button>
+                <button onClick={() => onUpdateQty(item.menuItemId + JSON.stringify(item.variants), -1)}
+                  style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Icons.Minus size={12} />
+                </button>
                 <span style={{ fontWeight: 900, color: T.gold, fontSize: "12px", minWidth: "20px", textAlign: "center", fontFamily: "'DM Sans', sans-serif" }}>{item.quantity}</span>
-                <button onClick={() => onUpdateQty(item.menuItemId + JSON.stringify(item.variants), 1)} style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icons.Plus size={12} /></button>
+                <button onClick={() => onUpdateQty(item.menuItemId + JSON.stringify(item.variants), 1)}
+                  style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Icons.Plus size={12} />
+                </button>
               </div>
             </div>
           ))}
+
+          {/* ─── Auto-applied Discount Banner ─── */}
+          {appliedDiscount && appliedDiscount.type === "auto" && (
+            <div style={{
+              background: `linear-gradient(135deg, ${T.success}, #2d6a2d)`,
+              borderRadius: "14px", padding: "12px 14px", marginTop: "12px",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              boxShadow: "0 4px 16px rgba(74,139,74,0.25)",
+              animation: "gb-fadeInUp 0.3s ease both",
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
+                  <Icons.Sparkle size={12} color="white" />
+                  <span style={{ fontSize: "10px", color: "white", fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", opacity: 0.9 }}>
+                    Auto Promotion Applied
+                  </span>
+                </div>
+                <p style={{ fontSize: "13px", color: "white", margin: 0, fontWeight: 800 }}>
+                  🎉 You saved ₹{appliedDiscount.discount}!
+                </p>
+                <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.85)", margin: "2px 0 0", fontWeight: 600 }}>
+                  {appliedDiscount.name} · {appliedDiscount.description}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ─── Code-applied Discount Banner ─── */}
+          {appliedDiscount && appliedDiscount.type === "code" && (
+            <div style={{
+              background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
+              borderRadius: "14px", padding: "12px 14px", marginTop: "12px",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              boxShadow: "0 4px 16px rgba(212,165,116,0.35)",
+              animation: "gb-fadeInUp 0.3s ease both",
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
+                  <span style={{ fontSize: "11px" }}>🎫</span>
+                  <span style={{ fontSize: "10px", color: T.emerald, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                    Code: {appliedDiscount.code}
+                  </span>
+                </div>
+                <p style={{ fontSize: "13px", color: T.emerald, margin: 0, fontWeight: 800 }}>
+                  💰 Saved ₹{appliedDiscount.discount}
+                </p>
+                <p style={{ fontSize: "11px", color: "rgba(15,61,46,0.75)", margin: "2px 0 0", fontWeight: 600 }}>
+                  {appliedDiscount.name}
+                </p>
+              </div>
+              <button onClick={handleRemoveDiscount} style={{
+                width: "32px", height: "32px", borderRadius: "50%",
+                background: T.emerald, color: T.gold, border: "none", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                flexShrink: 0,
+              }}>
+                <Icons.Close size={14} />
+              </button>
+            </div>
+          )}
+
+          {/* ─── Promo Code Input ─── */}
+          {(!appliedDiscount || appliedDiscount.type === "auto") && (
+            <div style={{
+              background: T.ivory, borderRadius: "14px", padding: "12px",
+              marginTop: "12px", border: `1px dashed ${T.creamDark}`,
+            }}>
+              <p style={{ fontSize: "10px", fontWeight: 800, color: T.textMuted, letterSpacing: "0.05em", textTransform: "uppercase", margin: "0 0 8px" }}>
+                Have a Promo Code?
+              </p>
+              <div style={{ display: "flex", gap: "6px" }}>
+                <input
+                  type="text"
+                  placeholder="Enter code..."
+                  value={promoCode}
+                  onChange={e => { setPromoCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")); setCodeError(""); }}
+                  style={{
+                    flex: 1, padding: "10px 12px", borderRadius: "10px",
+                    border: `1.5px solid ${codeError ? T.danger : T.border}`,
+                    background: T.cream, color: T.text, fontSize: "14px",
+                    fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.05em",
+                    fontWeight: 700, outline: "none", boxSizing: "border-box",
+                  }}
+                />
+                <button
+                  onClick={handleApplyCode}
+                  disabled={!promoCode.trim() || validating}
+                  style={{
+                    padding: "10px 18px", borderRadius: "10px",
+                    background: !promoCode.trim() ? T.creamDark : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`,
+                    color: !promoCode.trim() ? T.textDim : T.gold,
+                    border: "none",
+                    fontWeight: 800, fontSize: "12px",
+                    cursor: !promoCode.trim() ? "not-allowed" : "pointer",
+                    fontFamily: "'Inter', sans-serif",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {validating ? "..." : "Apply"}
+                </button>
+              </div>
+              {codeError && (
+                <p style={{ fontSize: "11px", color: T.danger, margin: "6px 0 0", fontWeight: 700 }}>
+                  ⚠ {codeError}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* ─── Bill Summary ─── */}
           <div style={{ background: T.ivory, borderRadius: "16px", padding: "14px", marginTop: "14px", border: `1px solid ${T.creamDark}` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: T.textMuted, marginBottom: "5px" }}><span>Subtotal</span><span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: T.text }}>₹{subtotal.toFixed(0)}</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: T.textMuted, paddingBottom: "9px", borderBottom: `1px dashed ${T.creamDark}`, marginBottom: "9px" }}><span>Taxes (5%)</span><span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: T.text }}>₹{tax.toFixed(0)}</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "16px", color: T.emerald }}><span>Total</span><span style={{ fontFamily: "'DM Sans', sans-serif" }}>₹{total.toFixed(0)}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: T.textMuted, marginBottom: "5px" }}>
+              <span>Subtotal</span>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: T.text }}>₹{subtotal.toFixed(0)}</span>
+            </div>
+            {discount > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: T.success, marginBottom: "5px", fontWeight: 700 }}>
+                <span>Discount</span>
+                <span style={{ fontFamily: "'DM Sans', sans-serif" }}>-₹{discount.toFixed(0)}</span>
+              </div>
+            )}
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: T.textMuted, paddingBottom: "9px", borderBottom: `1px dashed ${T.creamDark}`, marginBottom: "9px" }}>
+              <span>Taxes (5%)</span>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: T.text }}>₹{tax.toFixed(0)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "16px", color: T.emerald }}>
+              <span>Total</span>
+              <span style={{ fontFamily: "'DM Sans', sans-serif" }}>₹{total.toFixed(0)}</span>
+            </div>
+            {discount > 0 && (
+              <p style={{ fontSize: "10px", color: T.success, margin: "8px 0 0", textAlign: "center", fontWeight: 800 }}>
+                🎉 You&apos;re saving ₹{discount} on this order!
+              </p>
+            )}
           </div>
-          <div style={{ marginTop: "14px" }}><Button variant="primary" size="xl" fullWidth onClick={onPlaceOrder} loading={isPlacing}>Proceed to Checkout</Button></div>
+
+          <div style={{ marginTop: "14px" }}>
+            <Button variant="primary" size="xl" fullWidth onClick={onPlaceOrder} loading={isPlacing}>
+              Proceed to Checkout
+            </Button>
+          </div>
         </>
       )}
     </div>
@@ -1087,6 +1361,7 @@ export default function CustomerOrderPage() {
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [showCustomerPopup, setShowCustomerPopup] = useState(false);
+  const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null);
   const [customerData, setCustomerData] = useState<{ name: string; phone: string } | null>(null);
   const prevStatusRef = useRef<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
@@ -1257,11 +1532,19 @@ export default function CustomerOrderPage() {
         isVeg: c.isVeg,
       }));
       const res = await orderApi.createOrder({
-        tableId, items: orderItems, createdBy: "customer",
-        customerName: customer?.name || "", customerPhone: customer?.phone || "",
-      });
+  tableId,
+  items: orderItems,
+  createdBy: "customer",
+  customerName: customer?.name || "",
+  customerPhone: customer?.phone || "",
+  discount: appliedDiscount?.discount || 0,
+  appliedPromoId: appliedDiscount?.promotionId || null,
+  appliedPromoCode: appliedDiscount?.code || null,
+});
+       
       const newOrder: Order = res.data.data;
       setCart([]);
+      setAppliedDiscount(null);
       setExistingOrder(newOrder);
       prevStatusRef.current = newOrder.status;
       localStorage.setItem("gb_active_order", newOrder._id);
@@ -1341,7 +1624,16 @@ export default function CustomerOrderPage() {
             </div>
           </div>
         )}
-        {activeTab === "cart" && <CartView cart={cart} onUpdateQty={updateQty} onPlaceOrder={handlePlaceOrderClick} isPlacing={isPlacing} />}
+        {activeTab === "cart" && (
+  <CartView
+    cart={cart}
+    onUpdateQty={updateQty}
+    onPlaceOrder={handlePlaceOrderClick}
+    isPlacing={isPlacing}
+    appliedDiscount={appliedDiscount}
+    onDiscountChange={setAppliedDiscount}
+  />
+)}
         {activeTab === "order" && <OrderView order={existingOrder} queuePosition={queuePosition} />}
         {activeTab === "info" && <InfoView table={table} />}
       </main>
