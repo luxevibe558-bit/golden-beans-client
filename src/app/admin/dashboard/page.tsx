@@ -977,27 +977,27 @@ function WaitersTab({ token }: { token: string }) {
   const [rushWaiterId, setRushWaiterId] = useState('');
   const [rushLoading, setRushLoading] = useState(false);
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'https://golden-beans-server.onrender.com/api';
+  const API = 'https://golden-beans-server.onrender.com/api';
 
   const loadWaiters = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/waiter/list`);
+      const res = await fetch(`https://golden-beans-server.onrender.com/api/waiter/list`);
       const data = await res.json();
       if (data.waiters) setWaiters(data.waiters);
     } catch {}
     finally { setLoading(false); }
-  }, [API]);
+  }, []);
 
   const loadRushMode = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/waiter/rush-mode`);
+      const res = await fetch(`https://golden-beans-server.onrender.com/api/waiter/rush-mode`);
       const data = await res.json();
       if (data.rush) {
         setRushMode(data.rush.isActive);
         setRushWaiterId(data.rush.assignedWaiterId || '');
       }
     } catch {}
-  }, [API]);
+  }, []);
 
   useEffect(() => { loadWaiters(); loadRushMode(); }, [loadWaiters, loadRushMode]);
 
