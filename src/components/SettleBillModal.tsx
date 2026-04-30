@@ -109,9 +109,7 @@ export default function SettleBillModal({ order, isOpen, onClose, onSettled }: S
     try {
       await orderApi.settleOrder(order._id, {
         amountPaid: grandTotal,
-        paymentMethod: paymentMethod === "due"
-          ? `due:${dueCustomerName}:${dueCustomerPhone}`
-          : paymentMethod,
+        paymentMethod: paymentMethod,
         discount: totalDiscount,
         resolvedBy: "pos",
       });
