@@ -31,7 +31,7 @@ const T = {
 
 const API = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
 
-type AdminTab = "overview" | "users" | "security" | "sessions" | "2fa";
+type AdminTab = "overview" | "users" | "security" | "sessions" | "2fa" | "waiters";
 type UserRole = "admin" | "manager" | "cashier";
 
 interface AdminUser {
@@ -102,6 +102,7 @@ function AdminSidebar({ activeTab, onTabChange, user, onLogout }: {
     { id: "security", label: "Security", icon: "🔒" },
     { id: "sessions", label: "Sessions", icon: "⏱️" },
     { id: "2fa", label: "2FA Setup", icon: "🔐" },
+    { id: "waiters", label: "Waiters", icon: "🧑‍🍳" },
   ];
 
   return (
@@ -941,6 +942,10 @@ export default function AdminDashboard() {
               )}
             </div>
           )}
+
+          {activeTab === "waiters" && (
+            <WaitersTab token={token} />
+          )}
         </main>
       </div>
 
@@ -956,6 +961,395 @@ export default function AdminDashboard() {
         onSaved={() => { setShowAddUser(false); loadUsers(); }}
         token={token}
       />
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// WAITERS TAB
+// ═══════════════════════════════════════════════════════
+function WaitersTab({ token }: { token: string }) {
+  const [waiters, setWaiters] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [editWaiter, setEditWaiter] = useState<any | null>(null);
+  const [rushMode, setRushMode] = useState(false);
+  const [rushWaiterId, setRushWaiterId] = useState('');
+  const [rushLoading, setRushLoading] = useState(false);
+
+  const API = process.env.NEXT_PUBLIC_API_URL || 'https://golden-beans-server.onrender.com/api';
+
+  const loadWaiters = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/waiter/list`);
+      const data = await res.json();
+      if (data.waiters) setWaiters(data.waiters);
+    } catch {}
+    finally { setLoading(false); }
+  }, [API]);
+
+  const loadRushMode = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/waiter/rush-mode`);
+      const data = await res.json();
+      if (data.rush) {
+        setRushMode(data.rush.isActive);
+        setRushWaiterId(data.rush.assignedWaiterId || '');
+      }
+    } catch {}
+  }, [API]);
+
+  useEffect(() => { loadWaiters(); loadRushMode(); }, [loadWaiters, loadRushMode]);
+
+  const toggleRushMode = async () => {
+    setRushLoading(true);
+    try {
+      await fetch(`${API}/waiter/rush-mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !rushMode, waiterId: rushWaiterId || null }),
+      });
+      setRushMode(!rushMode);
+    } catch {}
+    setRushLoading(false);
+  };
+
+  const toggleShift = async (id: string, current: boolean) => {
+    try {
+      await fetch(`${API}/waiter/update/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentShift: !current }),
+      });
+      loadWaiters();
+    } catch {}
+  };
+
+  const toggleActive = async (id: string, current: boolean) => {
+    try {
+      await fetch(`${API}/waiter/update/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !current }),
+      });
+      loadWaiters();
+    } catch {}
+  };
+
+  return (
+    <div style={{ animation: 'gb-fadeInUp 0.3s ease both', maxWidth: '800px' }}>
+
+      {/* Rush Mode */}
+      <div style={{ background: rushMode ? `linear-gradient(135deg, ${T.danger}, #a93226)` : T.ivory, borderRadius: '16px', padding: '20px', marginBottom: '20px', border: `1px solid ${rushMode ? T.danger : T.border}`, boxShadow: rushMode ? '0 8px 24px rgba(192,57,43,0.25)' : 'none', transition: 'all 0.3s' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '18px', fontWeight: 800, color: rushMode ? 'white' : T.emerald, margin: '0 0 4px' }}>
+              🚨 Rush Mode
+            </h3>
+            <p style={{ fontSize: '12px', color: rushMode ? 'rgba(255,255,255,0.8)' : T.textMuted, margin: 0, fontWeight: 600 }}>
+              {rushMode ? 'All requests → one waiter' : 'Distribute requests by assignment rules'}
+            </p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {!rushMode && waiters.filter(w => w.isActive && w.currentShift).length > 0 && (
+              <select value={rushWaiterId} onChange={e => setRushWaiterId(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: '10px', border: `1px solid ${T.border}`, background: T.cream, fontSize: '13px', fontWeight: 700, color: T.text, outline: 'none' }}>
+                <option value=''>Select Waiter</option>
+                {waiters.filter(w => w.isActive && w.currentShift).map(w => (
+                  <option key={w._id} value={w._id}>{w.name}</option>
+                ))}
+              </select>
+            )}
+            <button onClick={toggleRushMode} disabled={rushLoading}
+              style={{ padding: '10px 20px', borderRadius: '12px', border: 'none', background: rushMode ? 'rgba(255,255,255,0.2)' : `linear-gradient(135deg, ${T.danger}, #a93226)`, color: 'white', fontSize: '13px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+              {rushLoading ? '...' : rushMode ? '✕ Disable' : '🚨 Enable'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 800, color: T.emerald, margin: 0 }}>
+          Waiter Profiles
+        </h3>
+        <button onClick={() => setShowAdd(true)}
+          style={{ padding: '10px 18px', borderRadius: '12px', border: 'none', background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, fontSize: '13px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', boxShadow: `0 4px 12px rgba(15,61,46,0.25)` }}>
+          + Add Waiter
+        </button>
+      </div>
+
+      {/* Waiter List */}
+      {loading ? (
+        <p style={{ textAlign: 'center', color: T.textMuted, padding: '40px', fontWeight: 700 }}>Loading...</p>
+      ) : waiters.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px', background: T.ivory, borderRadius: '16px', border: `1px solid ${T.border}` }}>
+          <p style={{ fontSize: '40px', margin: '0 0 12px' }}>🧑‍🍳</p>
+          <p style={{ fontSize: '16px', fontWeight: 800, color: T.emerald, margin: '0 0 6px', fontFamily: "'Playfair Display', serif" }}>No Waiters Yet</p>
+          <p style={{ fontSize: '13px', color: T.textMuted, margin: 0, fontWeight: 600 }}>Add your first waiter to get started</p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {waiters.map(w => (
+            <div key={w._id} style={{ background: T.ivory, borderRadius: '16px', padding: '18px', border: `1px solid ${T.border}`, boxShadow: '0 2px 8px rgba(15,61,46,0.05)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px' }}>
+                    🧑‍🍳
+                  </div>
+                  <div>
+                    <p style={{ margin: 0, fontSize: '16px', fontWeight: 900, color: T.text }}>{w.name}</p>
+                    <p style={{ margin: '3px 0 0', fontSize: '12px', color: T.textMuted, fontWeight: 600 }}>
+                      @{w.username} · {w.role === 'senior_waiter' ? '⭐ Senior Waiter' : 'Waiter'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Badges + Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {/* On Shift badge */}
+                  <button onClick={() => toggleShift(w._id, w.currentShift)}
+                    style={{ padding: '5px 12px', borderRadius: '8px', border: `1px solid ${w.currentShift ? '#BBF7D0' : T.border}`, background: w.currentShift ? '#E8F5E9' : T.cream, color: w.currentShift ? T.success : T.textMuted, fontSize: '11px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {w.currentShift ? '🟢 On Shift' : '⚪ Off Shift'}
+                  </button>
+
+                  {/* Active badge */}
+                  <button onClick={() => toggleActive(w._id, w.isActive)}
+                    style={{ padding: '5px 12px', borderRadius: '8px', border: `1px solid ${w.isActive ? '#BFDBFE' : '#FECACA'}`, background: w.isActive ? '#EFF6FF' : '#FEF2F2', color: w.isActive ? '#3B82F6' : T.danger, fontSize: '11px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {w.isActive ? '✓ Active' : '✕ Inactive'}
+                  </button>
+
+                  {/* Edit */}
+                  <button onClick={() => setEditWaiter(w)}
+                    style={{ padding: '5px 12px', borderRadius: '8px', border: `1px solid ${T.border}`, background: T.cream, color: T.emerald, fontSize: '11px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    ✏️ Edit
+                  </button>
+                </div>
+              </div>
+
+              {/* Assignment Rules */}
+              <div style={{ marginTop: '12px', padding: '10px 12px', background: T.cream, borderRadius: '10px', border: `1px solid ${T.creamDark}`, display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '10px', color: T.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', alignSelf: 'center' }}>Rules:</span>
+                {w.assignmentRules?.tableRange?.enabled && (
+                  <span style={{ background: T.ivory, border: `1px solid ${T.border}`, borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, color: T.emerald }}>
+                    🪑 {w.assignmentRules.tableRange.from}–{w.assignmentRules.tableRange.to}
+                  </span>
+                )}
+                {w.assignmentRules?.orderType?.enabled && (
+                  <span style={{ background: T.ivory, border: `1px solid ${T.border}`, borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, color: T.emerald }}>
+                    📱 {w.assignmentRules.orderType.types?.join(', ')}
+                  </span>
+                )}
+                {w.assignmentRules?.timeSlot?.enabled && (
+                  <span style={{ background: T.ivory, border: `1px solid ${T.border}`, borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: 700, color: T.emerald }}>
+                    ⏰ {w.assignmentRules.timeSlot.startHour}:00–{w.assignmentRules.timeSlot.endHour}:00
+                  </span>
+                )}
+                {!w.assignmentRules?.tableRange?.enabled && !w.assignmentRules?.orderType?.enabled && !w.assignmentRules?.timeSlot?.enabled && (
+                  <span style={{ fontSize: '11px', color: T.textDim, fontWeight: 600 }}>No rules set — default assignment</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add/Edit Modal */}
+      {(showAdd || editWaiter) && (
+        <WaiterModal
+          waiter={editWaiter}
+          onClose={() => { setShowAdd(false); setEditWaiter(null); }}
+          onSaved={() => { setShowAdd(false); setEditWaiter(null); loadWaiters(); }}
+          API={API}
+        />
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+// WAITER MODAL
+// ═══════════════════════════════════════════════════════
+function WaiterModal({ waiter, onClose, onSaved, API }: { waiter: any; onClose: () => void; onSaved: () => void; API: string; }) {
+  const isEdit = !!waiter;
+  const [name, setName] = useState(waiter?.name || '');
+  const [username, setUsername] = useState(waiter?.username || '');
+  const [pin, setPin] = useState('');
+  const [role, setRole] = useState(waiter?.role || 'waiter');
+  const [tableRangeEnabled, setTableRangeEnabled] = useState(waiter?.assignmentRules?.tableRange?.enabled || false);
+  const [tableFrom, setTableFrom] = useState(waiter?.assignmentRules?.tableRange?.from || '');
+  const [tableTo, setTableTo] = useState(waiter?.assignmentRules?.tableRange?.to || '');
+  const [orderTypeEnabled, setOrderTypeEnabled] = useState(waiter?.assignmentRules?.orderType?.enabled || false);
+  const [orderTypes, setOrderTypes] = useState<string[]>(waiter?.assignmentRules?.orderType?.types || []);
+  const [timeSlotEnabled, setTimeSlotEnabled] = useState(waiter?.assignmentRules?.timeSlot?.enabled || false);
+  const [startHour, setStartHour] = useState(waiter?.assignmentRules?.timeSlot?.startHour || 9);
+  const [endHour, setEndHour] = useState(waiter?.assignmentRules?.timeSlot?.endHour || 17);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [totpData, setTotpData] = useState<{ totpUri: string; totpSecret: string } | null>(null);
+
+  const handleSave = async () => {
+    if (!name || !username) return setError('Name અને Username જરૂરી છે');
+    if (!isEdit && (!pin || pin.length !== 4)) return setError('4-digit PIN જરૂરી છે');
+    setLoading(true); setError('');
+    try {
+      const assignmentRules = {
+        tableRange: { enabled: tableRangeEnabled, from: tableFrom, to: tableTo },
+        orderType: { enabled: orderTypeEnabled, types: orderTypes },
+        timeSlot: { enabled: timeSlotEnabled, startHour: Number(startHour), endHour: Number(endHour) },
+      };
+      if (isEdit) {
+        await fetch(`${API}/waiter/update/${waiter._id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, role, assignmentRules }),
+        });
+        onSaved();
+      } else {
+        const res = await fetch(`${API}/waiter/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, username, pin, role }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setTotpData({ totpUri: data.totpUri, totpSecret: data.totpSecret });
+          // Update rules
+          await fetch(`${API}/waiter/update/${data.waiter.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assignmentRules }),
+          });
+        } else { setError(data.error || 'Error'); }
+      }
+    } catch { setError('Server error'); }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ background: T.ivory, borderRadius: '24px', padding: '28px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
+
+        {/* TOTP Success Screen */}
+        {totpData ? (
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ fontSize: '48px', margin: '0 0 12px' }}>🎉</p>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '22px', fontWeight: 800, color: T.emerald, margin: '0 0 6px' }}>Waiter Created!</h3>
+            <p style={{ fontSize: '13px', color: T.textMuted, margin: '0 0 24px', fontWeight: 600 }}>Google Authenticator માં scan કરો</p>
+            <div style={{ background: T.cream, borderRadius: '16px', padding: '20px', marginBottom: '20px', border: `1px solid ${T.border}` }}>
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(totpData.totpUri)}`} alt="TOTP QR" style={{ borderRadius: '8px', width: '180px', height: '180px' }} />
+              <p style={{ fontSize: '11px', color: T.textMuted, margin: '12px 0 0', fontWeight: 600 }}>
+                Manual key: <strong style={{ letterSpacing: '0.1em', color: T.emerald }}>{totpData.totpSecret}</strong>
+              </p>
+            </div>
+            <button onClick={onSaved} style={{ width: '100%', padding: '14px', borderRadius: '14px', border: 'none', background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, fontSize: '15px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Done ✓
+            </button>
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', fontWeight: 800, color: T.emerald, margin: 0 }}>
+                {isEdit ? 'Edit Waiter' : 'Add New Waiter'}
+              </h3>
+              <button onClick={onClose} style={{ width: '32px', height: '32px', borderRadius: '8px', border: `1px solid ${T.border}`, background: T.cream, cursor: 'pointer', fontSize: '16px' }}>✕</button>
+            </div>
+
+            {/* Basic Info */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+              {[
+                { label: 'Full Name', value: name, setter: setName, placeholder: 'Rahul Patel' },
+                { label: 'Username', value: username, setter: setUsername, placeholder: 'rahul', disabled: isEdit },
+              ].map(f => (
+                <div key={f.label}>
+                  <label style={{ fontSize: '11px', color: T.textMuted, fontWeight: 700, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{f.label}</label>
+                  <input value={f.value} onChange={e => f.setter(e.target.value)} placeholder={f.placeholder} disabled={f.disabled}
+                    style={{ width: '100%', padding: '11px 13px', borderRadius: '11px', border: `1px solid ${T.border}`, background: f.disabled ? T.creamDark : T.cream, fontSize: '14px', fontWeight: 700, color: T.text, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }} />
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+              {!isEdit && (
+                <div>
+                  <label style={{ fontSize: '11px', color: T.textMuted, fontWeight: 700, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>4-Digit PIN</label>
+                  <input value={pin} onChange={e => setPin(e.target.value.slice(0, 4))} placeholder='••••' type='password' inputMode='numeric'
+                    style={{ width: '100%', padding: '11px 13px', borderRadius: '11px', border: `1px solid ${T.border}`, background: T.cream, fontSize: '20px', fontWeight: 900, color: T.emerald, outline: 'none', boxSizing: 'border-box', letterSpacing: '8px', fontFamily: 'inherit' }} />
+                </div>
+              )}
+              <div>
+                <label style={{ fontSize: '11px', color: T.textMuted, fontWeight: 700, display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Role</label>
+                <select value={role} onChange={e => setRole(e.target.value)}
+                  style={{ width: '100%', padding: '11px 13px', borderRadius: '11px', border: `1px solid ${T.border}`, background: T.cream, fontSize: '14px', fontWeight: 700, color: T.text, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}>
+                  <option value='waiter'>Waiter</option>
+                  <option value='senior_waiter'>Senior Waiter</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Assignment Rules */}
+            <div style={{ background: T.cream, borderRadius: '14px', padding: '16px', border: `1px solid ${T.border}`, marginBottom: '20px' }}>
+              <p style={{ fontSize: '12px', fontWeight: 800, color: T.emerald, margin: '0 0 14px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Assignment Rules</p>
+
+              {/* Table Range */}
+              <div style={{ marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: tableRangeEnabled ? '10px' : 0 }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: T.text }}>🪑 Table Range</span>
+                  <button onClick={() => setTableRangeEnabled(!tableRangeEnabled)}
+                    style={{ padding: '4px 12px', borderRadius: '8px', border: 'none', background: tableRangeEnabled ? T.emerald : T.creamDark, color: tableRangeEnabled ? T.gold : T.textMuted, fontSize: '11px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {tableRangeEnabled ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+                {tableRangeEnabled && (
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input value={tableFrom} onChange={e => setTableFrom(e.target.value)} placeholder='T01'
+                      style={{ flex: 1, padding: '9px', borderRadius: '9px', border: `1px solid ${T.border}`, background: T.ivory, fontSize: '13px', fontWeight: 700, outline: 'none', fontFamily: 'inherit', textAlign: 'center' }} />
+                    <span style={{ alignSelf: 'center', color: T.textMuted, fontWeight: 700 }}>to</span>
+                    <input value={tableTo} onChange={e => setTableTo(e.target.value)} placeholder='T06'
+                      style={{ flex: 1, padding: '9px', borderRadius: '9px', border: `1px solid ${T.border}`, background: T.ivory, fontSize: '13px', fontWeight: 700, outline: 'none', fontFamily: 'inherit', textAlign: 'center' }} />
+                  </div>
+                )}
+              </div>
+
+              {/* Time Slot */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: timeSlotEnabled ? '10px' : 0 }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: T.text }}>⏰ Time Slot</span>
+                  <button onClick={() => setTimeSlotEnabled(!timeSlotEnabled)}
+                    style={{ padding: '4px 12px', borderRadius: '8px', border: 'none', background: timeSlotEnabled ? T.emerald : T.creamDark, color: timeSlotEnabled ? T.gold : T.textMuted, fontSize: '11px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {timeSlotEnabled ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+                {timeSlotEnabled && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input type='number' value={startHour} onChange={e => setStartHour(Number(e.target.value))} min={0} max={23}
+                      style={{ flex: 1, padding: '9px', borderRadius: '9px', border: `1px solid ${T.border}`, background: T.ivory, fontSize: '13px', fontWeight: 700, outline: 'none', fontFamily: 'inherit', textAlign: 'center' }} />
+                    <span style={{ color: T.textMuted, fontWeight: 700 }}>:00 to</span>
+                    <input type='number' value={endHour} onChange={e => setEndHour(Number(e.target.value))} min={0} max={23}
+                      style={{ flex: 1, padding: '9px', borderRadius: '9px', border: `1px solid ${T.border}`, background: T.ivory, fontSize: '13px', fontWeight: 700, outline: 'none', fontFamily: 'inherit', textAlign: 'center' }} />
+                    <span style={{ color: T.textMuted, fontWeight: 700 }}>:00</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {error && (
+              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '10px', padding: '10px 14px', marginBottom: '16px', fontSize: '13px', color: T.danger, fontWeight: 700 }}>
+                ⚠️ {error}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={onClose} style={{ flex: 1, padding: '13px', borderRadius: '13px', border: `1px solid ${T.border}`, background: T.cream, color: T.textMuted, fontSize: '14px', fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Cancel
+              </button>
+              <button onClick={handleSave} disabled={loading} style={{ flex: 2, padding: '13px', borderRadius: '13px', border: 'none', background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, fontSize: '14px', fontWeight: 800, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: `0 6px 16px rgba(15,61,46,0.25)` }}>
+                {loading ? 'Saving...' : isEdit ? '✓ Save Changes' : '+ Create Waiter'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
