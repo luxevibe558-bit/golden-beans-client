@@ -26,7 +26,8 @@ interface Ingredient {
   _id: string;
   name: string;
   unit: string;
-  currentStock: number;
+  stockQuantity: number;
+  currentStock: number; // alias
   lowStockThreshold: number;
   costPerUnit: number;
 }
@@ -35,6 +36,7 @@ interface IngredientsResponse {
   data: { data: Ingredient[] };
 }
 
+const getStock = (ing: Ingredient) => ing.stockQuantity ?? ing.currentStock ?? 0;
 function getStockStatus(current: number, threshold: number) {
   if (current === 0) return { label: "Out of Stock", color: T.danger, variant: "danger" as const };
   if (current < threshold) return { label: "Low Stock", color: T.warning, variant: "warning" as const };
@@ -70,8 +72,9 @@ export default function InventoryPage() {
   const handleRestock = async () => {
     if (!restockModal || !restockAmount) return;
     try {
-      const newStock = restockModal.currentStock + parseFloat(restockAmount);
-      await (inventoryApi as { update: (id: string, data: { currentStock: number }) => Promise<unknown> }).update(restockModal._id, { currentStock: newStock });
+      const currentQty = getStock(restockModal);
+      const newStock = currentQty + parseFloat(restockAmount);
+      await (inventoryApi as { update: (id: string, data: { stockQuantity: number }) => Promise<unknown> }).update(restockModal._id, { stockQuantity: newStock });
       setRestockModal(null);
       setRestockAmount("");
       load();
@@ -86,7 +89,7 @@ export default function InventoryPage() {
       await (inventoryApi as { update: (id: string, data: Record<string, unknown>) => Promise<unknown> }).update(editModal._id, {
         name: editForm.name,
         unit: editForm.unit,
-        currentStock: parseFloat(editForm.currentStock) || 0,
+        stockQuantity: parseFloat(editForm.currentStock) || 0,
         lowStockThreshold: parseFloat(editForm.lowStockThreshold) || 0,
         costPerUnit: parseFloat(editForm.costPerUnit) || 0,
       });
@@ -101,7 +104,7 @@ export default function InventoryPage() {
       await (inventoryApi as { create: (data: Record<string, unknown>) => Promise<unknown> }).create({
         name: addForm.name,
         unit: addForm.unit,
-        currentStock: parseFloat(addForm.currentStock) || 0,
+        stockQuantity: parseFloat(addForm.currentStock) || 0,
         lowStockThreshold: parseFloat(addForm.lowStockThreshold) || 0,
         costPerUnit: parseFloat(addForm.costPerUnit) || 0,
       });
@@ -123,7 +126,7 @@ export default function InventoryPage() {
     setEditForm({
       name: ing.name,
       unit: ing.unit,
-      currentStock: String(ing.currentStock),
+      currentStock: String(getStock(ing)),
       lowStockThreshold: String(ing.lowStockThreshold),
       costPerUnit: String(ing.costPerUnit),
     });
@@ -133,15 +136,15 @@ export default function InventoryPage() {
   const filtered = ingredients
     .filter(i => i.name.toLowerCase().includes(search.toLowerCase()))
     .filter(i => {
-      if (filter === "low") return i.currentStock < i.lowStockThreshold && i.currentStock > 0;
-      if (filter === "out") return i.currentStock === 0;
+      if (filter === "low") return getStock(i) < i.lowStockThreshold && getStock(i) > 0;
+      if (filter === "out") return getStock(i) === 0;
       return true;
     });
 
   const total = ingredients.length;
-  const lowCount = ingredients.filter(i => i.currentStock < i.lowStockThreshold && i.currentStock > 0).length;
-  const outCount = ingredients.filter(i => i.currentStock === 0).length;
-  const totalValue = ingredients.reduce((s, i) => s + i.currentStock * i.costPerUnit, 0);
+  const lowCount = ingredients.filter(i => getStock(i) < i.lowStockThreshold && getStock(i) > 0).length;
+  const outCount = ingredients.filter(i => getStock(i) === 0).length;
+  const totalValue = ingredients.reduce((s, i) => s + getStock(i) * i.costPerUnit, 0);
 
   return (
     <div style={{ minHeight: "100vh", background: T.cream, display: "flex" }}>
@@ -249,7 +252,7 @@ export default function InventoryPage() {
 
               {/* Rows */}
               {filtered.map((ing, idx) => {
-                const status = getStockStatus(ing.currentStock, ing.lowStockThreshold);
+                const status = getStockStatus(getStock(ing), ing.lowStockThreshold);
                 return (
                   <div
                     key={ing._id}
@@ -272,7 +275,7 @@ export default function InventoryPage() {
                       </p>
                     </div>
                     <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "13px", fontWeight: 700, color: T.text, fontVariantNumeric: "tabular-nums" }}>
-                      {ing.currentStock} <span style={{ color: T.textDim, fontWeight: 600 }}>{ing.unit}</span>
+                      {getStock(ing)} <span style={{ color: T.textDim, fontWeight: 600 }}>{ing.unit}</span>
                     </span>
                     <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "12px", color: T.textMuted, fontVariantNumeric: "tabular-nums" }}>
                       {ing.lowStockThreshold} {ing.unit}
@@ -334,7 +337,7 @@ export default function InventoryPage() {
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px" }}>
                 <span style={{ color: T.textMuted }}>Current Stock:</span>
                 <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: T.text, fontVariantNumeric: "tabular-nums" }}>
-                  {restockModal.currentStock} {restockModal.unit}
+                  {getStock(restockModal)} {restockModal.unit}
                 </span>
               </div>
             </div>
