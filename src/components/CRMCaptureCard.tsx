@@ -33,7 +33,7 @@ export default function CRMCaptureCard({ tableId }: Props) {
         if (res.message) {
           setMessage(res.message);
           // Show after delay
-          const delay = (res.showAfterSeconds || 30) * 1000;
+          const delay = 15000; // 15 seconds
           setTimeout(() => setShow(true), delay);
         }
       } catch {}
