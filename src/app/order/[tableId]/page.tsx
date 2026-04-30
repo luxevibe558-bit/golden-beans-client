@@ -198,18 +198,19 @@ function SecurityCheckScreen({ onPassed, onFailed }: {
       padding: "20px",
     }}>
       <div style={{ textAlign: "center", maxWidth: "360px", width: "100%" }}>
-        <img
-          src="/logo-large.png"
-          alt="Golden Beans"
-          draggable={false}
-          style={{
-            width: "110px", height: "110px",
-            margin: "0 auto 20px",
-            borderRadius: "24px",
-            boxShadow: "0 12px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(212,165,116,0.2)",
-            pointerEvents: "none",
-          }}
-        />
+        <div style={{
+          width: "110px", height: "110px",
+          borderRadius: "50%",
+          overflow: "hidden",
+          margin: "0 auto 20px",
+          border: "3px solid rgba(212,165,116,0.5)",
+          boxShadow: "0 0 0 6px rgba(212,165,116,0.1), 0 12px 32px rgba(0,0,0,0.4)",
+          background: "#0F3D2E",
+          flexShrink: 0,
+        }}>
+          <img src="/logo-large.png" alt="Golden Beans" draggable={false}
+            style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+        </div>
  
         <h2 style={{
           fontFamily: "'Playfair Display', serif",
@@ -383,7 +384,17 @@ function AwarenessScreen({ result, onRetry }: { result: SecurityResult; onRetry:
       overflowX: "hidden",
     }}>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", maxWidth: "400px", width: "100%", margin: "0 auto" }}>
-        <img src="/logo-large.png" alt="Golden Beans" draggable={false} style={{ width: "100px", height: "100px", marginBottom: "20px", filter: "drop-shadow(0 8px 20px rgba(0,0,0,0.4))", pointerEvents: "none" }} />
+        <div style={{
+  width: "100px", height: "100px",
+  borderRadius: "50%",
+  overflow: "hidden",
+  marginBottom: "20px",
+  border: "3px solid rgba(212,165,116,0.5)",
+  boxShadow: "0 0 0 6px rgba(212,165,116,0.1), 0 8px 24px rgba(0,0,0,0.4)",
+  background: "#0F3D2E",
+}}>
+  <img src="/logo-large.png" alt="Golden Beans" draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+</div>
 
         <div style={{
           width: "76px", height: "76px",
@@ -947,13 +958,20 @@ function TopCancelBar({ order, onCancelled }: { order: Order; onCancelled: () =>
   const placedAt = new Date(order.createdAt).getTime();
   const [secondsLeft, setSecondsLeft] = useState(() => Math.max(0, 120 - Math.floor((Date.now() - placedAt) / 1000)));
   const [cancelling, setCancelling] = useState(false);
+  const [pulse, setPulse] = useState(false);
+
   useEffect(() => {
-    const iv = setInterval(() => setSecondsLeft(Math.max(0, 120 - Math.floor((Date.now() - placedAt) / 1000))), 1000);
+    const iv = setInterval(() => {
+      setSecondsLeft(Math.max(0, 120 - Math.floor((Date.now() - placedAt) / 1000)));
+      setPulse(p => !p);
+    }, 1000);
     return () => clearInterval(iv);
   }, [placedAt]);
+
   if (secondsLeft <= 0) return null;
   const mins = Math.floor(secondsLeft / 60); const secs = secondsLeft % 60;
   const isUrgent = secondsLeft <= 30; const pct = (secondsLeft / 120) * 100;
+
   const handleCancel = async () => {
     if (cancelling) return;
     if (!confirm(`Cancel order #${order.orderNumber}?`)) return;
@@ -962,21 +980,89 @@ function TopCancelBar({ order, onCancelled }: { order: Order; onCancelled: () =>
     catch { alert("Failed"); setCancelling(false); }
   };
   return (
-    <div style={{ position: "sticky", top: 0, zIndex: 45, background: isUrgent ? "linear-gradient(135deg, #7f1d1d, #C0392B)" : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, borderBottom: `2px solid ${isUrgent ? "#ef4444" : T.gold}` }}>
-      <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
-          <div style={{ width: "34px", height: "34px", borderRadius: "9px", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${isUrgent ? "white" : T.gold}` }}>
-            <span style={{ fontWeight: 800, fontSize: "10px", color: "white", fontFamily: "'DM Sans', sans-serif" }}>{mins}:{String(secs).padStart(2, "0")}</span>
-          </div>
-          <div>
-            <p style={{ fontWeight: 800, fontSize: "11px", color: "white", margin: 0 }}>{isUrgent ? "⚠️ Cancel ending!" : "Cancel within 2 min"}</p>
-            <p style={{ fontSize: "9px", color: "rgba(255,255,255,0.75)", margin: "1px 0 0", fontWeight: 600 }}>#{order.orderNumber}</p>
-          </div>
-        </div>
-        <button onClick={handleCancel} disabled={cancelling} style={{ background: "white", color: isUrgent ? T.danger : T.emerald, border: "none", borderRadius: "8px", padding: "6px 12px", fontWeight: 800, fontSize: "10px", cursor: cancelling ? "wait" : "pointer" }}>{cancelling ? "..." : "✕ CANCEL"}</button>
+    <div style={{
+  position: "sticky", top: 0, zIndex: 45,
+  background: isUrgent
+    ? "linear-gradient(135deg, #7f1d1d, #C0392B)"
+    : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`,
+  borderBottom: `2px solid ${isUrgent ? "#ef4444" : T.gold}`,
+  boxShadow: isUrgent
+    ? `0 4px 20px rgba(192,57,43,0.5), 0 0 ${pulse ? "20px" : "8px"} rgba(239,68,68,0.4)`
+    : `0 4px 20px rgba(15,61,46,0.3), 0 0 ${pulse ? "16px" : "6px"} rgba(212,165,116,0.3)`,
+  transition: "box-shadow 500ms ease",
+}}>
+  <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+      <div style={{
+        width: "38px", height: "38px", borderRadius: "10px",
+        background: isUrgent
+          ? `rgba(255,255,255,${pulse ? "0.25" : "0.15"})`
+          : `rgba(212,165,116,${pulse ? "0.25" : "0.15"})`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        border: `2px solid ${isUrgent ? "rgba(255,255,255,0.6)" : T.gold}`,
+        boxShadow: pulse
+          ? `0 0 12px ${isUrgent ? "rgba(255,255,255,0.4)" : "rgba(212,165,116,0.5)"}`
+          : "none",
+        transition: "all 500ms ease",
+        flexShrink: 0,
+      }}>
+        <span style={{
+          fontWeight: 900, fontSize: "11px", color: "white",
+          fontFamily: "'DM Sans', sans-serif",
+          fontVariantNumeric: "tabular-nums",
+          textShadow: pulse ? "0 0 8px rgba(255,255,255,0.8)" : "none",
+          transition: "text-shadow 500ms ease",
+        }}>{mins}:{String(secs).padStart(2, "0")}</span>
       </div>
-      <div style={{ height: "2px", background: "rgba(0,0,0,0.2)" }}><div style={{ height: "100%", width: `${pct}%`, background: "white", transition: "width 1s linear" }} /></div>
+      <div>
+        <p style={{
+          fontWeight: 800, fontSize: "11px", color: "white", margin: 0,
+          textShadow: isUrgent && pulse ? "0 0 8px rgba(255,255,255,0.5)" : "none",
+          transition: "text-shadow 500ms ease",
+        }}>
+          {isUrgent ? "⚠️ Cancel ending!" : "✕ Cancel within 2 min"}
+        </p>
+        <p style={{ fontSize: "9px", color: "rgba(255,255,255,0.75)", margin: "1px 0 0", fontWeight: 600 }}>
+          Order #{order.orderNumber}
+        </p>
+      </div>
     </div>
+    <button
+      onClick={handleCancel}
+      disabled={cancelling}
+      style={{
+        background: isUrgent
+          ? `rgba(255,255,255,${pulse ? "1" : "0.9"})`
+          : "white",
+        color: isUrgent ? T.danger : T.emerald,
+        border: "none", borderRadius: "8px",
+        padding: "7px 14px",
+        fontWeight: 800, fontSize: "11px",
+        cursor: cancelling ? "wait" : "pointer",
+        fontFamily: "'Inter', sans-serif",
+        boxShadow: isUrgent && pulse ? "0 0 12px rgba(255,255,255,0.6)" : "none",
+        transition: "all 300ms ease",
+        letterSpacing: "0.02em",
+      }}
+    >
+      {cancelling ? "..." : "✕ CANCEL"}
+    </button>
+  </div>
+
+  {/* Premium animated progress bar */}
+  <div style={{ height: "3px", background: "rgba(0,0,0,0.2)", position: "relative", overflow: "hidden" }}>
+    <div style={{
+      height: "100%", width: `${pct}%`,
+      background: isUrgent
+        ? "linear-gradient(90deg, #fca5a5, white, #fca5a5)"
+        : `linear-gradient(90deg, ${T.goldDark}, ${T.gold}, ${T.goldLight}, ${T.gold}, ${T.goldDark})`,
+      backgroundSize: "200% 100%",
+      transition: "width 1s linear",
+      animation: "gb-shimmer 2s linear infinite",
+      boxShadow: `0 0 8px ${isUrgent ? "rgba(255,255,255,0.6)" : "rgba(212,165,116,0.6)"}`,
+    }} />
+  </div>
+</div>
   );
 }
 
@@ -1578,6 +1664,7 @@ export default function CustomerOrderPage() {
         .customer-app { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
         .customer-app input, .customer-app textarea { -webkit-user-select: text; user-select: text; }
         .customer-app img { -webkit-user-drag: none; user-drag: none; pointer-events: none; }
+        @keyframes gb-shimmer { 0% { background-position: 200% center; } 100% { background-position: -200% center; } }
       `}</style>
 
       {showCustomerPopup && <CustomerDataPopup onSubmit={handleCustomerDataSubmit} onSkip={() => { setShowCustomerPopup(false); placeOrder(); }} />}
