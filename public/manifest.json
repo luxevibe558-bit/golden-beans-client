@@ -1,10 +1,11 @@
 {
-  "name": "Golden Beans Cafe",
-  "short_name": "Golden Beans",
-  "description": "Golden Beans Cafe & Bistro - Order Management",
+  "name": "Golden Beans Waiter",
+  "short_name": "GB Waiter",
+  "description": "Golden Beans Cafe Waiter App",
   "start_url": "/waiter",
+  "scope": "/waiter",
   "display": "standalone",
-  "background_color": "#FAF6F0",
+  "background_color": "#0F3D2E",
   "theme_color": "#0F3D2E",
   "icons": [
     {
