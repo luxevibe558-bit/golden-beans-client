@@ -24,6 +24,7 @@ export default function CRMCaptureCard({ tableId }: Props) {
 
   useEffect(() => {
     // Already claimed this session?
+    if (typeof window === 'undefined') return;
     const claimed = sessionStorage.getItem('gb_crm_claimed');
     if (claimed) return;
 
