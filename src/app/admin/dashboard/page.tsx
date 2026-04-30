@@ -470,6 +470,30 @@ export default function AdminDashboard() {
   const [totpVerifying, setTotpVerifying] = useState(false);
   const [newIp, setNewIp] = useState("");
 
+  // ─── Auto-logout after 5 min inactivity ──────────────────────────────────
+  useEffect(() => {
+    const TIMEOUT = 5 * 60 * 1000; // 5 minutes
+    let timer: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        localStorage.removeItem("gb_admin_token");
+        localStorage.removeItem("gb_admin_user");
+        router.replace("/admin");
+      }, TIMEOUT);
+    };
+
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
+    events.forEach(e => window.addEventListener(e, resetTimer));
+    resetTimer(); // start timer
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+    };
+  }, [router]);
+
   useEffect(() => {
     const t = localStorage.getItem("gb_admin_token");
     const u = localStorage.getItem("gb_admin_user");
