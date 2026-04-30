@@ -51,15 +51,15 @@ export default function WaiterHelpSheet({ tableId, tableNumber }: Props) {
         onClick={() => setOpen(true)}
         style={{
           position: 'fixed',
-          bottom: '18px',
+          bottom: '14px',
           right: '16px',
           zIndex: 999,
           background: 'linear-gradient(135deg, #C84B31, #E85D3A)',
           color: '#FFFFFF',
           border: '2px solid #FF7A5C',
           borderRadius: '50%',
-          width: '68px',
-          height: '68px',
+          width: '62px',
+          height: '62px',
           padding: '0',
           fontSize: '11px',
           fontWeight: '700',
