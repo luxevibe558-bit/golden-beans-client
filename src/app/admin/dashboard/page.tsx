@@ -804,7 +804,7 @@ export default function AdminDashboard() {
                     <div key={field.key}>
                       <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "5px", textTransform: "uppercase", letterSpacing: "0.05em" }}>{field.label}</label>
                       <input
-                        type="text" value={(securitySettings as Record<string, unknown>)[field.key] as string}
+                        type="text" value={(securitySettings as unknown as Record<string, string>)[field.key]}
                         onChange={e => setSecuritySettings({ ...securitySettings, [field.key]: e.target.value })}
                         style={{ width: "100%", padding: "10px 12px", borderRadius: "10px", border: `1.5px solid ${T.border}`, background: T.cream, fontSize: "14px", fontWeight: 600, outline: "none", boxSizing: "border-box" }}
                       />
@@ -853,15 +853,15 @@ export default function AdminDashboard() {
                   <div key={item.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px dashed ${T.creamDark}` }}>
                     <span style={{ fontSize: "13px", fontWeight: 700, color: T.text }}>{item.label}</span>
                     <button
-                      onClick={() => setAdminSettings({ ...adminSettings, [item.key]: !(adminSettings as Record<string, unknown>)[item.key] })}
+                      onClick={() => setAdminSettings({ ...adminSettings, [item.key]: !(adminSettings as unknown as Record<string, unknown>)[item.key] })}
                       style={{
                         padding: "6px 14px", borderRadius: "99px", border: "none", cursor: "pointer",
-                        background: (adminSettings as Record<string, unknown>)[item.key] ? T.success : T.creamDark,
-                        color: (adminSettings as Record<string, unknown>)[item.key] ? "white" : T.textMuted,
+                        background: (adminSettings as unknown as Record<string, unknown>)[item.key] ? T.success : T.creamDark,
+                        color: (adminSettings as unknown as Record<string, unknown>)[item.key] ? "white" : T.textMuted,
                         fontWeight: 800, fontSize: "11px", fontFamily: "'Inter', sans-serif",
                       }}
                     >
-                      {(adminSettings as Record<string, unknown>)[item.key] ? "ON" : "OFF"}
+                      {(adminSettings as unknown as Record<string, unknown>)[item.key] ? "ON" : "OFF"}
                     </button>
                   </div>
                 ))}
