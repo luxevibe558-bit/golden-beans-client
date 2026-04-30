@@ -51,7 +51,7 @@ export default function WaiterHelpSheet({ tableId, tableNumber }: Props) {
         onClick={() => setOpen(true)}
         style={{
           position: 'fixed',
-          bottom: '90px',
+          bottom: '160px',
           left: '16px',
           right: 'auto',
           zIndex: 999,
