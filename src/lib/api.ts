@@ -98,3 +98,26 @@ export const waiterApi = {
   getRushMode: () =>
     fetch(`${API_BASE}/waiter/rush-mode`).then((r) => r.json()),
 };
+
+// ===== CRM CAPTURE =====
+export const crmCaptureApi = {
+  getMessage: () =>
+    fetch(`${API_BASE}/crm-capture/message`).then((r) => r.json()),
+
+  submit: (data: { name: string; phone: string; tableId: string; offer: string }) =>
+    fetch(`${API_BASE}/crm-capture/submit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
+
+  getConfig: () =>
+    fetch(`${API_BASE}/crm-capture/config`).then((r) => r.json()),
+
+  saveConfig: (data: any) =>
+    fetch(`${API_BASE}/crm-capture/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
+};

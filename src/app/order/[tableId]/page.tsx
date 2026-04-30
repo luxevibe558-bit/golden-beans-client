@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import CRMCaptureCard from '@/components/CRMCaptureCard';
 import WaiterHelpSheet from '@/components/WaiterHelpSheet';
 import { menuApi, orderApi, tableApi } from "@/lib/api";
 import { getThumbnailUrl, getHeroUrl } from "@/lib/cloudinary";
@@ -1724,7 +1725,8 @@ export default function CustomerOrderPage() {
 )}
         {activeTab === "order" && <OrderView order={existingOrder} queuePosition={queuePosition} />}
         {activeTab === "info" && <InfoView table={table} />}
-      <WaiterHelpSheet
+      <CRMCaptureCard tableId={tableId} />
+<WaiterHelpSheet
   tableId={tableId}
   tableNumber={table?.tableNumber || tableId}
 />
