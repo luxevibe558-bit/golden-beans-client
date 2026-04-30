@@ -3,28 +3,16 @@
 import SettleBillModal from "@/components/SettleBillModal";
 import { useState, useEffect, useCallback, useRef } from "react";
 import POSSidebar from "@/components/POSSidebar";
-import { menuApi, orderApi, tableApi } from "@/lib/api";
+import { menuApi, orderApi, tableApi, inventoryApi } from "@/lib/api";
 import type { MenuCategory, MenuItem, CartItem, Table, Order } from "@/types";
 
 const T = {
-  emerald: "#0F3D2E",
-  emeraldMid: "#1A5340",
-  emeraldLight: "#2D7A5F",
-  emeraldDeep: "#0A2C20",
-  sage: "#7A9E7E",
-  gold: "#D4A574",
-  goldLight: "#E8C895",
-  goldDark: "#B08550",
-  cream: "#FAF6F0",
-  creamDark: "#F0E8DA",
-  ivory: "#FFFBF5",
-  text: "#2C2418",
-  textMuted: "#7A6B54",
-  textDim: "#A89B80",
-  border: "#E5DCC9",
-  success: "#4A8B4A",
-  danger: "#C0392B",
-  warning: "#D4A574",
+  emerald: "#0F3D2E", emeraldMid: "#1A5340", emeraldLight: "#2D7A5F",
+  emeraldDeep: "#0A2C20", sage: "#7A9E7E",
+  gold: "#D4A574", goldLight: "#E8C895", goldDark: "#B08550",
+  cream: "#FAF6F0", creamDark: "#F0E8DA", ivory: "#FFFBF5",
+  text: "#2C2418", textMuted: "#7A6B54", textDim: "#A89B80",
+  border: "#E5DCC9", success: "#4A8B4A", danger: "#C0392B", warning: "#D4A574",
 };
 
 const ITEM_EMOJIS: Record<string, string> = {
@@ -34,6 +22,53 @@ const ITEM_EMOJIS: Record<string, string> = {
   "Garlic Bread": "🥖", "Chocolate Brownie": "🍫", "Cheesecake Slice": "🍰",
   "Classic Omelette": "🍳", "Pancake Stack": "🥞",
 };
+
+// ─── Low Stock Banner ─────────────────────────────────────────────────────────
+function LowStockBanner({ items }: { items: any[] }) {
+  const [dismissed, setDismissed] = useState(false);
+
+  if (items.length === 0 || dismissed) return null;
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, #FEF2F2, #FFF5F5)',
+      borderBottom: `2px solid #FECACA`,
+      padding: '10px 20px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '12px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <span style={{ fontSize: '18px' }}>⚠️</span>
+        <div>
+          <p style={{ fontWeight: 800, fontSize: '13px', color: T.danger, margin: 0 }}>
+            Low Stock Alert — {items.length} item{items.length > 1 ? 's' : ''} running low!
+          </p>
+          <p style={{ fontSize: '11px', color: '#999', margin: '2px 0 0', fontWeight: 600 }}>
+            {items.slice(0, 3).map((i: any) => i.name).join(', ')}{items.length > 3 ? ` +${items.length - 3} more` : ''}
+          </p>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <a href="/pos/inventory" style={{
+          padding: '6px 14px', borderRadius: '8px',
+          background: T.danger, color: 'white',
+          fontSize: '12px', fontWeight: 800,
+          textDecoration: 'none', fontFamily: 'inherit',
+        }}>
+          Restock →
+        </a>
+        <button onClick={() => setDismissed(true)} style={{
+          width: '28px', height: '28px', borderRadius: '50%',
+          border: `1px solid #FECACA`, background: 'white',
+          color: '#999', cursor: 'pointer', fontSize: '12px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>✕</button>
+      </div>
+    </div>
+  );
+}
 
 function PendingApprovalBell({ orders, onAccept, onReject }: {
   orders: Order[];
@@ -51,13 +86,11 @@ function PendingApprovalBell({ orders, onAccept, onReject }: {
       [0, 0.4, 0.8].forEach(delay => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
+        osc.connect(gain); gain.connect(ctx.destination);
         osc.frequency.value = 1100;
         gain.gain.setValueAtTime(0.4, ctx.currentTime + delay);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.2);
-        osc.start(ctx.currentTime + delay);
-        osc.stop(ctx.currentTime + delay + 0.2);
+        osc.start(ctx.currentTime + delay); osc.stop(ctx.currentTime + delay + 0.2);
       });
     } catch { }
   }, [orders.length]);
@@ -81,11 +114,7 @@ function PendingApprovalBell({ orders, onAccept, onReject }: {
   return (
     <div style={{ position: "fixed", top: "18px", right: "18px", zIndex: 100, width: "340px", maxHeight: "calc(100vh - 36px)", overflowY: "auto" }}>
       {orders.map((order, idx) => (
-        <div key={order._id} style={{
-          background: T.ivory, borderRadius: "16px", padding: "16px", marginBottom: "10px",
-          border: `2px solid ${T.gold}`, boxShadow: "0 16px 40px rgba(15,61,46,0.3)",
-          animation: `slideInRight 0.4s ${idx * 0.1}s ease both`,
-        }}>
+        <div key={order._id} style={{ background: T.ivory, borderRadius: "16px", padding: "16px", marginBottom: "10px", border: `2px solid ${T.gold}`, boxShadow: "0 16px 40px rgba(15,61,46,0.3)", animation: `slideInRight 0.4s ${idx * 0.1}s ease both` }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "9px" }}>
               <div style={{ width: "38px", height: "38px", borderRadius: "10px", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", animation: "ring 1.5s infinite" }}>🔔</div>
@@ -94,7 +123,7 @@ function PendingApprovalBell({ orders, onAccept, onReject }: {
                 <p style={{ fontSize: "11px", color: T.textMuted, margin: "1px 0 0", fontWeight: 700 }}>{order.tableNumber} • #{order.orderNumber}</p>
               </div>
             </div>
-            <div style={{ background: timers[order._id] && timers[order._id] <= 10 ? T.danger : T.emerald, color: "white", padding: "3px 8px", borderRadius: "8px", fontSize: "12px", fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>
+            <div style={{ background: timers[order._id] && timers[order._id] <= 10 ? T.danger : T.emerald, color: "white", padding: "3px 8px", borderRadius: "8px", fontSize: "12px", fontWeight: 900 }}>
               {timers[order._id] || 60}s
             </div>
           </div>
@@ -113,13 +142,14 @@ function PendingApprovalBell({ orders, onAccept, onReject }: {
           </div>
           <div style={{ display: "flex", gap: "6px" }}>
             <button onClick={() => onReject(order._id)} style={{ flex: 1, padding: "9px", borderRadius: "9px", border: `1px solid ${T.danger}`, background: "white", color: T.danger, fontWeight: 800, cursor: "pointer", fontSize: "11px", fontFamily: "inherit" }}>✕ Reject</button>
-            <button onClick={() => onAccept(order._id)} style={{ flex: 2, padding: "9px", borderRadius: "9px", border: "none", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, fontWeight: 900, cursor: "pointer", fontSize: "11px", fontFamily: "inherit", boxShadow: `0 4px 10px rgba(15,61,46,0.3)` }}>✓ Accept & Send</button>
+            <button onClick={() => onAccept(order._id)} style={{ flex: 2, padding: "9px", borderRadius: "9px", border: "none", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, fontWeight: 900, cursor: "pointer", fontSize: "11px", fontFamily: "inherit" }}>✓ Accept & Send</button>
           </div>
         </div>
       ))}
     </div>
   );
 }
+
 
 export default function POSPage() {
   const [tables, setTables] = useState<Table[]>([]);
@@ -132,6 +162,7 @@ export default function POSPage() {
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [settleModalOrder, setSettleModalOrder] = useState<Order | null>(null);
+  const [lowStockItems, setLowStockItems] = useState<any[]>([]);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -153,6 +184,13 @@ export default function POSPage() {
     } catch { }
   }, []);
 
+  const loadLowStock = useCallback(async () => {
+    try {
+      const res = await inventoryApi.getLowStock();
+      setLowStockItems(res.data.data || []);
+    } catch { }
+  }, []);
+
   useEffect(() => {
     async function init() {
       try {
@@ -164,12 +202,15 @@ export default function POSPage() {
       finally { setLoading(false); }
     }
     init();
-    const iv = setInterval(() => { loadTables(); loadPendingApprovals(); }, 5000);
+    loadTables();
+    loadPendingApprovals();
+    loadLowStock();
+    const iv = setInterval(() => { loadTables(); loadPendingApprovals(); loadLowStock(); }, 5000);
     return () => clearInterval(iv);
-  }, [loadTables, loadPendingApprovals]);
+  }, [loadTables, loadPendingApprovals, loadLowStock]);
 
   const handleAcceptApproval = async (orderId: string) => {
-    try { await orderApi.approveOrder(orderId); setPendingOrders(prev => prev.filter(o => o._id !== orderId)); loadTables(); } catch (e) { console.error(e); }
+    try { await orderApi.approveOrder(orderId); setPendingOrders(prev => prev.filter(o => o._id !== orderId)); loadTables(); loadLowStock(); } catch (e) { console.error(e); }
   };
 
   const handleRejectApproval = async (orderId: string) => {
@@ -209,6 +250,7 @@ export default function POSPage() {
       setCurrentOrder(res.data.data);
       setCart([]);
       loadTables();
+      loadLowStock();
     } catch (err: unknown) { alert(err instanceof Error ? err.message : "Failed to send KOT"); }
   };
 
@@ -236,6 +278,10 @@ export default function POSPage() {
       <PendingApprovalBell orders={pendingOrders} onAccept={handleAcceptApproval} onReject={handleRejectApproval} />
 
       <div style={{ flex: 1, marginLeft: "64px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+        {/* Low Stock Banner */}
+        <LowStockBanner items={lowStockItems} />
+
         <header style={{ background: T.ivory, borderBottom: `1px solid ${T.border}`, padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 2px 8px rgba(15,61,46,0.05)" }}>
           <div>
             <h1 style={{ fontWeight: 800, fontSize: "22px", color: T.emerald, margin: 0, fontFamily: "'Playfair Display', serif" }}>Point of Sale</h1>
@@ -254,6 +300,12 @@ export default function POSPage() {
                 <p style={{ fontSize: "9px", color: T.textMuted, margin: 0, fontWeight: 800, letterSpacing: "0.5px", textTransform: "uppercase" }}>{label}</p>
               </div>
             ))}
+            {lowStockItems.length > 0 && (
+              <div style={{ background: "#FEF2F2", borderRadius: "12px", padding: "8px 14px", textAlign: "center", border: `1px solid #FECACA`, minWidth: "90px" }}>
+                <p style={{ fontWeight: 900, fontSize: "20px", color: T.danger, margin: 0 }}>{lowStockItems.length}</p>
+                <p style={{ fontSize: "9px", color: T.danger, margin: 0, fontWeight: 800, letterSpacing: "0.5px", textTransform: "uppercase" }}>Low Stock</p>
+              </div>
+            )}
           </div>
         </header>
 
@@ -400,21 +452,14 @@ export default function POSPage() {
                   </div>
                 )}
                 {cart.length > 0 && (
-                  <button onClick={sendKOT} style={{
-                    width: "100%", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`,
-                    color: T.gold, border: "none", borderRadius: "10px",
-                    padding: "11px", fontWeight: 900, fontSize: "13px", cursor: "pointer",
-                    boxShadow: `0 6px 16px rgba(15,61,46,0.3)`, fontFamily: "inherit",
-                    marginBottom: currentOrder ? "6px" : 0,
-                  }}>📤 Send KOT</button>
+                  <button onClick={sendKOT} style={{ width: "100%", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, border: "none", borderRadius: "10px", padding: "11px", fontWeight: 900, fontSize: "13px", cursor: "pointer", boxShadow: `0 6px 16px rgba(15,61,46,0.3)`, fontFamily: "inherit", marginBottom: currentOrder ? "6px" : 0 }}>
+                    📤 Send KOT
+                  </button>
                 )}
                 {currentOrder && (
-                  <button onClick={() => setSettleModalOrder(currentOrder)} style={{
-                    width: "100%", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
-                    color: T.emerald, border: "none", borderRadius: "10px",
-                    padding: "11px", fontWeight: 900, fontSize: "13px", cursor: "pointer",
-                    boxShadow: `0 6px 16px rgba(212,165,116,0.4)`, fontFamily: "inherit",
-                  }}>💰 Settle Bill (₹{currentOrder.totalAmount.toFixed(0)})</button>
+                  <button onClick={() => setSettleModalOrder(currentOrder)} style={{ width: "100%", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, color: T.emerald, border: "none", borderRadius: "10px", padding: "11px", fontWeight: 900, fontSize: "13px", cursor: "pointer", boxShadow: `0 6px 16px rgba(212,165,116,0.4)`, fontFamily: "inherit" }}>
+                    💰 Settle Bill (₹{currentOrder.totalAmount.toFixed(0)})
+                  </button>
                 )}
               </div>
             )}
@@ -432,6 +477,7 @@ export default function POSPage() {
           setSelectedTable(null);
           loadTables();
           loadPendingApprovals();
+          loadLowStock();
         }}
       />
     </div>
