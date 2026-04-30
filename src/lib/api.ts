@@ -91,4 +91,10 @@ export const waiterApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     }).then((r) => r.json()),
+
+  getAllRequests: () =>
+    fetch(`${API_BASE}/waiter/all-requests`).then((r) => r.json()),
+
+  getRushMode: () =>
+    fetch(`${API_BASE}/waiter/rush-mode`).then((r) => r.json()),
 };
