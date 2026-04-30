@@ -54,6 +54,38 @@ export default function WaiterApp() {
     if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume();
   }, []);
 
+  // ── Push Notification Setup ──────────────────────────────────────────────
+  const setupPushNotification = useCallback(async () => {
+    try {
+      if (!('Notification' in window)) return;
+      if (!('serviceWorker' in navigator)) return;
+
+      // Permission માંગો
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') return;
+
+      // Service worker register
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      console.log('SW registered:', reg);
+    } catch (err) {
+      console.log('Push setup error:', err);
+    }
+  }, []);
+
+  // ── Send notification when new request arrives ───────────────────────────
+  const sendNotification = useCallback((title: string, body: string) => {
+    try {
+      if (Notification.permission === 'granted') {
+        new Notification(title, {
+          body,
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
+          vibrate: [400, 100, 400],
+        } as NotificationOptions);
+      }
+    } catch {}
+  }, []);
+
   const playAlarm = useCallback(() => {
     try {
       const ctx = audioCtxRef.current || new AudioContext();
@@ -89,7 +121,10 @@ export default function WaiterApp() {
       const data = await res.json();
       if (data.requests) {
         const newCount = data.requests.filter((r: WaiterRequest) => r.status === 'pending').length;
-        if (newCount > prevCountRef.current) playAlarm();
+        if (newCount > prevCountRef.current) {
+          playAlarm();
+          sendNotification('🔔 New Request!', `${newCount} pending request${newCount > 1 ? 's' : ''} waiting`);
+        }
         prevCountRef.current = newCount;
         setLiveRequests(data.requests);
       }
@@ -120,6 +155,7 @@ export default function WaiterApp() {
 
   const handleLogin = async () => {
     unlockAudio();
+    setupPushNotification();
     if (!username || !pin) return setLoginError('Username અને PIN જરૂરી છે');
     setLoginLoading(true); setLoginError('');
     try {
