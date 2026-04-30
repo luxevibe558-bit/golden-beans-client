@@ -801,12 +801,37 @@ function VerticalCategoryTabs({ categories, activeCategoryId, onSelect }: {
 
 function ProductCard({ item, onTap, cartQty }: { item: MenuItem; onTap: () => void; cartQty: number }) {
   return (
-    <div onClick={onTap} style={{
+    <div onClick={item.isAvailable ? onTap : undefined} style={{
       background: T.ivory, borderRadius: "20px", padding: "16px 12px 12px",
-      cursor: "pointer", boxShadow: "0 4px 16px rgba(15,61,46,0.06)",
+      cursor: item.isAvailable ? "pointer" : "not-allowed",
+      boxShadow: "0 4px 16px rgba(15,61,46,0.06)",
       transition: "all 250ms cubic-bezier(0.16, 1, 0.3, 1)",
       position: "relative", border: `1px solid ${T.creamDark}`, overflow: "hidden",
+      opacity: item.isAvailable ? 1 : 0.75,
     }}>
+      {/* Sold Out Overlay */}
+      {!item.isAvailable && (
+        <div style={{
+          position: "absolute", inset: 0,
+          background: "rgba(250,246,240,0.85)",
+          zIndex: 10,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          borderRadius: "20px",
+          backdropFilter: "blur(1px)",
+        }}>
+          <div style={{
+            background: T.danger,
+            borderRadius: "99px",
+            padding: "6px 16px",
+            transform: "rotate(-12deg)",
+            boxShadow: "0 4px 12px rgba(192,57,43,0.4)",
+          }}>
+            <span style={{ fontSize: "11px", fontWeight: 800, color: "white", letterSpacing: "0.5px" }}>
+              SOLD OUT
+            </span>
+          </div>
+        </div>
+      )}
       {item.tags?.includes("bestseller") && (
         <div style={{
           position: "absolute", top: "8px", left: "8px",
