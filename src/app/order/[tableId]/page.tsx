@@ -801,12 +801,15 @@ function VerticalCategoryTabs({ categories, activeCategoryId, onSelect }: {
 
 function ProductCard({ item, onTap, cartQty }: { item: MenuItem; onTap: () => void; cartQty: number }) {
   return (
-    <div onClick={onTap} style={{
-      background: T.ivory, borderRadius: "20px", padding: "16px 12px 12px",
-      cursor: "pointer",
-      boxShadow: "0 4px 16px rgba(15,61,46,0.06)",
+    <div onClick={item.isAvailable ? onTap : undefined} style={{
+      background: item.isAvailable ? T.ivory : T.creamDark,
+      borderRadius: "20px", padding: "16px 12px 12px",
+      cursor: item.isAvailable ? "pointer" : "not-allowed",
+      boxShadow: item.isAvailable ? "0 4px 16px rgba(15,61,46,0.06)" : "none",
       transition: "all 250ms cubic-bezier(0.16, 1, 0.3, 1)",
-      position: "relative", border: `1px solid ${T.creamDark}`, overflow: "hidden",
+      position: "relative", border: `1px solid ${item.isAvailable ? T.creamDark : '#E0D8CC'}`,
+      overflow: "hidden", opacity: item.isAvailable ? 1 : 0.75,
+      filter: item.isAvailable ? "none" : "grayscale(0.3)",
     }}>
       
       {item.tags?.includes("bestseller") && (
@@ -853,15 +856,18 @@ function ProductCard({ item, onTap, cartQty }: { item: MenuItem; onTap: () => vo
         </div>
       </div>
 
-      <button onClick={(e) => { e.stopPropagation(); onTap(); }} style={{
+      <button onClick={(e) => { e.stopPropagation(); if(item.isAvailable) onTap(); }} style={{
         width: "100%",
-        background: cartQty > 0 ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
-        color: cartQty > 0 ? T.gold : T.emerald, border: "none", borderRadius: "12px", padding: "10px",
-        fontWeight: 800, fontSize: "12px", cursor: "pointer",
-        boxShadow: cartQty > 0 ? "0 4px 12px rgba(15,61,46,0.3)" : "0 4px 12px rgba(212,165,116,0.4)",
+        background: !item.isAvailable ? T.creamDark : cartQty > 0 ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
+        color: !item.isAvailable ? T.textDim : cartQty > 0 ? T.gold : T.emerald,
+        border: "none", borderRadius: "12px", padding: "10px",
+        fontWeight: 800, fontSize: "12px",
+        cursor: !item.isAvailable ? "not-allowed" : "pointer",
+        boxShadow: !item.isAvailable ? "none" : cartQty > 0 ? "0 4px 12px rgba(15,61,46,0.3)" : "0 4px 12px rgba(212,165,116,0.4)",
         display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
+        opacity: !item.isAvailable ? 0.7 : 1,
       }}>
-        {cartQty > 0 ? (<><Icons.Check size={12} /> ADDED ({cartQty})</>) : (<><Icons.Plus size={12} /> ADD</>)}
+        {!item.isAvailable ? <>⛔ Out of Stock</> : cartQty > 0 ? (<><Icons.Check size={12} /> ADDED ({cartQty})</>) : (<><Icons.Plus size={12} /> ADD</>)}
       </button>
     </div>
   );
