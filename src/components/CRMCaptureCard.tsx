@@ -14,6 +14,7 @@ interface CaptureMessage {
 }
 
 export default function CRMCaptureCard({ tableId }: Props) {
+  const [mounted, setMounted] = useState(false);
   const [show, setShow] = useState(false);
   const [message, setMessage] = useState<CaptureMessage | null>(null);
   const [name, setName] = useState('');
@@ -22,25 +23,29 @@ export default function CRMCaptureCard({ tableId }: Props) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
+  // Mount check — SSR safe
+  useEffect(() => { setMounted(true); }, []);
+
   useEffect(() => {
+    if (!mounted) return;
+    
     // Already claimed this session?
-    if (typeof window === 'undefined') return;
-    const claimed = sessionStorage.getItem('gb_crm_claimed');
-    if (claimed) return;
+    try {
+      const claimed = sessionStorage.getItem('gb_crm_claimed');
+      if (claimed) return;
+    } catch {}
 
     const fetchMessage = async () => {
       try {
         const res = await crmCaptureApi.getMessage();
         if (res.message) {
           setMessage(res.message);
-          // Show after delay
-          const delay = 15000; // 15 seconds
-          setTimeout(() => setShow(true), delay);
+          setTimeout(() => setShow(true), 15000);
         }
       } catch {}
     };
     fetchMessage();
-  }, []);
+  }, [mounted]);
 
   const handleSubmit = async () => {
     if (!name.trim()) return setError('નામ લખો');
@@ -52,7 +57,7 @@ export default function CRMCaptureCard({ tableId }: Props) {
       });
       if (res.success) {
         setSuccess(true);
-        sessionStorage.setItem('gb_crm_claimed', 'true');
+        try { sessionStorage.setItem('gb_crm_claimed', 'true'); } catch {}
         setTimeout(() => setShow(false), 3000);
       } else {
         setError(res.error || 'Error. Try again.');
@@ -63,7 +68,8 @@ export default function CRMCaptureCard({ tableId }: Props) {
     setLoading(false);
   };
 
-  if (!show || !message) return null;
+  // SSR safe — nothing renders on server
+  if (!mounted || !show || !message) return null;
 
   return (
     <>
@@ -87,10 +93,10 @@ export default function CRMCaptureCard({ tableId }: Props) {
         borderRadius: '28px 28px 0 0',
         padding: '0 0 40px',
         boxShadow: '0 -12px 48px rgba(15,61,46,0.2)',
-        animation: 'slideUp 0.4s cubic-bezier(0.32,0.72,0,1) both',
+        animation: 'crmSlideUp 0.4s cubic-bezier(0.32,0.72,0,1) both',
       }}>
         <style>{`
-          @keyframes slideUp {
+          @keyframes crmSlideUp {
             from { transform: translateY(100%); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
           }
@@ -102,7 +108,6 @@ export default function CRMCaptureCard({ tableId }: Props) {
         </div>
 
         {success ? (
-          // Success State
           <div style={{ padding: '32px 24px', textAlign: 'center' }}>
             <div style={{ fontSize: '56px', marginBottom: '12px' }}>🎉</div>
             <p style={{ fontFamily: 'Playfair Display, serif', fontSize: '22px', fontWeight: '700', color: '#0F3D2E', margin: '0 0 8px' }}>
@@ -114,15 +119,11 @@ export default function CRMCaptureCard({ tableId }: Props) {
           </div>
         ) : (
           <div style={{ padding: '20px 24px 0' }}>
-
             {/* Header */}
             <div style={{
               background: 'linear-gradient(135deg, #0F3D2E, #1A5340)',
-              borderRadius: '20px',
-              padding: '20px',
-              marginBottom: '20px',
-              position: 'relative',
-              overflow: 'hidden',
+              borderRadius: '20px', padding: '20px', marginBottom: '20px',
+              position: 'relative', overflow: 'hidden',
             }}>
               <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '100px', height: '100px', borderRadius: '50%', background: 'rgba(212,165,116,0.1)' }} />
               <p style={{ fontSize: '28px', margin: '0 0 8px' }}>☕</p>
@@ -133,12 +134,7 @@ export default function CRMCaptureCard({ tableId }: Props) {
                 {message.subtext}
               </p>
               {message.offer && (
-                <div style={{
-                  display: 'inline-block',
-                  background: '#D4A574',
-                  borderRadius: '50px',
-                  padding: '6px 16px',
-                }}>
+                <div style={{ display: 'inline-block', background: '#D4A574', borderRadius: '50px', padding: '6px 16px' }}>
                   <span style={{ fontSize: '13px', fontWeight: '700', color: '#0F3D2E', fontFamily: 'DM Sans, sans-serif' }}>
                     🎁 {message.offer} your next visit
                   </span>
@@ -146,46 +142,22 @@ export default function CRMCaptureCard({ tableId }: Props) {
               )}
             </div>
 
-            {/* Form */}
+            {/* Name */}
             <div style={{ marginBottom: '14px' }}>
-              <label style={{ fontSize: '11px', color: '#888', fontWeight: '700', display: 'block', marginBottom: '7px', letterSpacing: '0.8px', textTransform: 'uppercase', fontFamily: 'DM Sans, sans-serif' }}>
-                Your Name
-              </label>
-              <input
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder='Nirav Patel'
-                style={{
-                  width: '100%', padding: '13px 15px', borderRadius: '14px',
-                  border: '1.5px solid #EDE8E0', background: '#FAF6F0',
-                  fontSize: '15px', fontFamily: 'DM Sans, sans-serif',
-                  outline: 'none', boxSizing: 'border-box', color: '#1a1a1a',
-                }}
-              />
+              <label style={{ fontSize: '11px', color: '#888', fontWeight: '700', display: 'block', marginBottom: '7px', letterSpacing: '0.8px', textTransform: 'uppercase', fontFamily: 'DM Sans, sans-serif' }}>Your Name</label>
+              <input value={name} onChange={e => setName(e.target.value)} placeholder='Nirav Patel'
+                style={{ width: '100%', padding: '13px 15px', borderRadius: '14px', border: '1.5px solid #EDE8E0', background: '#FAF6F0', fontSize: '15px', fontFamily: 'DM Sans, sans-serif', outline: 'none', boxSizing: 'border-box', color: '#1a1a1a' }} />
             </div>
 
+            {/* Phone */}
             <div style={{ marginBottom: '6px' }}>
-              <label style={{ fontSize: '11px', color: '#888', fontWeight: '700', display: 'block', marginBottom: '7px', letterSpacing: '0.8px', textTransform: 'uppercase', fontFamily: 'DM Sans, sans-serif' }}>
-                Phone Number
-              </label>
-              <input
-                value={phone}
-                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                placeholder='98765 43210'
-                inputMode='numeric'
-                style={{
-                  width: '100%', padding: '13px 15px', borderRadius: '14px',
-                  border: '1.5px solid #EDE8E0', background: '#FAF6F0',
-                  fontSize: '15px', fontFamily: 'DM Sans, sans-serif',
-                  outline: 'none', boxSizing: 'border-box', color: '#1a1a1a',
-                }}
-              />
+              <label style={{ fontSize: '11px', color: '#888', fontWeight: '700', display: 'block', marginBottom: '7px', letterSpacing: '0.8px', textTransform: 'uppercase', fontFamily: 'DM Sans, sans-serif' }}>Phone Number</label>
+              <input value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder='98765 43210' inputMode='numeric'
+                style={{ width: '100%', padding: '13px 15px', borderRadius: '14px', border: '1.5px solid #EDE8E0', background: '#FAF6F0', fontSize: '15px', fontFamily: 'DM Sans, sans-serif', outline: 'none', boxSizing: 'border-box', color: '#1a1a1a' }} />
             </div>
 
             {error && (
-              <p style={{ fontSize: '12px', color: '#C84B31', margin: '8px 0', fontFamily: 'DM Sans, sans-serif', fontWeight: '600' }}>
-                ⚠️ {error}
-              </p>
+              <p style={{ fontSize: '12px', color: '#C84B31', margin: '8px 0', fontFamily: 'DM Sans, sans-serif', fontWeight: '600' }}>⚠️ {error}</p>
             )}
 
             {/* Buttons */}
