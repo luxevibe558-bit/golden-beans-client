@@ -13,7 +13,6 @@ const HELP_OPTIONS = [
   { type: 'clean_table', emoji: '🧹', label: 'Clean Table' },
   { type: 'plate_change', emoji: '🍽️', label: 'Plate / Spoon' },
   { type: 'call_waiter', emoji: '🙋', label: 'Call Waiter' },
-  { type: 'feedback', emoji: '📝', label: 'Feedback' },
 ];
 
 export default function WaiterHelpSheet({ tableId, tableNumber }: Props) {
