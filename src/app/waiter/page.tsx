@@ -75,23 +75,45 @@ export default function WaiterApp() {
   }, []);
 
   // ─── Alarm sound ────────────────────────────────────────────────────────
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // User interaction પર AudioContext unlock કરો
+  const unlockAudio = useCallback(() => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new AudioContext();
+    }
+    if (audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume();
+    }
+  }, []);
+
   const playAlarm = useCallback(() => {
     try {
-      const ctx = new AudioContext();
-      const times = [0, 0.3, 0.6];
+      const ctx = audioCtxRef.current || new AudioContext();
+      audioCtxRef.current = ctx;
+      if (ctx.state === 'suspended') ctx.resume();
+
+      const times = [0, 0.2, 0.4, 0.6];
       times.forEach((t) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
-        osc.frequency.value = 880;
-        osc.type = 'sine';
-        gain.gain.setValueAtTime(0.4, ctx.currentTime + t);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.25);
+        osc.frequency.value = 960;
+        osc.type = 'triangle';
+        gain.gain.setValueAtTime(0.6, ctx.currentTime + t);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.18);
         osc.start(ctx.currentTime + t);
-        osc.stop(ctx.currentTime + t + 0.25);
+        osc.stop(ctx.currentTime + t + 0.18);
       });
-    } catch {}
+
+      // Vibration
+      if (navigator.vibrate) {
+        navigator.vibrate([400, 100, 400, 100, 400]);
+      }
+    } catch (e) {
+      console.log('Audio error:', e);
+    }
   }, []);
 
   // ─── Fetch live requests ────────────────────────────────────────────────
@@ -136,7 +158,9 @@ export default function WaiterApp() {
   }, [screen, sessionToken, fetchLive, fetchHistory]);
 
   // ─── Login ──────────────────────────────────────────────────────────────
+  
   const handleLogin = async () => {
+    unlockAudio();
     if (!username || !pin) return setLoginError('Username અને PIN જરૂરી છે');
     setLoginLoading(true);
     setLoginError('');
