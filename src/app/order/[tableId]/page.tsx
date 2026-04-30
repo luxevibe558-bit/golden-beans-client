@@ -573,65 +573,156 @@ function AwarenessScreen({ result, onRetry }: { result: SecurityResult; onRetry:
 // ═════════════════════════════════════════════════════════════
 // SETTLEMENT KILL SCREEN
 // ═════════════════════════════════════════════════════════════
-function SessionEndedScreen({ reason, onRestart }: { reason: string; onRestart: () => void }) {
+function SessionEndedScreen({ reason, onRestart }: { reason: string; onRestart: () => void; orderId?: string; tableId?: string; totalAmount?: number }) {
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [categories, setCategories] = useState({ food: 0, service: 0, ambiance: 0, value: 0 });
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [screen, setScreen] = useState<'feedback' | 'thankyou'>('feedback');
+
+  const API = 'https://golden-beans-server.onrender.com/api';
+
+  const handleSubmitFeedback = async () => {
+    if (rating === 0) return;
+    setSubmitting(true);
+    try {
+      await fetch(`${API}/feedback/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: localStorage.getItem('gb_active_order') || 'unknown',
+          tableId: 'unknown',
+          tableNumber: 'unknown',
+          rating,
+          categories,
+          comment,
+        }),
+      });
+    } catch {}
+    setSubmitting(false);
+    setFeedbackSubmitted(true);
+    setScreen('thankyou');
+  };
+
+  const handleSkip = () => {
+    setScreen('thankyou');
+  };
+
+  // Auto redirect only after feedback submitted or on thank you screen
   useEffect(() => {
+    if (screen !== 'thankyou') return;
     const timer = setTimeout(() => onRestart(), 5000);
     return () => clearTimeout(timer);
-  }, [onRestart]);
+  }, [screen, onRestart]);
 
-  return (
-    <div style={{
-      minHeight: "100vh",
-      background: `linear-gradient(180deg, ${T.emerald} 0%, ${T.emeraldMid} 100%)`,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      padding: "20px",
-    }}>
+  // ── THANK YOU SCREEN ──
+  if (screen === 'thankyou') return (
+    <div style={{ minHeight: "100vh", background: `linear-gradient(180deg, ${T.emerald} 0%, ${T.emeraldMid} 100%)`, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
       <div style={{ textAlign: "center", maxWidth: "320px" }}>
-        <div style={{
-          width: "84px", height: "84px",
-          margin: "0 auto 20px",
-          borderRadius: "50%",
-          background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          boxShadow: "0 12px 32px rgba(212,165,116,0.4)",
-          animation: "gb-scaleInBounce 0.5s cubic-bezier(0.34,1.56,0.64,1)",
-        }}>
+        <div style={{ width: "84px", height: "84px", margin: "0 auto 20px", borderRadius: "50%", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 12px 32px rgba(212,165,116,0.4)", animation: "gb-scaleInBounce 0.5s cubic-bezier(0.34,1.56,0.64,1)" }}>
           <Icons.Check size={42} color={T.emerald} />
         </div>
-
-        <h1 style={{
-          fontFamily: "'Playfair Display', serif",
-          fontSize: "28px", fontWeight: 800,
-          color: T.gold, margin: "0 0 8px",
-          letterSpacing: "-0.02em",
-        }}>
-          Thank You!
-        </h1>
-
-        <p style={{ fontSize: "14px", color: "rgba(212,165,116,0.85)", margin: "0 0 24px", fontWeight: 500, lineHeight: 1.6 }}>
-          {reason}
-        </p>
-
-        <div style={{
-          background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(212,165,116,0.2)",
-          borderRadius: "14px",
-          padding: "12px 14px",
-          marginBottom: "20px",
-        }}>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "28px", fontWeight: 800, color: T.gold, margin: "0 0 8px", letterSpacing: "-0.02em" }}>Thank You!</h1>
+        <p style={{ fontSize: "14px", color: "rgba(212,165,116,0.85)", margin: "0 0 24px", fontWeight: 500, lineHeight: 1.6 }}>{reason}</p>
+        {feedbackSubmitted && (
+          <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(212,165,116,0.25)", borderRadius: "14px", padding: "12px 14px", marginBottom: "20px" }}>
+            <p style={{ fontSize: "13px", color: T.goldLight, margin: 0, fontWeight: 600 }}>⭐ Thank you for your feedback!</p>
+          </div>
+        )}
+        <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(212,165,116,0.2)", borderRadius: "14px", padding: "12px 14px", marginBottom: "20px" }}>
           <p style={{ fontSize: "11px", color: "rgba(212,165,116,0.7)", margin: 0, fontWeight: 600, lineHeight: 1.5 }}>
-            ☕ We hope you enjoyed your visit!<br />
-            See you again at Golden Beans soon.
+            ☕ We hope you enjoyed your visit!<br />See you again at Golden Beans soon.
           </p>
         </div>
+        <Button variant="gold" size="md" onClick={onRestart}>Scan QR for new session</Button>
+        <p style={{ fontSize: "10px", color: "rgba(212,165,116,0.4)", margin: "16px 0 0", fontWeight: 600 }}>Auto-redirecting in 5 seconds...</p>
+      </div>
+    </div>
+  );
 
-        <Button variant="gold" size="md" onClick={onRestart}>
-          Scan QR for new session
-        </Button>
+  // ── FEEDBACK SCREEN ──
+  const CATEGORY_LABELS = [
+    { key: 'food', emoji: '🍽️', label: 'Food' },
+    { key: 'service', emoji: '🙋', label: 'Service' },
+    { key: 'ambiance', emoji: '✨', label: 'Ambiance' },
+    { key: 'value', emoji: '💰', label: 'Value' },
+  ];
 
-        <p style={{ fontSize: "10px", color: "rgba(212,165,116,0.4)", margin: "16px 0 0", fontWeight: 600 }}>
-          Auto-redirecting in 5 seconds...
-        </p>
+  return (
+    <div style={{ minHeight: "100vh", background: `linear-gradient(180deg, ${T.emerald} 0%, #071f17 100%)`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", fontFamily: "DM Sans, sans-serif", overflowY: "auto" }}>
+
+      {/* Header */}
+      <div style={{ textAlign: "center", marginBottom: "28px" }}>
+        <div style={{ fontSize: "48px", marginBottom: "8px" }}>⭐</div>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "26px", fontWeight: 800, color: T.goldLight, margin: "0 0 6px" }}>How was your experience?</h1>
+        <p style={{ fontSize: "13px", color: "rgba(232,200,149,0.6)", margin: 0 }}>Your feedback helps us serve you better</p>
+      </div>
+
+      {/* Card */}
+      <div style={{ background: T.ivory, borderRadius: "28px", padding: "24px", width: "100%", maxWidth: "380px", boxShadow: "0 24px 64px rgba(0,0,0,0.4)" }}>
+
+        {/* Overall Rating */}
+        <p style={{ fontSize: "12px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.8px", margin: "0 0 12px", textAlign: "center" }}>Overall Rating</p>
+        <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "24px" }}>
+          {[1, 2, 3, 4, 5].map(star => (
+            <button key={star}
+              onMouseEnter={() => setHoverRating(star)}
+              onMouseLeave={() => setHoverRating(0)}
+              onClick={() => setRating(star)}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "4px", fontSize: (hoverRating || rating) >= star ? "38px" : "32px", transition: "all 0.15s ease", filter: (hoverRating || rating) >= star ? "none" : "grayscale(1) opacity(0.4)" }}>
+              ⭐
+            </button>
+          ))}
+        </div>
+
+        {/* Rating label */}
+        {rating > 0 && (
+          <p style={{ textAlign: "center", fontSize: "14px", fontWeight: 700, color: T.emerald, margin: "-12px 0 20px" }}>
+            {['', '😞 Poor', '😐 Fair', '🙂 Good', '😊 Great', '🤩 Excellent!'][rating]}
+          </p>
+        )}
+
+        {/* Category Ratings */}
+        <p style={{ fontSize: "12px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.8px", margin: "0 0 12px" }}>Rate Each Category</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "20px" }}>
+          {CATEGORY_LABELS.map(cat => (
+            <div key={cat.key} style={{ background: T.cream, borderRadius: "14px", padding: "12px", border: "1px solid #EDE8E0" }}>
+              <p style={{ margin: "0 0 8px", fontSize: "13px", fontWeight: 700, color: T.emerald }}>{cat.emoji} {cat.label}</p>
+              <div style={{ display: "flex", gap: "4px" }}>
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button key={star} onClick={() => setCategories(prev => ({ ...prev, [cat.key]: star }))}
+                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0", fontSize: categories[cat.key as keyof typeof categories] >= star ? "16px" : "13px", filter: categories[cat.key as keyof typeof categories] >= star ? "none" : "grayscale(1) opacity(0.4)", transition: "all 0.1s" }}>
+                    ⭐
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Comment */}
+        <p style={{ fontSize: "12px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.8px", margin: "0 0 8px" }}>Comments (Optional)</p>
+        <textarea
+          value={comment}
+          onChange={e => setComment(e.target.value)}
+          placeholder="Tell us what you loved or how we can improve..."
+          rows={3}
+          style={{ width: "100%", padding: "12px 14px", borderRadius: "14px", border: "1.5px solid #EDE8E0", background: T.cream, fontSize: "14px", fontFamily: "DM Sans, sans-serif", outline: "none", boxSizing: "border-box", resize: "none", color: "#1a1a1a" }}
+        />
+
+        {/* Buttons */}
+        <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
+          <button onClick={handleSkip}
+            style={{ flex: 1, padding: "13px", borderRadius: "14px", border: "1.5px solid #EDE8E0", background: "transparent", color: "#aaa", fontSize: "14px", fontFamily: "DM Sans, sans-serif", cursor: "pointer" }}>
+            Skip
+          </button>
+          <button onClick={handleSubmitFeedback} disabled={rating === 0 || submitting}
+            style={{ flex: 2, padding: "13px", borderRadius: "14px", border: "none", background: rating === 0 ? "#ccc" : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.goldLight, fontSize: "14px", fontWeight: "700", fontFamily: "DM Sans, sans-serif", cursor: rating === 0 ? "not-allowed" : "pointer", boxShadow: rating > 0 ? "0 6px 20px rgba(15,61,46,0.25)" : "none", transition: "all 0.2s" }}>
+            {submitting ? 'Submitting...' : '⭐ Submit Feedback'}
+          </button>
+        </div>
       </div>
     </div>
   );
