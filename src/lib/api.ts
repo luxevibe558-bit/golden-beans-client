@@ -77,3 +77,18 @@ export const analyticsApi = {
 };
 
 export default api;
+
+// ===== WAITER REQUESTS =====
+export const waiterApi = {
+  createRequest: (data: {
+    tableId: string;
+    tableNumber: string;
+    type: string;
+    note?: string;
+  }) =>
+    fetch(`${API_BASE}/waiter/request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).then((r) => r.json()),
+};

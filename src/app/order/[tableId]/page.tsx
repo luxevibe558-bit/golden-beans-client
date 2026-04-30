@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import WaiterHelpSheet from '@/components/WaiterHelpSheet';
 import { menuApi, orderApi, tableApi } from "@/lib/api";
 import { getThumbnailUrl, getHeroUrl } from "@/lib/cloudinary";
 import { Icons, Pill, Button, Skeleton } from "@/components/PremiumUI";
@@ -1723,6 +1724,10 @@ export default function CustomerOrderPage() {
 )}
         {activeTab === "order" && <OrderView order={existingOrder} queuePosition={queuePosition} />}
         {activeTab === "info" && <InfoView table={table} />}
+      <WaiterHelpSheet
+  tableId={tableId}
+  tableNumber={table?.tableNumber || tableId}
+/>
       </main>
 
       <nav style={{ position: "fixed", bottom: "12px", left: "50%", transform: "translateX(-50%)", background: T.emerald, borderRadius: "99px", padding: "6px", display: "flex", alignItems: "center", gap: "4px", boxShadow: "0 8px 32px rgba(15,61,46,0.4)", zIndex: 40 }}>
