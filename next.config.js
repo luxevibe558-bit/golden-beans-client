@@ -1,22 +1,6 @@
-const withPWA = require('next-pwa')({
-  dest: 'public',
-  register: true,
-  skipWaiting: true,
-  disable: true,
-  runtimeCaching: [
-    {
-      urlPattern: /^https:\/\/golden-beans-server\.onrender\.com\/api\/.*/i,
-      handler: 'NetworkFirst',
-      options: {
-        cacheName: 'api-cache',
-        expiration: { maxEntries: 50, maxAgeSeconds: 300 },
-      },
-    },
-  ],
-});
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  turbopack: {},
   allowedDevOrigins: ['*'],
   images: {
     remotePatterns: [
@@ -34,4 +18,4 @@ const nextConfig = {
   },
 };
 
-module.exports = withPWA(nextConfig);
+module.exports = nextConfig;
