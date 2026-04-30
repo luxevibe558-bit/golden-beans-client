@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/pos/menu", label: "Menu", icon: "📖" },
   { href: "/pos/promotions", label: "Promos", icon: "🎁" },
   { href: "/pos/inventory", label: "Stock", icon: "📦" },
+  { href: "/pos/dues", label: "Dues", icon: "📒" },
   { href: "/pos/analytics", label: "Reports", icon: "📊" },
   { href: "/kds", label: "Kitchen", icon: "👨‍🍳" },
 ];
