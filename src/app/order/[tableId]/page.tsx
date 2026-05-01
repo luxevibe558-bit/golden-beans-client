@@ -1570,6 +1570,35 @@ export default function CustomerOrderPage() {
       try { const data = JSON.parse(saved); setCustomerData({ name: data.name, phone: data.phone }); }
       catch { }
     }
+
+    // Watch localStorage for CRM updates
+    const handleStorage = () => {
+      const updated = localStorage.getItem("gb_customer");
+      if (updated) {
+        try { const data = JSON.parse(updated); setCustomerData({ name: data.name, phone: data.phone }); }
+        catch { }
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    // Poll every 2 seconds for same-tab updates
+    const iv = setInterval(() => {
+      const updated = localStorage.getItem("gb_customer");
+      if (updated) {
+        try {
+          const data = JSON.parse(updated);
+          setCustomerData(prev => {
+            if (prev?.name === data.name && prev?.phone === data.phone) return prev;
+            return { name: data.name, phone: data.phone };
+          });
+        } catch { }
+      }
+    }, 2000);
+
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      clearInterval(iv);
+    };
   }, [securityStatus]);
 
   useEffect(() => {
