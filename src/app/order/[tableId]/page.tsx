@@ -1699,8 +1699,7 @@ export default function CustomerOrderPage() {
   };
 
   const handlePlaceOrderClick = () => {
-    if (customerData) placeOrder(customerData);
-    else setShowCustomerPopup(true);
+    placeOrder(customerData || undefined);
   };
 
   const handleCustomerDataSubmit = (data: { name: string; phone: string; birthdate: string; anniversary: string }) => {
@@ -1772,7 +1771,6 @@ export default function CustomerOrderPage() {
 @keyframes cartBadgeBounce { 0%,100% { transform: scale(1); } 30% { transform: scale(1.5); } 60% { transform: scale(0.9); } 80% { transform: scale(1.1); } }
       `}</style>
 
-      {showCustomerPopup && <CustomerDataPopup onSubmit={handleCustomerDataSubmit} onSkip={() => { setShowCustomerPopup(false); placeOrder(); }} />}
       {existingOrder && !["settled", "cancelled"].includes(existingOrder.status) && <TopCancelBar order={existingOrder} onCancelled={handleCancelled} />}
 
       <header style={{ background: `linear-gradient(180deg, ${T.cream} 0%, ${T.ivory} 100%)`, position: "sticky", top: 0, zIndex: 30, padding: "12px 16px 12px" }}>
