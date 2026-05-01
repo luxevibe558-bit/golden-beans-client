@@ -57,7 +57,10 @@ export default function CRMCaptureCard({ tableId }: Props) {
       });
       if (res.success) {
         setSuccess(true);
-        try { sessionStorage.setItem('gb_crm_claimed', 'true'); } catch {}
+        try {
+          sessionStorage.setItem('gb_crm_claimed', 'true');
+          localStorage.setItem('gb_customer', JSON.stringify({ name, phone }));
+        } catch {}
         setTimeout(() => setShow(false), 3000);
       } else {
         setError(res.error || 'Error. Try again.');
