@@ -77,6 +77,7 @@ export interface OrderItem {
 }
 
 export type OrderStatus =
+  | "pending_approval"
   | "open"
   | "kotSent"
   | "partially_ready"
