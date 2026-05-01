@@ -17,6 +17,7 @@ const REQUEST_LABELS: Record<string, { emoji: string; label: string; color: stri
   plate_change: { emoji: '🍽️', label: 'Plate / Spoon', color: '#F59E0B' },
   call_waiter:  { emoji: '🙋', label: 'Call Waiter',    color: '#EF4444' },
   feedback:     { emoji: '📝', label: 'Feedback',       color: '#10B981' },
+  order_ready:  { emoji: '🍽️', label: 'Order Ready!',  color: '#4A8B4A' },
 };
 
 const T = {
@@ -404,8 +405,10 @@ function RequestCard({ req, actionLoading, onAction, timeAgo, type }: {
       </div>
 
       {req.note && (
-        <div style={{ background: T.cream, borderRadius: '10px', padding: '10px 12px', marginBottom: '14px', border: '1px solid #EDE8E0' }}>
-          <p style={{ margin: 0, fontSize: '13px', color: '#666' }}>💬 {req.note}</p>
+        <div style={{ background: req.type === 'order_ready' ? '#E8F5E9' : T.cream, borderRadius: '10px', padding: '10px 12px', marginBottom: '14px', border: `1px solid ${req.type === 'order_ready' ? '#A5D6A7' : '#EDE8E0'}` }}>
+          <p style={{ margin: 0, fontSize: '13px', color: req.type === 'order_ready' ? '#2E7D32' : '#666', fontWeight: req.type === 'order_ready' ? '700' : '400' }}>
+            {req.type === 'order_ready' ? '🍽️ ' : '💬 '}{req.note}
+          </p>
         </div>
       )}
 
