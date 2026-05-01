@@ -291,6 +291,7 @@ export default function POSPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [settleModalOrder, setSettleModalOrder] = useState<Order | null>(null);
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
+  const [tableRequests, setTableRequests] = useState<Record<string, any[]>>({});
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -311,6 +312,20 @@ export default function POSPage() {
         } catch { }
       }));
       setTableOrders(orderMap);
+
+      // Load waiter requests
+      try {
+        const API = process.env.NEXT_PUBLIC_API_URL || 'https://golden-beans-server.onrender.com/api';
+        const wr = await fetch(`${API}/waiter/all-requests`).then(r => r.json());
+        const requests: any[] = wr.requests || [];
+        // Group by tableId
+        const reqMap: Record<string, any[]> = {};
+        requests.forEach(r => {
+          if (!reqMap[r.tableId]) reqMap[r.tableId] = [];
+          reqMap[r.tableId].push(r);
+        });
+        setTableRequests(reqMap);
+      } catch { }
     } catch { }
   }, []);
 
@@ -470,7 +485,7 @@ export default function POSPage() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
               {tables.map((table, idx) => (
                 <div key={table._id} style={{ animation: `fadeInUp 0.3s ${idx * 0.04}s ease both` }}>
-                  <TableCard table={table} order={tableOrders[table._id] || null} onSelect={() => handleSelectTable(table)} waiterRequests={[]} />
+                  <TableCard table={table} order={tableOrders[table._id] || null} onSelect={() => handleSelectTable(table)} waiterRequests={tableRequests[table._id] || []} />
                 </div>
               ))}
             </div>
