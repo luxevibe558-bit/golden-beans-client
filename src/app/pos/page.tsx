@@ -23,7 +23,6 @@ const ITEM_EMOJIS: Record<string, string> = {
   "Classic Omelette": "🍳", "Pancake Stack": "🥞",
 };
 
-// ─── Low Stock Banner ─────────────────────────────────────────────────────────
 function LowStockBanner({ items }: { items: any[] }) {
   const [dismissed, setDismissed] = useState(false);
   if (items.length === 0 || dismissed) return null;
@@ -44,7 +43,6 @@ function LowStockBanner({ items }: { items: any[] }) {
   );
 }
 
-// ─── Pending Approval Bell ────────────────────────────────────────────────────
 function PendingApprovalBell({ orders, onAccept, onReject }: { orders: Order[]; onAccept: (id: string) => void; onReject: (id: string) => void; }) {
   const [timers, setTimers] = useState<Record<string, number>>({});
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -118,147 +116,157 @@ function PendingApprovalBell({ orders, onAccept, onReject }: { orders: Order[]; 
   );
 }
 
-// ─── Smart Table Card ─────────────────────────────────────────────────────────
-function TableCard({ table, order, onSelect }: { table: Table; order: Order | null; onSelect: () => void }) {
+function TableCard({ table, order, onSelect, waiterRequests }: { table: Table; order: Order | null; onSelect: () => void; waiterRequests?: any[] }) {
   const isOccupied = table.status === "occupied";
   const hasPending = order?.status === "pending_approval";
   const hasOrder = !!order && !["settled", "cancelled"].includes(order.status);
+  const [elapsed, setElapsed] = useState(0);
+  const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    if (!order?.createdAt) return;
+    const iv = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 1000));
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [order?.createdAt]);
+
+  const formatElapsed = (s: number) => {
+    const m = Math.floor(s / 60); const sec = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  };
+
+  const pendingRequests = waiterRequests?.filter(r => r.status === 'pending') || [];
 
   return (
-    <div onClick={onSelect} style={{
-      background: isOccupied ? `linear-gradient(135deg, ${T.ivory}, #FFF8F0)` : T.ivory,
-      borderRadius: "20px", padding: "20px",
-      border: `2px solid ${hasPending ? T.gold : isOccupied ? T.emerald : T.border}`,
-      cursor: "pointer", position: "relative", overflow: "hidden",
-      boxShadow: isOccupied ? `0 8px 24px rgba(15,61,46,0.12)` : `0 2px 8px rgba(0,0,0,0.04)`,
-      transition: "all 0.25s cubic-bezier(0.16,1,0.3,1)",
-      animation: "fadeInUp 0.3s ease both",
-    }}
-      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 16px 40px rgba(15,61,46,0.16)"; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = isOccupied ? "0 8px 24px rgba(15,61,46,0.12)" : "0 2px 8px rgba(0,0,0,0.04)"; }}
-    >
-      {/* Pending badge */}
+    <div onClick={onSelect} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{ background: isOccupied ? T.ivory : T.cream, borderRadius: "20px", padding: "18px", border: `2px solid ${hasPending ? T.gold : pendingRequests.length > 0 ? '#EF4444' : isOccupied ? T.emerald : T.border}`, cursor: "pointer", position: "relative", overflow: "hidden", boxShadow: hovered ? `0 16px 40px rgba(15,61,46,0.18)` : isOccupied ? `0 6px 20px rgba(15,61,46,0.1)` : `0 2px 8px rgba(0,0,0,0.04)`, transition: "all 0.25s cubic-bezier(0.16,1,0.3,1)", transform: hovered ? "translateY(-4px)" : "translateY(0)" }}>
+
+      {isOccupied && <div style={{ position: "absolute", top: "-20px", right: "-20px", width: "80px", height: "80px", borderRadius: "50%", background: `${T.emerald}08`, zIndex: 0 }} />}
+
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "12px", position: "relative", zIndex: 1 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: isOccupied ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : T.creamDark, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <span style={{ fontSize: "20px" }}>{isOccupied ? "🪑" : "⬜"}</span>
+          </div>
+          <div>
+            <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "17px", fontWeight: 800, color: T.emerald, margin: 0 }}>Table {table.tableNumber}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "2px" }}>
+              <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: isOccupied ? T.success : T.textDim }} />
+              <span style={{ fontSize: "10px", color: isOccupied ? T.success : T.textMuted, fontWeight: 700 }}>{isOccupied ? "Occupied" : "Available"}</span>
+            </div>
+          </div>
+        </div>
+        {hasOrder && (
+          <div style={{ background: elapsed > 3600 ? '#FEF2F2' : elapsed > 1800 ? '#FFFBF0' : `${T.emerald}15`, borderRadius: "8px", padding: "4px 10px", textAlign: "center", border: `1px solid ${elapsed > 3600 ? '#FECACA' : elapsed > 1800 ? '#F0E0C0' : `${T.emerald}25`}` }}>
+            <p style={{ fontSize: "14px", fontWeight: 900, color: elapsed > 3600 ? T.danger : elapsed > 1800 ? T.gold : T.emerald, margin: 0, fontFamily: "'DM Sans', sans-serif", fontVariantNumeric: "tabular-nums" }}>{formatElapsed(elapsed)}</p>
+            <p style={{ fontSize: "8px", color: T.textMuted, margin: 0, fontWeight: 700 }}>elapsed</p>
+          </div>
+        )}
+      </div>
+
       {hasPending && (
-        <div style={{ position: "absolute", top: "12px", right: "12px", background: T.gold, borderRadius: "8px", padding: "3px 10px", fontSize: "10px", fontWeight: 800, color: T.emerald, animation: "pulse 1.5s infinite" }}>
-          🔔 QR Order
+        <div style={{ background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, borderRadius: "10px", padding: "8px 12px", marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px", animation: "pulse 1.5s infinite", position: "relative", zIndex: 1 }}>
+          <span style={{ fontSize: "16px" }}>🔔</span>
+          <div>
+            <p style={{ fontSize: "12px", fontWeight: 800, color: T.emerald, margin: 0 }}>New QR Order Pending!</p>
+            <p style={{ fontSize: "10px", color: T.emeraldMid, margin: 0 }}>#{order?.orderNumber} — Tap to accept</p>
+          </div>
         </div>
       )}
 
-      {/* Table number */}
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
-        <div style={{ width: "48px", height: "48px", borderRadius: "14px", background: isOccupied ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : T.cream, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <span style={{ fontSize: "22px" }}>{isOccupied ? "🪑" : "⬜"}</span>
-        </div>
-        <div>
-          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "18px", fontWeight: 800, color: T.emerald, margin: 0 }}>Table {table.tableNumber}</p>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "3px" }}>
-            <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: isOccupied ? T.success : T.textDim }} />
-            <span style={{ fontSize: "11px", color: isOccupied ? T.success : T.textMuted, fontWeight: 700 }}>{isOccupied ? "Occupied" : "Available"}</span>
+      {pendingRequests.length > 0 && (
+        <div style={{ background: '#FEF2F2', borderRadius: "10px", padding: "8px 12px", marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px", border: '1px solid #FECACA', position: "relative", zIndex: 1 }}>
+          <span style={{ fontSize: "16px" }}>🙋</span>
+          <div>
+            <p style={{ fontSize: "12px", fontWeight: 800, color: T.danger, margin: 0 }}>{pendingRequests.length} Waiter Request{pendingRequests.length > 1 ? 's' : ''}</p>
+            <p style={{ fontSize: "10px", color: '#999', margin: 0 }}>{pendingRequests.map((r: any) => r.type.replace('_', ' ')).join(', ')}</p>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Order info */}
       {hasOrder && order ? (
-        <div style={{ background: T.cream, borderRadius: "12px", padding: "12px", border: `1px solid ${T.creamDark}` }}>
-          {/* Customer */}
+        <div style={{ background: T.cream, borderRadius: "12px", padding: "12px", border: `1px solid ${T.creamDark}`, position: "relative", zIndex: 1 }}>
           {order.customerName && (
             <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px", paddingBottom: "8px", borderBottom: `1px dashed ${T.creamDark}` }}>
-              <span style={{ fontSize: "14px" }}>👤</span>
+              <span style={{ fontSize: "13px" }}>👤</span>
               <div>
                 <p style={{ fontSize: "12px", fontWeight: 800, color: T.text, margin: 0 }}>{order.customerName}</p>
                 {order.customerPhone && <p style={{ fontSize: "10px", color: T.textMuted, margin: 0 }}>{order.customerPhone}</p>}
               </div>
             </div>
           )}
-
-          {/* Items preview */}
-          <div style={{ marginBottom: "8px" }}>
-            {order.items.slice(0, 2).map((item, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
-                <span style={{ fontSize: "11px", color: T.text, fontWeight: 600 }}>{item.name} ×{item.quantity}</span>
-                <span style={{ fontSize: "11px", color: T.emerald, fontWeight: 700 }}>₹{(item.price * item.quantity).toFixed(0)}</span>
-              </div>
-            ))}
-            {order.items.length > 2 && <p style={{ fontSize: "10px", color: T.textMuted, margin: "2px 0 0", fontWeight: 600 }}>+{order.items.length - 2} more items</p>}
-          </div>
-
-          {/* Bill amount */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "8px", borderTop: `1px dashed ${T.creamDark}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-              <span style={{ fontSize: "10px", color: T.textMuted, fontWeight: 700, textTransform: "uppercase" }}>Bill</span>
-              <span style={{ fontSize: "9px", background: order.status === "pending_approval" ? "#FFF3E0" : order.status === "kotSent" ? "#E8F5E9" : T.cream, color: order.status === "pending_approval" ? "#E65100" : order.status === "kotSent" ? T.success : T.textMuted, borderRadius: "4px", padding: "1px 6px", fontWeight: 700 }}>
-                {order.status === "pending_approval" ? "Pending" : order.status === "kotSent" ? "KOT Sent" : order.status}
-              </span>
+          {order.items.slice(0, 2).map((item, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
+              <span style={{ fontSize: "11px", color: T.text, fontWeight: 600 }}>{item.name} ×{item.quantity}</span>
+              <span style={{ fontSize: "11px", color: T.emerald, fontWeight: 700 }}>₹{(item.price * item.quantity).toFixed(0)}</span>
             </div>
-            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "18px", fontWeight: 900, color: T.emerald }}>₹{order.totalAmount.toFixed(0)}</span>
+          ))}
+          {order.items.length > 2 && <p style={{ fontSize: "10px", color: T.textMuted, margin: "3px 0 6px", fontWeight: 600 }}>+{order.items.length - 2} more items</p>}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "8px", borderTop: `1px dashed ${T.creamDark}`, marginTop: "4px" }}>
+            <span style={{ fontSize: "9px", background: order.status === "pending_approval" ? "#FFF3E0" : order.status === "kotSent" ? "#E8F5E9" : T.cream, color: order.status === "pending_approval" ? "#E65100" : order.status === "kotSent" ? T.success : T.textMuted, borderRadius: "4px", padding: "2px 7px", fontWeight: 800, textTransform: "capitalize" }}>
+              {order.status.replace('_', ' ')}
+            </span>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "20px", fontWeight: 900, color: T.emerald }}>₹{order.totalAmount.toFixed(0)}</span>
           </div>
         </div>
       ) : (
-        <div style={{ textAlign: "center", padding: "16px 0" }}>
+        <div style={{ textAlign: "center", padding: "16px 0", position: "relative", zIndex: 1 }}>
           <p style={{ fontSize: "12px", color: T.textDim, fontWeight: 600, margin: 0 }}>Tap to start order</p>
         </div>
       )}
-
-      {/* Hover arrow */}
-      <div style={{ position: "absolute", bottom: "16px", right: "16px", opacity: 0.3, fontSize: "16px" }}>→</div>
+      <div style={{ position: "absolute", bottom: "14px", right: "14px", opacity: hovered ? 0.6 : 0.2, fontSize: "14px", transition: "opacity 0.2s", zIndex: 1 }}>→</div>
     </div>
   );
 }
 
-// ─── CRED Menu Card ───────────────────────────────────────────────────────────
 function MenuCard({ item, cartQty, onAdd, onRemove }: { item: MenuItem; cartQty: number; onAdd: () => void; onRemove: () => void }) {
-  const [pressed, setPressed] = useState(false);
+  const [hovered, setHovered] = useState(false);
 
   return (
-    <div style={{
-      background: T.ivory, borderRadius: "18px", overflow: "hidden",
-      border: `1.5px solid ${cartQty > 0 ? T.emerald : T.border}`,
-      boxShadow: cartQty > 0 ? `0 8px 24px rgba(15,61,46,0.15)` : `0 2px 8px rgba(0,0,0,0.04)`,
-      transition: "all 0.2s ease", opacity: item.isAvailable ? 1 : 0.6,
-      transform: pressed ? "scale(0.97)" : "scale(1)",
-    }}>
-      {/* Image */}
-      <div style={{ position: "relative", height: "130px", background: item.imageUrl ? "transparent" : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, overflow: "hidden" }}>
-        {item.imageUrl ? (
-          <img src={getThumbnailUrl(item.imageUrl)} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        ) : (
-          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "48px" }}>
-            {ITEM_EMOJIS[item.name] || "🍽️"}
-          </div>
-        )}
-        {!item.isAvailable && (
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ background: T.danger, color: "white", borderRadius: "8px", padding: "4px 12px", fontSize: "11px", fontWeight: 800 }}>OUT OF STOCK</span>
-          </div>
-        )}
-        {item.tags?.includes("bestseller") && (
-          <div style={{ position: "absolute", top: "8px", left: "8px", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, borderRadius: "6px", padding: "2px 8px", fontSize: "9px", fontWeight: 800, color: T.emerald }}>⭐ BEST</div>
-        )}
+    <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+      style={{ borderRadius: "18px", overflow: "hidden", position: "relative", border: `2px solid ${cartQty > 0 ? T.emerald : hovered ? T.gold : T.border}`, boxShadow: cartQty > 0 ? `0 8px 24px rgba(15,61,46,0.2)` : hovered ? `0 12px 32px rgba(0,0,0,0.15)` : `0 2px 8px rgba(0,0,0,0.06)`, transition: "all 0.25s cubic-bezier(0.16,1,0.3,1)", transform: hovered ? "translateY(-4px) scale(1.01)" : "translateY(0) scale(1)", opacity: item.isAvailable ? 1 : 0.6, aspectRatio: "3/4", cursor: item.isAvailable ? "pointer" : "not-allowed", background: "#1a1a1a" }}>
+
+      {item.imageUrl ? (
+        <img src={getThumbnailUrl(item.imageUrl)} alt={item.name} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", transition: "transform 0.4s ease", transform: hovered ? "scale(1.06)" : "scale(1)" }} />
+      ) : (
+        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "52px" }}>
+          {ITEM_EMOJIS[item.name] || "🍽️"}
+        </div>
+      )}
+
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 45%, rgba(0,0,0,0) 70%)", zIndex: 1 }} />
+
+      <div style={{ position: "absolute", top: "10px", left: "10px", right: "10px", display: "flex", justifyContent: "space-between", zIndex: 2 }}>
+        {item.tags?.includes("bestseller") ? (
+          <div style={{ background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, borderRadius: "6px", padding: "3px 8px", fontSize: "9px", fontWeight: 800, color: T.emerald }}>⭐ BEST</div>
+        ) : <div />}
         {cartQty > 0 && (
-          <div style={{ position: "absolute", top: "8px", right: "8px", background: T.emerald, borderRadius: "50%", width: "24px", height: "24px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: 900, color: T.gold }}>
+          <div style={{ background: T.emerald, borderRadius: "50%", width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 900, color: T.gold }}>
             {cartQty}
           </div>
         )}
       </div>
 
-      {/* Info */}
-      <div style={{ padding: "12px" }}>
-        <p style={{ fontWeight: 800, fontSize: "13px", color: T.text, margin: "0 0 2px", lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</p>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "8px" }}>
-          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "15px", fontWeight: 900, color: T.emerald }}>₹{item.price}</span>
+      {!item.isAvailable && (
+        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3 }}>
+          <span style={{ background: T.danger, color: "white", borderRadius: "8px", padding: "5px 14px", fontSize: "11px", fontWeight: 800 }}>OUT OF STOCK</span>
+        </div>
+      )}
+
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "14px 12px 12px", zIndex: 2 }}>
+        <p style={{ fontWeight: 800, fontSize: "13px", color: "white", margin: "0 0 6px", lineHeight: 1.2, textShadow: "0 1px 4px rgba(0,0,0,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "16px", fontWeight: 900, color: T.goldLight, textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>₹{item.price}</span>
           {item.isAvailable && (
             cartQty > 0 ? (
-              <div style={{ display: "flex", alignItems: "center", background: T.emerald, borderRadius: "8px", overflow: "hidden" }}>
-                <button onMouseDown={() => setPressed(true)} onMouseUp={() => setPressed(false)} onClick={onRemove}
-                  style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", fontSize: "16px", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+              <div style={{ display: "flex", alignItems: "center", background: "rgba(15,61,46,0.9)", borderRadius: "8px", overflow: "hidden", backdropFilter: "blur(4px)" }}>
+                <button onClick={e => { e.stopPropagation(); onRemove(); }} style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", fontSize: "16px", fontWeight: 900 }}>−</button>
                 <span style={{ color: T.gold, fontWeight: 900, fontSize: "13px", minWidth: "20px", textAlign: "center" }}>{cartQty}</span>
-                <button onMouseDown={() => setPressed(true)} onMouseUp={() => setPressed(false)} onClick={onAdd}
-                  style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", fontSize: "16px", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
+                <button onClick={e => { e.stopPropagation(); onAdd(); }} style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", fontSize: "16px", fontWeight: 900 }}>+</button>
               </div>
             ) : (
-              <button onClick={onAdd}
-                style={{ background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, border: "none", borderRadius: "8px", padding: "6px 14px", fontSize: "12px", fontWeight: 800, color: T.emerald, cursor: "pointer" }}>
+              <button onClick={e => { e.stopPropagation(); onAdd(); }} style={{ background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, border: "none", borderRadius: "8px", padding: "6px 14px", fontSize: "12px", fontWeight: 800, color: T.emerald, cursor: "pointer" }}>
                 + ADD
               </button>
             )
@@ -269,7 +277,6 @@ function MenuCard({ item, cartQty, onAdd, onRemove }: { item: MenuItem; cartQty:
   );
 }
 
-// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function POSPage() {
   const [view, setView] = useState<"tables" | "order">("tables");
   const [tables, setTables] = useState<Table[]>([]);
@@ -296,7 +303,6 @@ export default function POSPage() {
       const res = await tableApi.getTables();
       const tbls: Table[] = res.data.data;
       setTables(tbls);
-      // Load orders for all occupied tables
       const orderMap: Record<string, Order> = {};
       await Promise.all(tbls.filter(t => t.currentOrderId).map(async t => {
         try {
@@ -330,7 +336,6 @@ export default function POSPage() {
         setTables(tbls);
         setMenu(menuRes.data.data);
         if (menuRes.data.data.length > 0) setActiveCategory(menuRes.data.data[0]._id);
-        // Load orders
         const orderMap: Record<string, Order> = {};
         await Promise.all(tbls.filter(t => t.currentOrderId).map(async t => {
           try {
@@ -362,19 +367,11 @@ export default function POSPage() {
   };
 
   const handleAcceptApproval = async (orderId: string) => {
-    try {
-      await orderApi.approveOrder(orderId);
-      setPendingOrders(prev => prev.filter(o => o._id !== orderId));
-      loadTables();
-    } catch { }
+    try { await orderApi.approveOrder(orderId); setPendingOrders(prev => prev.filter(o => o._id !== orderId)); loadTables(); } catch { }
   };
 
   const handleRejectApproval = async (orderId: string) => {
-    try {
-      await orderApi.rejectOrder(orderId, "Rejected by staff");
-      setPendingOrders(prev => prev.filter(o => o._id !== orderId));
-      loadTables();
-    } catch { }
+    try { await orderApi.rejectOrder(orderId, "Rejected by staff"); setPendingOrders(prev => prev.filter(o => o._id !== orderId)); loadTables(); } catch { }
   };
 
   const addToCart = (item: MenuItem) => {
@@ -408,31 +405,27 @@ export default function POSPage() {
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const tax = subtotal * 0.05;
   const total = subtotal + tax;
-
   const activeItems = searchQuery
     ? menu.flatMap(c => c.items).filter(i => i.name.toLowerCase().includes(searchQuery.toLowerCase()))
     : (menu.find(c => c._id === activeCategory)?.items || []);
 
-  // ── TABLE VIEW ──────────────────────────────────────────────────────────────
+  const STYLES = `
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Nunito:wght@400;600;700;800;900&display=swap');
+    * { box-sizing: border-box; }
+    @keyframes slideInRight { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
+    @keyframes ring { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-15deg)} 75%{transform:rotate(15deg)} }
+    @keyframes fadeInUp { from{transform:translateY(16px);opacity:0} to{transform:translateY(0);opacity:1} }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: ${T.creamDark}; border-radius: 6px; }
+  `;
+
   if (view === "tables") return (
     <div style={{ display: "flex", minHeight: "100vh", background: T.cream, fontFamily: "'Nunito', sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Nunito:wght@400;600;700;800;900&display=swap');
-        * { box-sizing: border-box; }
-        @keyframes slideInRight { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
-        @keyframes ring { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-15deg)} 75%{transform:rotate(15deg)} }
-        @keyframes fadeInUp { from{transform:translateY(16px);opacity:0} to{transform:translateY(0);opacity:1} }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
-        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: ${T.creamDark}; border-radius: 6px; }
-      `}</style>
-
+      <style>{STYLES}</style>
       <POSSidebar />
       <PendingApprovalBell orders={pendingOrders} onAccept={handleAcceptApproval} onReject={handleRejectApproval} />
-
       <div style={{ flex: 1, marginLeft: "64px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <LowStockBanner items={lowStockItems} />
-
-        {/* Header */}
         <header style={{ background: T.ivory, borderBottom: `1px solid ${T.border}`, padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 2px 8px rgba(15,61,46,0.05)" }}>
           <div>
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: "24px", color: T.emerald, margin: 0 }}>Golden Beans POS</h1>
@@ -459,21 +452,14 @@ export default function POSPage() {
             )}
           </div>
         </header>
-
-        {/* Table Grid */}
         <main style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", fontWeight: 800, color: T.emerald, margin: 0 }}>
-              Select Table
-            </h2>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={() => handleSelectTable({ _id: "counter", tableNumber: "Counter", status: "available", currentOrderId: null, capacity: 1, qrCode: "" } as any)}
-                style={{ padding: "10px 20px", borderRadius: "12px", border: `2px solid ${T.emerald}`, background: T.emerald, color: T.gold, fontWeight: 800, fontSize: "13px", cursor: "pointer", fontFamily: "inherit" }}>
-                🏪 Counter Order
-              </button>
-            </div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", fontWeight: 800, color: T.emerald, margin: 0 }}>Select Table</h2>
+            <button onClick={() => handleSelectTable({ _id: "counter", tableNumber: "Counter", status: "available", currentOrderId: null, capacity: 1, qrCode: "" } as any)}
+              style={{ padding: "10px 20px", borderRadius: "12px", border: `2px solid ${T.emerald}`, background: T.emerald, color: T.gold, fontWeight: 800, fontSize: "13px", cursor: "pointer" }}>
+              🏪 Counter Order
+            </button>
           </div>
-
           {loading ? (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
               {Array.from({ length: 6 }).map((_, i) => (
@@ -484,52 +470,30 @@ export default function POSPage() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
               {tables.map((table, idx) => (
                 <div key={table._id} style={{ animation: `fadeInUp 0.3s ${idx * 0.04}s ease both` }}>
-                  <TableCard
-                    table={table}
-                    order={tableOrders[table._id] || null}
-                    onSelect={() => handleSelectTable(table)}
-                  />
+                  <TableCard table={table} order={tableOrders[table._id] || null} onSelect={() => handleSelectTable(table)} waiterRequests={[]} />
                 </div>
               ))}
             </div>
           )}
         </main>
       </div>
-
       <SettleBillModal order={settleModalOrder} isOpen={!!settleModalOrder} onClose={() => setSettleModalOrder(null)}
         onSettled={() => { setSettleModalOrder(null); setCurrentOrder(null); setSelectedTable(null); loadTables(); loadPendingApprovals(); }} />
     </div>
   );
 
-  // ── ORDER VIEW ──────────────────────────────────────────────────────────────
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: T.cream, fontFamily: "'Nunito', sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Nunito:wght@400;600;700;800;900&display=swap');
-        * { box-sizing: border-box; }
-        @keyframes slideInRight { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
-        @keyframes ring { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-15deg)} 75%{transform:rotate(15deg)} }
-        @keyframes fadeInUp { from{transform:translateY(16px);opacity:0} to{transform:translateY(0);opacity:1} }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
-        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: ${T.creamDark}; border-radius: 6px; }
-      `}</style>
-
+      <style>{STYLES}</style>
       <POSSidebar />
       <PendingApprovalBell orders={pendingOrders} onAccept={handleAcceptApproval} onReject={handleRejectApproval} />
-
       <div style={{ flex: 1, marginLeft: "64px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <LowStockBanner items={lowStockItems} />
-
-        {/* Header */}
         <header style={{ background: T.ivory, borderBottom: `1px solid ${T.border}`, padding: "12px 20px", display: "flex", alignItems: "center", gap: "14px", boxShadow: "0 2px 8px rgba(15,61,46,0.05)" }}>
           <button onClick={() => { setView("tables"); setSelectedTable(null); setCurrentOrder(null); setCart([]); }}
-            style={{ width: "36px", height: "36px", borderRadius: "10px", border: `1px solid ${T.border}`, background: T.cream, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", flexShrink: 0 }}>
-            ←
-          </button>
+            style={{ width: "36px", height: "36px", borderRadius: "10px", border: `1px solid ${T.border}`, background: T.cream, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "16px", flexShrink: 0 }}>←</button>
           <div>
-            <h1 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: "20px", color: T.emerald, margin: 0 }}>
-              Table {selectedTable?.tableNumber}
-            </h1>
+            <h1 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: "20px", color: T.emerald, margin: 0 }}>Table {selectedTable?.tableNumber}</h1>
             <p style={{ fontSize: "11px", color: T.textMuted, margin: "2px 0 0", fontWeight: 600 }}>
               {currentOrder ? `Order #${currentOrder.orderNumber} • ${currentOrder.status}` : "New Order"}
               {currentOrder?.customerName && ` • ${currentOrder.customerName}`}
@@ -541,61 +505,39 @@ export default function POSPage() {
             </div>
           )}
         </header>
-
-        {/* Content */}
         <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 340px", overflow: "hidden" }}>
-
-          {/* Menu */}
           <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", borderRight: `1px solid ${T.border}` }}>
-            {/* Search + Categories */}
             <div style={{ padding: "12px 16px", borderBottom: `1px solid ${T.border}`, background: T.ivory }}>
               <input type="text" placeholder="🔍 Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                 style={{ width: "100%", padding: "9px 14px", borderRadius: "10px", border: `1px solid ${T.creamDark}`, background: T.cream, fontSize: "13px", fontWeight: 600, outline: "none", marginBottom: "10px", boxSizing: "border-box" }} />
               {!searchQuery && (
                 <div style={{ display: "flex", gap: "6px", overflowX: "auto" }}>
                   {menu.map(cat => (
-                    <button key={cat._id} onClick={() => setActiveCategory(cat._id)} style={{
-                      flexShrink: 0, padding: "5px 12px", borderRadius: "99px", fontSize: "11px", fontWeight: 800,
-                      border: `1.5px solid ${activeCategory === cat._id ? T.emerald : T.creamDark}`,
-                      background: activeCategory === cat._id ? T.emerald : "white",
-                      color: activeCategory === cat._id ? T.gold : T.emerald,
-                      cursor: "pointer", whiteSpace: "nowrap",
-                    }}>{cat.icon} {cat.name}</button>
+                    <button key={cat._id} onClick={() => setActiveCategory(cat._id)} style={{ flexShrink: 0, padding: "5px 12px", borderRadius: "99px", fontSize: "11px", fontWeight: 800, border: `1.5px solid ${activeCategory === cat._id ? T.emerald : T.creamDark}`, background: activeCategory === cat._id ? T.emerald : "white", color: activeCategory === cat._id ? T.gold : T.emerald, cursor: "pointer", whiteSpace: "nowrap" }}>
+                      {cat.icon} {cat.name}
+                    </button>
                   ))}
                 </div>
               )}
             </div>
-
-            {/* CRED Menu Grid */}
             <div style={{ flex: 1, overflowY: "auto", padding: "14px" }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "12px" }}>
                 {(activeItems as MenuItem[]).map((item, idx) => {
                   const cartQty = cart.find(c => c.menuItemId === item._id)?.quantity || 0;
                   return (
                     <div key={item._id} style={{ animation: `fadeInUp 0.25s ${idx * 0.03}s ease both` }}>
-                      <MenuCard
-                        item={item}
-                        cartQty={cartQty}
-                        onAdd={() => addToCart(item)}
-                        onRemove={() => removeFromCart(item._id)}
-                      />
+                      <MenuCard item={item} cartQty={cartQty} onAdd={() => addToCart(item)} onRemove={() => removeFromCart(item._id)} />
                     </div>
                   );
                 })}
               </div>
             </div>
           </div>
-
-          {/* Order Panel */}
           <div style={{ display: "flex", flexDirection: "column", background: T.ivory, overflow: "hidden" }}>
             <div style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}` }}>
-              <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "16px", fontWeight: 800, color: T.emerald, margin: 0 }}>
-                {currentOrder ? "Active Order" : "New Order"}
-              </p>
+              <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "16px", fontWeight: 800, color: T.emerald, margin: 0 }}>{currentOrder ? "Active Order" : "New Order"}</p>
             </div>
-
             <div style={{ flex: 1, overflowY: "auto", padding: "12px" }}>
-              {/* Existing order items */}
               {currentOrder && (
                 <div style={{ marginBottom: "12px" }}>
                   <p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 800, letterSpacing: "0.5px", textTransform: "uppercase", margin: "0 0 8px" }}>Ordered Items</p>
@@ -610,8 +552,6 @@ export default function POSPage() {
                   ))}
                 </div>
               )}
-
-              {/* Cart items */}
               {cart.length > 0 && (
                 <div>
                   <p style={{ fontSize: "10px", color: T.gold, fontWeight: 800, letterSpacing: "0.5px", textTransform: "uppercase", margin: "0 0 8px" }}>New Items</p>
@@ -630,7 +570,6 @@ export default function POSPage() {
                   ))}
                 </div>
               )}
-
               {!currentOrder && cart.length === 0 && (
                 <div style={{ textAlign: "center", padding: "40px 20px" }}>
                   <p style={{ fontSize: "40px", margin: "0 0 8px" }}>🍽️</p>
@@ -638,8 +577,6 @@ export default function POSPage() {
                 </div>
               )}
             </div>
-
-            {/* Bill + Actions */}
             {(cart.length > 0 || currentOrder) && (
               <div style={{ borderTop: `1px solid ${T.border}`, padding: "14px" }}>
                 {cart.length > 0 && (
@@ -655,13 +592,11 @@ export default function POSPage() {
                     </div>
                   </div>
                 )}
-
                 {cart.length > 0 && (
                   <button onClick={sendKOT} style={{ width: "100%", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, border: "none", borderRadius: "12px", padding: "12px", fontWeight: 900, fontSize: "14px", cursor: "pointer", boxShadow: `0 6px 16px rgba(15,61,46,0.3)`, marginBottom: currentOrder ? "8px" : 0 }}>
                     📤 Send KOT
                   </button>
                 )}
-
                 {currentOrder && (
                   <button onClick={() => setSettleModalOrder(currentOrder)} style={{ width: "100%", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, color: T.emerald, border: "none", borderRadius: "12px", padding: "12px", fontWeight: 900, fontSize: "14px", cursor: "pointer", boxShadow: `0 6px 16px rgba(212,165,116,0.4)` }}>
                     💰 Settle Bill (₹{currentOrder.totalAmount.toFixed(0)})
@@ -672,14 +607,8 @@ export default function POSPage() {
           </div>
         </div>
       </div>
-
       <SettleBillModal order={settleModalOrder} isOpen={!!settleModalOrder} onClose={() => setSettleModalOrder(null)}
-        onSettled={() => {
-          setSettleModalOrder(null); setCurrentOrder(null);
-          setSelectedTable(null); setCart([]);
-          setView("tables");
-          loadTables(); loadPendingApprovals(); loadLowStock();
-        }} />
+        onSettled={() => { setSettleModalOrder(null); setCurrentOrder(null); setSelectedTable(null); setCart([]); setView("tables"); loadTables(); loadPendingApprovals(); loadLowStock(); }} />
     </div>
   );
 }
