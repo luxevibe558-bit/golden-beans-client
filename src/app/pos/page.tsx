@@ -15,6 +15,16 @@ const T = {
   border: "#E5DCC9", success: "#4A8B4A", danger: "#C0392B", warning: "#D4A574",
 };
 
+const CANCEL_REASONS = [
+  "Customer changed mind",
+  "Wrong item ordered",
+  "Customer left",
+  "Duplicate order",
+  "Item unavailable",
+  "Staff error",
+  "Other",
+];
+
 const ITEM_EMOJIS: Record<string, string> = {
   Espresso: "☕", Cappuccino: "☕", Latte: "🥛", "Masala Chai": "🫖",
   "Hot Chocolate": "🍫", "Cold Brew": "🧊", "Iced Latte": "🥤",
@@ -22,6 +32,133 @@ const ITEM_EMOJIS: Record<string, string> = {
   "Garlic Bread": "🥖", "Chocolate Brownie": "🍫", "Cheesecake Slice": "🍰",
   "Classic Omelette": "🍳", "Pancake Stack": "🥞",
 };
+
+// ── Daily Revenue Goal Widget ──
+function RevenueGoalWidget({ goal = 10000 }: { goal?: number }) {
+  const [stats, setStats] = useState<{ revenue: number; count: number; topItems: any[] } | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const API = process.env.NEXT_PUBLIC_API_URL || 'https://golden-beans-server.onrender.com/api';
+        const res = await fetch(`${API}/orders/today-stats`).then(r => r.json());
+        if (res.success) setStats(res.data);
+      } catch { }
+    };
+    load();
+    const iv = setInterval(load, 30000);
+    return () => clearInterval(iv);
+  }, []);
+
+  if (!stats) return null;
+
+  const pct = Math.min(100, Math.round((stats.revenue / goal) * 100));
+  const color = pct >= 100 ? T.success : pct >= 60 ? T.gold : T.emerald;
+
+  return (
+    <div style={{ background: T.ivory, borderRadius: "16px", padding: "14px 18px", border: `1px solid ${T.border}`, marginBottom: "20px", boxShadow: "0 2px 8px rgba(15,61,46,0.06)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+        <div>
+          <p style={{ fontSize: "11px", color: T.textMuted, fontWeight: 800, margin: 0, textTransform: "uppercase", letterSpacing: "0.5px" }}>Today's Revenue</p>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "6px", marginTop: "2px" }}>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "26px", fontWeight: 900, color: T.emerald }}>₹{stats.revenue.toFixed(0)}</span>
+            <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>/ ₹{goal.toLocaleString()}</span>
+          </div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <p style={{ fontSize: "22px", fontWeight: 900, color, margin: 0 }}>{pct}%</p>
+          <p style={{ fontSize: "10px", color: T.textMuted, margin: 0, fontWeight: 700 }}>{stats.count} orders</p>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ background: T.creamDark, borderRadius: "99px", height: "8px", overflow: "hidden", marginBottom: "12px" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: pct >= 100 ? `linear-gradient(90deg, ${T.success}, #22C55E)` : `linear-gradient(90deg, ${T.emerald}, ${T.gold})`, borderRadius: "99px", transition: "width 0.6s ease" }} />
+      </div>
+
+      {/* Top items */}
+      {stats.topItems.length > 0 && (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          {stats.topItems.map((item, i) => (
+            <div key={i} style={{ background: T.cream, borderRadius: "8px", padding: "4px 10px", border: `1px solid ${T.creamDark}`, display: "flex", alignItems: "center", gap: "5px" }}>
+              <span style={{ fontSize: "10px" }}>{i === 0 ? "🏆" : i === 1 ? "🥈" : "🥉"}</span>
+              <span style={{ fontSize: "10px", fontWeight: 800, color: T.text }}>{item.name}</span>
+              <span style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600 }}>×{item.qty}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Cancellation Modal ──
+function CancelOrderModal({ order, isOpen, onClose, onCancelled }: { order: Order | null; isOpen: boolean; onClose: () => void; onCancelled: () => void; }) {
+  const [reason, setReason] = useState(CANCEL_REASONS[0]);
+  const [custom, setCustom] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  if (!isOpen || !order) return null;
+
+  const handleCancel = async () => {
+    setLoading(true);
+    try {
+      const API = process.env.NEXT_PUBLIC_API_URL || 'https://golden-beans-server.onrender.com/api';
+      await fetch(`${API}/orders/${order._id}/cancel`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason === "Other" ? custom || "Other" : reason, cancelledBy: "staff" }),
+      });
+      onCancelled();
+    } catch { }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" }}>
+      <div style={{ background: T.ivory, borderRadius: "20px", padding: "28px", width: "420px", boxShadow: "0 24px 60px rgba(0,0,0,0.25)", border: `1px solid ${T.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+          <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: "#FEE2E2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>🚫</div>
+          <div>
+            <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "18px", fontWeight: 800, color: T.emerald, margin: 0 }}>Cancel Order</p>
+            <p style={{ fontSize: "11px", color: T.textMuted, margin: 0, fontWeight: 600 }}>#{order.orderNumber} • Table {order.tableNumber}</p>
+          </div>
+        </div>
+
+        <p style={{ fontSize: "12px", fontWeight: 800, color: T.textMuted, textTransform: "uppercase", letterSpacing: "0.5px", margin: "0 0 10px" }}>Reason for Cancellation</p>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
+          {CANCEL_REASONS.map(r => (
+            <label key={r} style={{ display: "flex", alignItems: "center", gap: "10px", background: reason === r ? `${T.emerald}10` : T.cream, borderRadius: "10px", padding: "10px 14px", border: `1.5px solid ${reason === r ? T.emerald : T.creamDark}`, cursor: "pointer", transition: "all 0.15s" }}>
+              <div style={{ width: "16px", height: "16px", borderRadius: "50%", border: `2px solid ${reason === r ? T.emerald : T.textDim}`, background: reason === r ? T.emerald : "white", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {reason === r && <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "white" }} />}
+              </div>
+              <input type="radio" value={r} checked={reason === r} onChange={() => setReason(r)} style={{ display: "none" }} />
+              <span style={{ fontSize: "13px", fontWeight: 700, color: reason === r ? T.emerald : T.text }}>{r}</span>
+            </label>
+          ))}
+        </div>
+
+        {reason === "Other" && (
+          <textarea
+            value={custom}
+            onChange={e => setCustom(e.target.value)}
+            placeholder="Describe the reason..."
+            rows={2}
+            style={{ width: "100%", borderRadius: "10px", border: `1.5px solid ${T.creamDark}`, padding: "10px 14px", fontSize: "13px", fontWeight: 600, fontFamily: "'Nunito', sans-serif", outline: "none", resize: "none", marginBottom: "16px", boxSizing: "border-box", background: T.cream }}
+          />
+        )}
+
+        <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
+          <button onClick={onClose} style={{ flex: 1, padding: "11px", borderRadius: "12px", border: `1.5px solid ${T.border}`, background: "white", color: T.text, fontWeight: 800, cursor: "pointer", fontSize: "13px" }}>Keep Order</button>
+          <button onClick={handleCancel} disabled={loading} style={{ flex: 1, padding: "11px", borderRadius: "12px", border: "none", background: T.danger, color: "white", fontWeight: 900, cursor: loading ? "not-allowed" : "pointer", fontSize: "13px", opacity: loading ? 0.7 : 1 }}>
+            {loading ? "Cancelling..." : "🚫 Cancel Order"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function LowStockBanner({ items }: { items: any[] }) {
   const [dismissed, setDismissed] = useState(false);
@@ -133,11 +270,7 @@ function TableCard({ table, order, onSelect, waiterRequests }: { table: Table; o
   }, [order?.createdAt]);
 
   useEffect(() => {
-    if (hasPending) {
-      setPulse(true);
-      const t = setTimeout(() => setPulse(false), 600);
-      return () => clearTimeout(t);
-    }
+    if (hasPending) { setPulse(true); const t = setTimeout(() => setPulse(false), 600); return () => clearTimeout(t); }
   }, [hasPending]);
 
   const formatElapsed = (s: number) => {
@@ -148,8 +281,13 @@ function TableCard({ table, order, onSelect, waiterRequests }: { table: Table; o
   const pendingRequests = waiterRequests?.filter(r => r.status === 'pending') || [];
   const isQROrder = order?.createdBy === 'qr';
 
-  const accentColor = hasPending ? T.gold : pendingRequests.length > 0 ? '#EF4444' : isOccupied ? T.emerald : T.border;
-  const borderWidth = (hasPending || pendingRequests.length > 0) ? '2.5px' : isOccupied ? '2px' : '1.5px';
+  // 🟡 Yellow = running (has order but not kotSent yet / preparing)
+  const isRunning = hasOrder && !hasPending && order?.status !== 'kotSent' && order?.status !== 'ready';
+  const cardBorderColor = hasPending ? T.gold
+    : pendingRequests.length > 0 ? '#EF4444'
+    : isRunning ? '#D97706'
+    : isOccupied ? T.emerald
+    : T.border;
 
   const timerColor = elapsed > 3600 ? T.danger : elapsed > 1800 ? '#D97706' : T.emerald;
   const timerBg = elapsed > 3600 ? '#FEF2F2' : elapsed > 1800 ? '#FFFBEB' : `${T.emerald}10`;
@@ -175,15 +313,11 @@ function TableCard({ table, order, onSelect, waiterRequests }: { table: Table; o
       style={{
         background: isOccupied ? T.ivory : T.cream,
         borderRadius: "22px",
-        border: `${borderWidth} solid ${accentColor}`,
+        border: `${(hasPending || pendingRequests.length > 0) ? '2.5px' : isOccupied ? '2px' : '1.5px'} solid ${cardBorderColor}`,
         cursor: "pointer",
         position: "relative",
         overflow: "hidden",
-        boxShadow: hovered
-          ? `0 20px 48px rgba(15,61,46,0.18), 0 0 0 1px ${accentColor}40`
-          : isOccupied
-            ? `0 6px 20px rgba(15,61,46,0.10)`
-            : `0 2px 8px rgba(0,0,0,0.04)`,
+        boxShadow: hovered ? `0 20px 48px rgba(15,61,46,0.18)` : isOccupied ? `0 6px 20px rgba(15,61,46,0.10)` : `0 2px 8px rgba(0,0,0,0.04)`,
         transition: "all 0.28s cubic-bezier(0.16,1,0.3,1)",
         transform: hovered ? "translateY(-5px) scale(1.01)" : pulse ? "scale(1.02)" : "translateY(0) scale(1)",
         minHeight: "200px",
@@ -196,60 +330,36 @@ function TableCard({ table, order, onSelect, waiterRequests }: { table: Table; o
         </>
       )}
 
+      {/* Top bar — green/yellow/gold based on status */}
       {isOccupied && (
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "3px", background: `linear-gradient(90deg, ${T.emerald}, ${T.emeraldLight}, ${T.gold})`, borderRadius: "22px 22px 0 0" }} />
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "3px", background: isRunning ? `linear-gradient(90deg, #D97706, #F59E0B)` : hasPending ? `linear-gradient(90deg, ${T.gold}, ${T.goldLight})` : `linear-gradient(90deg, ${T.emerald}, ${T.emeraldLight}, ${T.gold})`, borderRadius: "22px 22px 0 0" }} />
       )}
 
       <div style={{ padding: "18px 18px 16px", position: "relative", zIndex: 1 }}>
-
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "12px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "11px" }}>
-            <div style={{
-              width: "46px", height: "46px", borderRadius: "14px", flexShrink: 0,
-              background: isOccupied ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : T.creamDark,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: isOccupied ? `0 4px 12px rgba(15,61,46,0.25)` : "none",
-              position: "relative",
-            }}>
+            <div style={{ width: "46px", height: "46px", borderRadius: "14px", flexShrink: 0, background: isOccupied ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : T.creamDark, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: isOccupied ? `0 4px 12px rgba(15,61,46,0.25)` : "none", position: "relative" }}>
               <span style={{ fontSize: "21px" }}>{isOccupied ? "🪑" : "⬜"}</span>
               {hasOrder && (
-                <div style={{
-                  position: "absolute", bottom: "-4px", right: "-4px",
-                  width: "18px", height: "18px", borderRadius: "50%",
-                  background: isQROrder ? "#3B82F6" : T.gold,
-                  border: `2px solid ${isOccupied ? T.ivory : T.cream}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "9px",
-                }}>
+                <div style={{ position: "absolute", bottom: "-4px", right: "-4px", width: "18px", height: "18px", borderRadius: "50%", background: isQROrder ? "#3B82F6" : T.gold, border: `2px solid ${isOccupied ? T.ivory : T.cream}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "9px" }}>
                   {isQROrder ? "📱" : "🏪"}
                 </div>
               )}
             </div>
             <div>
-              <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "17px", fontWeight: 800, color: T.emerald, margin: 0, lineHeight: 1.1 }}>
-                Table {table.tableNumber}
-              </p>
+              <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "17px", fontWeight: 800, color: T.emerald, margin: 0, lineHeight: 1.1 }}>Table {table.tableNumber}</p>
               <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "4px" }}>
-                <div style={{
-                  width: "7px", height: "7px", borderRadius: "50%",
-                  background: isOccupied ? T.success : T.textDim,
-                  boxShadow: isOccupied ? `0 0 0 2px ${T.success}30` : "none",
-                }} />
-                <span style={{ fontSize: "10px", color: isOccupied ? T.success : T.textMuted, fontWeight: 700, letterSpacing: "0.3px" }}>
-                  {isOccupied ? "OCCUPIED" : "AVAILABLE"}
+                <div style={{ width: "7px", height: "7px", borderRadius: "50%", background: isOccupied ? (isRunning ? '#D97706' : T.success) : T.textDim, boxShadow: isOccupied ? `0 0 0 2px ${isRunning ? '#D9780640' : T.success + '30'}` : "none" }} />
+                <span style={{ fontSize: "10px", color: isOccupied ? (isRunning ? '#D97706' : T.success) : T.textMuted, fontWeight: 700, letterSpacing: "0.3px" }}>
+                  {isOccupied ? (isRunning ? "RUNNING" : "OCCUPIED") : "AVAILABLE"}
                 </span>
               </div>
             </div>
           </div>
 
           {hasOrder ? (
-            <div style={{
-              background: timerBg, borderRadius: "10px", padding: "5px 10px",
-              border: `1px solid ${timerBorder}`, textAlign: "center", minWidth: "58px",
-            }}>
-              <p style={{ fontSize: "15px", fontWeight: 900, color: timerColor, margin: 0, fontVariantNumeric: "tabular-nums", lineHeight: 1.2, fontFamily: "'DM Sans', sans-serif" }}>
-                {formatElapsed(elapsed)}
-              </p>
+            <div style={{ background: timerBg, borderRadius: "10px", padding: "5px 10px", border: `1px solid ${timerBorder}`, textAlign: "center", minWidth: "58px" }}>
+              <p style={{ fontSize: "15px", fontWeight: 900, color: timerColor, margin: 0, fontVariantNumeric: "tabular-nums", lineHeight: 1.2, fontFamily: "'DM Sans', sans-serif" }}>{formatElapsed(elapsed)}</p>
               <p style={{ fontSize: "8px", color: T.textDim, margin: 0, fontWeight: 700, letterSpacing: "0.5px" }}>ELAPSED</p>
             </div>
           ) : (
@@ -260,12 +370,7 @@ function TableCard({ table, order, onSelect, waiterRequests }: { table: Table; o
         </div>
 
         {hasPending && (
-          <div style={{
-            background: `linear-gradient(135deg, ${T.gold}20, ${T.goldLight}15)`,
-            borderRadius: "10px", padding: "8px 12px", marginBottom: "10px",
-            display: "flex", alignItems: "center", gap: "8px",
-            border: `1.5px solid ${T.gold}50`,
-          }}>
+          <div style={{ background: `linear-gradient(135deg, ${T.gold}20, ${T.goldLight}15)`, borderRadius: "10px", padding: "8px 12px", marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px", border: `1.5px solid ${T.gold}50` }}>
             <div style={{ width: "28px", height: "28px", borderRadius: "8px", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", flexShrink: 0 }}>🔔</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontSize: "11px", fontWeight: 800, color: T.emerald, margin: 0 }}>New QR Order Pending!</p>
@@ -276,18 +381,11 @@ function TableCard({ table, order, onSelect, waiterRequests }: { table: Table; o
         )}
 
         {pendingRequests.length > 0 && (
-          <div style={{
-            background: "#FEF2F2", borderRadius: "10px", padding: "8px 12px", marginBottom: "10px",
-            display: "flex", alignItems: "center", gap: "8px", border: "1.5px solid #FECACA",
-          }}>
+          <div style={{ background: "#FEF2F2", borderRadius: "10px", padding: "8px 12px", marginBottom: "10px", display: "flex", alignItems: "center", gap: "8px", border: "1.5px solid #FECACA" }}>
             <div style={{ width: "28px", height: "28px", borderRadius: "8px", background: "#FEE2E2", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", flexShrink: 0 }}>🙋</div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: "11px", fontWeight: 800, color: T.danger, margin: 0 }}>
-                {pendingRequests.length} Waiter Request{pendingRequests.length > 1 ? 's' : ''}
-              </p>
-              <p style={{ fontSize: "10px", color: '#999', margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {pendingRequests.map((r: any) => r.type.replace(/_/g, ' ')).join(' · ')}
-              </p>
+              <p style={{ fontSize: "11px", fontWeight: 800, color: T.danger, margin: 0 }}>{pendingRequests.length} Waiter Request{pendingRequests.length > 1 ? 's' : ''}</p>
+              <p style={{ fontSize: "10px", color: '#999', margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pendingRequests.map((r: any) => r.type.replace(/_/g, ' ')).join(' · ')}</p>
             </div>
             <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: T.danger, flexShrink: 0 }} />
           </div>
@@ -296,12 +394,8 @@ function TableCard({ table, order, onSelect, waiterRequests }: { table: Table; o
         {hasOrder && order ? (
           <div style={{ background: `${T.emerald}07`, borderRadius: "14px", padding: "12px", border: `1px solid ${T.emerald}15` }}>
             {order.customerName && (
-              <div style={{
-                display: "flex", alignItems: "center", gap: "8px",
-                marginBottom: "10px", paddingBottom: "10px",
-                borderBottom: `1px dashed ${T.border}`,
-              }}>
-                <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", flexShrink: 0, color: T.gold, fontWeight: 900, fontFamily: "'Nunito', sans-serif" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", paddingBottom: "10px", borderBottom: `1px dashed ${T.border}` }}>
+                <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", flexShrink: 0, color: T.gold, fontWeight: 900 }}>
                   {order.customerName.charAt(0).toUpperCase()}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -313,7 +407,6 @@ function TableCard({ table, order, onSelect, waiterRequests }: { table: Table; o
                 </div>
               </div>
             )}
-
             <div style={{ marginBottom: "10px" }}>
               {order.items.slice(0, 2).map((item, i) => (
                 <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
@@ -323,17 +416,12 @@ function TableCard({ table, order, onSelect, waiterRequests }: { table: Table; o
                   <span style={{ fontSize: "11px", color: T.emerald, fontWeight: 800, flexShrink: 0 }}>₹{(item.price * item.quantity).toFixed(0)}</span>
                 </div>
               ))}
-              {order.items.length > 2 && (
-                <p style={{ fontSize: "10px", color: T.textDim, margin: "4px 0 0", fontWeight: 600 }}>
-                  +{order.items.length - 2} more item{order.items.length - 2 > 1 ? 's' : ''}
-                </p>
-              )}
+              {order.items.length > 2 && <p style={{ fontSize: "10px", color: T.textDim, margin: "4px 0 0", fontWeight: 600 }}>+{order.items.length - 2} more item{order.items.length - 2 > 1 ? 's' : ''}</p>}
             </div>
-
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "10px", borderTop: `1px dashed ${T.border}` }}>
               <div style={{ display: "flex", alignItems: "center", gap: "5px", background: sc.bg, borderRadius: "7px", padding: "3px 9px", border: `1px solid ${sc.dot}25` }}>
                 <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: sc.dot }} />
-                <span style={{ fontSize: "10px", fontWeight: 800, color: sc.color, letterSpacing: "0.2px" }}>{sc.label}</span>
+                <span style={{ fontSize: "10px", fontWeight: 800, color: sc.color }}>{sc.label}</span>
               </div>
               <div style={{ textAlign: "right" }}>
                 <p style={{ fontSize: "9px", color: T.textDim, fontWeight: 700, margin: "0 0 1px", letterSpacing: "0.5px" }}>BILL</p>
@@ -348,10 +436,7 @@ function TableCard({ table, order, onSelect, waiterRequests }: { table: Table; o
           </div>
         )}
       </div>
-
-      {hovered && (
-        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, transparent 40%, ${T.gold}06 100%)`, borderRadius: "22px", pointerEvents: "none", zIndex: 0 }} />
-      )}
+      {hovered && <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, transparent 40%, ${T.gold}06 100%)`, borderRadius: "22px", pointerEvents: "none", zIndex: 0 }} />}
     </div>
   );
 }
@@ -361,46 +446,62 @@ function MenuCard({ item, cartQty, onAdd, onRemove }: { item: MenuItem; cartQty:
   return (
     <div onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       style={{ borderRadius: "18px", overflow: "hidden", position: "relative", border: `2px solid ${cartQty > 0 ? T.emerald : hovered ? T.gold : T.border}`, boxShadow: cartQty > 0 ? `0 8px 24px rgba(15,61,46,0.2)` : hovered ? `0 12px 32px rgba(0,0,0,0.15)` : `0 2px 8px rgba(0,0,0,0.06)`, transition: "all 0.25s cubic-bezier(0.16,1,0.3,1)", transform: hovered ? "translateY(-4px) scale(1.01)" : "translateY(0) scale(1)", opacity: item.isAvailable ? 1 : 0.6, aspectRatio: "3/4", cursor: item.isAvailable ? "pointer" : "not-allowed", background: "#1a1a1a" }}>
-      {item.imageUrl ? (
-        <img src={getThumbnailUrl(item.imageUrl)} alt={item.name} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", transition: "transform 0.4s ease", transform: hovered ? "scale(1.06)" : "scale(1)" }} />
-      ) : (
-        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "52px" }}>
-          {ITEM_EMOJIS[item.name] || "🍽️"}
-        </div>
-      )}
+      {item.imageUrl ? (<img src={getThumbnailUrl(item.imageUrl)} alt={item.name} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", transition: "transform 0.4s ease", transform: hovered ? "scale(1.06)" : "scale(1)" }} />) : (<div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "52px" }}>{ITEM_EMOJIS[item.name] || "🍽️"}</div>)}
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 45%, rgba(0,0,0,0) 70%)", zIndex: 1 }} />
       <div style={{ position: "absolute", top: "10px", left: "10px", right: "10px", display: "flex", justifyContent: "space-between", zIndex: 2 }}>
-        {item.tags?.includes("bestseller") ? (
-          <div style={{ background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, borderRadius: "6px", padding: "3px 8px", fontSize: "9px", fontWeight: 800, color: T.emerald }}>⭐ BEST</div>
-        ) : <div />}
-        {cartQty > 0 && (
-          <div style={{ background: T.emerald, borderRadius: "50%", width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 900, color: T.gold }}>{cartQty}</div>
-        )}
+        {item.tags?.includes("bestseller") ? (<div style={{ background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, borderRadius: "6px", padding: "3px 8px", fontSize: "9px", fontWeight: 800, color: T.emerald }}>⭐ BEST</div>) : <div />}
+        {cartQty > 0 && (<div style={{ background: T.emerald, borderRadius: "50%", width: "26px", height: "26px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", fontWeight: 900, color: T.gold }}>{cartQty}</div>)}
       </div>
-      {!item.isAvailable && (
-        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3 }}>
-          <span style={{ background: T.danger, color: "white", borderRadius: "8px", padding: "5px 14px", fontSize: "11px", fontWeight: 800 }}>OUT OF STOCK</span>
-        </div>
-      )}
+      {!item.isAvailable && (<div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3 }}><span style={{ background: T.danger, color: "white", borderRadius: "8px", padding: "5px 14px", fontSize: "11px", fontWeight: 800 }}>OUT OF STOCK</span></div>)}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "14px 12px 12px", zIndex: 2 }}>
         <p style={{ fontWeight: 800, fontSize: "13px", color: "white", margin: "0 0 6px", lineHeight: 1.2, textShadow: "0 1px 4px rgba(0,0,0,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</p>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "16px", fontWeight: 900, color: T.goldLight, textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>₹{item.price}</span>
-          {item.isAvailable && (
-            cartQty > 0 ? (
-              <div style={{ display: "flex", alignItems: "center", background: "rgba(15,61,46,0.9)", borderRadius: "8px", overflow: "hidden", backdropFilter: "blur(4px)" }}>
-                <button onClick={e => { e.stopPropagation(); onRemove(); }} style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", fontSize: "16px", fontWeight: 900 }}>−</button>
-                <span style={{ color: T.gold, fontWeight: 900, fontSize: "13px", minWidth: "20px", textAlign: "center" }}>{cartQty}</span>
-                <button onClick={e => { e.stopPropagation(); onAdd(); }} style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", fontSize: "16px", fontWeight: 900 }}>+</button>
-              </div>
-            ) : (
-              <button onClick={e => { e.stopPropagation(); onAdd(); }} style={{ background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, border: "none", borderRadius: "8px", padding: "6px 14px", fontSize: "12px", fontWeight: 800, color: T.emerald, cursor: "pointer" }}>+ ADD</button>
-            )
-          )}
+          {item.isAvailable && (cartQty > 0 ? (
+            <div style={{ display: "flex", alignItems: "center", background: "rgba(15,61,46,0.9)", borderRadius: "8px", overflow: "hidden", backdropFilter: "blur(4px)" }}>
+              <button onClick={e => { e.stopPropagation(); onRemove(); }} style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", fontSize: "16px", fontWeight: 900 }}>−</button>
+              <span style={{ color: T.gold, fontWeight: 900, fontSize: "13px", minWidth: "20px", textAlign: "center" }}>{cartQty}</span>
+              <button onClick={e => { e.stopPropagation(); onAdd(); }} style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", fontSize: "16px", fontWeight: 900 }}>+</button>
+            </div>
+          ) : (
+            <button onClick={e => { e.stopPropagation(); onAdd(); }} style={{ background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, border: "none", borderRadius: "8px", padding: "6px 14px", fontSize: "12px", fontWeight: 800, color: T.emerald, cursor: "pointer" }}>+ ADD</button>
+          ))}
         </div>
       </div>
     </div>
   );
+}
+
+// ── KOT Reprint ──
+function printKOT(order: Order) {
+  const win = window.open('', '_blank', 'width=400,height=600');
+  if (!win) return;
+  const now = new Date().toLocaleString('en-IN');
+  win.document.write(`
+    <html><head><title>KOT Reprint</title>
+    <style>
+      body { font-family: monospace; padding: 16px; font-size: 13px; }
+      h2 { text-align: center; font-size: 16px; margin: 0 0 4px; }
+      .center { text-align: center; }
+      .divider { border-top: 1px dashed #000; margin: 8px 0; }
+      .row { display: flex; justify-content: space-between; padding: 2px 0; }
+      .bold { font-weight: bold; font-size: 15px; }
+    </style>
+    </head><body>
+    <h2>GOLDEN BEANS CAFÉ</h2>
+    <p class="center">** KOT REPRINT **</p>
+    <div class="divider"></div>
+    <div class="row"><span>Table:</span><span class="bold">${order.tableNumber}</span></div>
+    <div class="row"><span>Order #:</span><span>${order.orderNumber}</span></div>
+    <div class="row"><span>Time:</span><span>${now}</span></div>
+    <div class="divider"></div>
+    ${order.items.map(i => `<div class="row"><span>${i.name}</span><span>x${i.quantity}</span></div>`).join('')}
+    <div class="divider"></div>
+    <p class="center">-- Kitchen Copy --</p>
+    </body></html>
+  `);
+  win.document.close();
+  win.print();
 }
 
 export default function POSPage() {
@@ -419,6 +520,7 @@ export default function POSPage() {
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
   const [tableRequests, setTableRequests] = useState<Record<string, any[]>>({});
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [cancelModal, setCancelModal] = useState<Order | null>(null);
 
   useEffect(() => {
     const iv = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -564,6 +666,9 @@ export default function POSPage() {
           </div>
         </header>
         <main style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
+          {/* Revenue Goal */}
+          <RevenueGoalWidget goal={10000} />
+
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", fontWeight: 800, color: T.emerald, margin: 0 }}>Select Table</h2>
             <button onClick={() => handleSelectTable({ _id: "counter", tableNumber: "Counter", status: "available", currentOrderId: null, capacity: 1, qrCode: "" } as any)}
@@ -573,9 +678,7 @@ export default function POSPage() {
           </div>
           {loading ? (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} style={{ height: "200px", background: T.ivory, borderRadius: "22px", border: `1px solid ${T.border}`, animation: "pulse 1.5s infinite" }} />
-              ))}
+              {Array.from({ length: 6 }).map((_, i) => (<div key={i} style={{ height: "200px", background: T.ivory, borderRadius: "22px", border: `1px solid ${T.border}`, animation: "pulse 1.5s infinite" }} />))}
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
@@ -598,6 +701,8 @@ export default function POSPage() {
       <style>{STYLES}</style>
       <POSSidebar />
       <PendingApprovalBell orders={pendingOrders} onAccept={handleAcceptApproval} onReject={handleRejectApproval} />
+      <CancelOrderModal order={cancelModal} isOpen={!!cancelModal} onClose={() => setCancelModal(null)}
+        onCancelled={() => { setCancelModal(null); setCurrentOrder(null); setSelectedTable(null); setCart([]); setView("tables"); loadTables(); }} />
       <div style={{ flex: 1, marginLeft: "64px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <LowStockBanner items={lowStockItems} />
         <header style={{ background: T.ivory, borderBottom: `1px solid ${T.border}`, padding: "12px 20px", display: "flex", alignItems: "center", gap: "14px", boxShadow: "0 2px 8px rgba(15,61,46,0.05)" }}>
@@ -610,11 +715,27 @@ export default function POSPage() {
               {currentOrder?.customerName && ` • ${currentOrder.customerName}`}
             </p>
           </div>
-          {currentOrder && (
-            <div style={{ marginLeft: "auto", background: `${T.success}15`, border: `1px solid ${T.success}33`, borderRadius: "10px", padding: "6px 14px" }}>
-              <p style={{ fontSize: "11px", fontWeight: 800, color: T.success, margin: 0 }}>₹{currentOrder.totalAmount.toFixed(0)} Due</p>
-            </div>
-          )}
+          <div style={{ marginLeft: "auto", display: "flex", gap: "8px", alignItems: "center" }}>
+            {/* KOT Reprint */}
+            {currentOrder && (
+              <button onClick={() => printKOT(currentOrder)}
+                style={{ padding: "7px 14px", borderRadius: "10px", border: `1.5px solid ${T.border}`, background: "white", color: T.emerald, fontWeight: 800, cursor: "pointer", fontSize: "12px", display: "flex", alignItems: "center", gap: "5px" }}>
+                🖨️ Reprint KOT
+              </button>
+            )}
+            {/* Cancel Order */}
+            {currentOrder && (
+              <button onClick={() => setCancelModal(currentOrder)}
+                style={{ padding: "7px 14px", borderRadius: "10px", border: `1.5px solid ${T.danger}`, background: "#FEF2F2", color: T.danger, fontWeight: 800, cursor: "pointer", fontSize: "12px", display: "flex", alignItems: "center", gap: "5px" }}>
+                🚫 Cancel
+              </button>
+            )}
+            {currentOrder && (
+              <div style={{ background: `${T.success}15`, border: `1px solid ${T.success}33`, borderRadius: "10px", padding: "6px 14px" }}>
+                <p style={{ fontSize: "11px", fontWeight: 800, color: T.success, margin: 0 }}>₹{currentOrder.totalAmount.toFixed(0)} Due</p>
+              </div>
+            )}
+          </div>
         </header>
         <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 340px", overflow: "hidden" }}>
           <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", borderRight: `1px solid ${T.border}` }}>
@@ -692,15 +813,9 @@ export default function POSPage() {
               <div style={{ borderTop: `1px solid ${T.border}`, padding: "14px" }}>
                 {cart.length > 0 && (
                   <div style={{ background: T.cream, borderRadius: "12px", padding: "10px 12px", marginBottom: "10px", border: `1px solid ${T.creamDark}` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: T.textMuted, marginBottom: "4px" }}>
-                      <span>Subtotal</span><span>₹{subtotal.toFixed(0)}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: T.textMuted, marginBottom: "6px", paddingBottom: "6px", borderBottom: `1px dashed ${T.creamDark}` }}>
-                      <span>GST (5%)</span><span>₹{tax.toFixed(0)}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: "15px", color: T.emerald }}>
-                      <span>Total</span><span>₹{total.toFixed(0)}</span>
-                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: T.textMuted, marginBottom: "4px" }}><span>Subtotal</span><span>₹{subtotal.toFixed(0)}</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: T.textMuted, marginBottom: "6px", paddingBottom: "6px", borderBottom: `1px dashed ${T.creamDark}` }}><span>GST (5%)</span><span>₹{tax.toFixed(0)}</span></div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 900, fontSize: "15px", color: T.emerald }}><span>Total</span><span>₹{total.toFixed(0)}</span></div>
                   </div>
                 )}
                 {cart.length > 0 && (
