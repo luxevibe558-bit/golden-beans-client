@@ -1467,7 +1467,7 @@ function CartView({
 
           <div style={{ marginTop: "14px" }}>
             <Button variant="primary" size="xl" fullWidth onClick={onPlaceOrder} loading={isPlacing}>
-              Proceed to Checkout
+              🛒 Place Order — ₹{total.toFixed(0)}
             </Button>
           </div>
         </>
@@ -1727,8 +1727,89 @@ export default function CustomerOrderPage() {
     });
   };
 
-  const handlePlaceOrderClick = () => {
-    placeOrder(customerData || undefined);
+  const handlePlaceOrderClick = async () => {
+    if (cart.length === 0) return;
+    // Check payment mode
+    try {
+      const API = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+      const pmRes = await fetch(`${API}/settings/payment_mode`).then(r => r.json());
+      const paymentMode = pmRes.data || "counter";
+      if (paymentMode === "online" || paymentMode === "both") {
+        // Show Razorpay
+        await initiateRazorpayPayment();
+      } else {
+        placeOrder(customerData || undefined);
+      }
+    } catch {
+      placeOrder(customerData || undefined);
+    }
+  };
+
+  const initiateRazorpayPayment = async () => {
+    const subtotal = cart.reduce((s, i) => s + (i.price + (i.totalPriceModifier || 0)) * i.quantity, 0);
+    const discount = appliedDiscount?.discount || 0;
+    const total = Math.round((Math.max(0, subtotal - discount) * 1.05));
+    const API = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+    setIsPlacing(true);
+    try {
+      // Create Razorpay order
+      const res = await fetch(`${API}/payment/create-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: total, tableNumber: table?.tableNumber }),
+      }).then(r => r.json());
+
+      if (!res.success) throw new Error(res.message);
+      const { orderId: rzpOrderId, keyId } = res.data;
+
+      // Load Razorpay script
+      await new Promise<void>((resolve, reject) => {
+        if ((window as any).Razorpay) { resolve(); return; }
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("Razorpay load failed"));
+        document.body.appendChild(script);
+      });
+
+      // Open Razorpay checkout
+      await new Promise<void>((resolve, reject) => {
+        const rzp = new (window as any).Razorpay({
+          key: keyId,
+          amount: total * 100,
+          currency: "INR",
+          name: "Golden Beans Café",
+          description: `Table ${table?.tableNumber} — Order`,
+          order_id: rzpOrderId,
+          prefill: { name: customerData?.name || "", contact: customerData?.phone || "" },
+          theme: { color: "#0F3D2E" },
+          handler: async (response: any) => {
+            // Verify payment
+            try {
+              const verRes = await fetch(`${API}/payment/verify`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(response),
+              }).then(r => r.json());
+              if (verRes.success) {
+                await placeOrder(customerData || undefined, response.razorpay_payment_id);
+                resolve();
+              } else {
+                reject(new Error("Payment verification failed"));
+              }
+            } catch (e) { reject(e); }
+          },
+          modal: { ondismiss: () => reject(new Error("Payment cancelled")) },
+        });
+        rzp.open();
+      });
+    } catch (err: any) {
+      if (err.message !== "Payment cancelled") {
+        alert(err.message || "Payment failed");
+      }
+    } finally {
+      setIsPlacing(false);
+    }
   };
 
   const handleCustomerDataSubmit = (data: { name: string; phone: string; birthdate: string; anniversary: string }) => {
@@ -1738,7 +1819,7 @@ export default function CustomerOrderPage() {
     placeOrder(data);
   };
 
-  const placeOrder = async (customer?: { name: string; phone: string }) => {
+  const placeOrder = async (customer?: { name: string; phone: string }, paymentId?: string) => {
     if (cart.length === 0) return;
     setIsPlacing(true);
     try {
@@ -1758,6 +1839,7 @@ export default function CustomerOrderPage() {
   discount: appliedDiscount?.discount || 0,
   appliedPromoId: appliedDiscount?.promotionId || null,
   appliedPromoCode: appliedDiscount?.code || null,
+  razorpayPaymentId: paymentId || null,
 });
        
       const newOrder: Order = res.data.data;
