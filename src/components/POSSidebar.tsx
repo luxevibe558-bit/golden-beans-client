@@ -32,6 +32,8 @@ const NAV_ITEMS = [
   { href: "/pos/crm", label: "CRM", icon: "👥" },
   { href: "/pos/analytics", label: "Reports", icon: "📊" },
   { href: "/kds", label: "Kitchen", icon: "👨‍🍳" },
+  { href: "/pos/cancellation-logs", icon: "🚫", label: "Cancelled" },
+{ href: "/pos/settings", icon: "⚙️", label: "Settings" },
 ];
 
 export default function POSSidebar() {
