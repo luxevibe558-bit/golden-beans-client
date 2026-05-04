@@ -15,7 +15,7 @@ const T = {
 
 const API = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
 
-type AdminTab = "overview" | "users" | "security" | "sessions" | "2fa" | "waiters";
+type AdminTab = "overview" | "users" | "security" | "sessions" | "2fa" | "waiters" | "orders" | "menu" | "inventory" | "analytics" | "promotions" | "crm" | "feedback" | "dues" | "cancellations" | "waiter_perf" | "settings";
 type UserRole = "admin" | "manager" | "cashier";
 
 interface AdminUser {
@@ -150,6 +150,17 @@ function AdminSidebar({ activeTab, onTabChange, user, onLogout }: {
     { id: "sessions", label: "Sessions", icon: "⏱️" },
     { id: "2fa", label: "2FA Setup", icon: "🔐" },
     { id: "waiters", label: "Waiters", icon: "🧑‍🍳" },
+    { id: "orders", label: "Orders", icon: "📋" },
+    { id: "menu", label: "Menu", icon: "📖" },
+    { id: "inventory", label: "Inventory", icon: "📦" },
+    { id: "analytics", label: "Analytics", icon: "📊" },
+    { id: "promotions", label: "Promos", icon: "🎁" },
+    { id: "crm", label: "CRM", icon: "👥" },
+    { id: "feedback", label: "Feedback", icon: "⭐" },
+    { id: "dues", label: "Dues", icon: "📒" },
+    { id: "cancellations", label: "Cancelled", icon: "🚫" },
+    { id: "waiter_perf", label: "Performance", icon: "📈" },
+    { id: "settings", label: "Settings", icon: "⚙️" },
   ];
 
   return (
@@ -774,6 +785,39 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === "waiters" && <WaitersTab token={token} />}
+          {activeTab === "orders" && (
+  <iframe src="/pos/orders" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+)}
+{activeTab === "menu" && (
+  <iframe src="/pos/menu" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+)}
+{activeTab === "inventory" && (
+  <iframe src="/pos/inventory" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+)}
+{activeTab === "analytics" && (
+  <iframe src="/pos/analytics" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+)}
+{activeTab === "promotions" && (
+  <iframe src="/pos/promotions" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+)}
+{activeTab === "crm" && (
+  <iframe src="/pos/crm" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+)}
+{activeTab === "feedback" && (
+  <iframe src="/pos/feedback" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+)}
+{activeTab === "dues" && (
+  <iframe src="/pos/dues" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+)}
+{activeTab === "cancellations" && (
+  <iframe src="/pos/cancellation-logs" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+)}
+{activeTab === "waiter_perf" && (
+  <iframe src="/pos/waiter-performance" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+)}
+{activeTab === "settings" && (
+  <iframe src="/pos/settings" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+)}
         </main>
       </div>
 
