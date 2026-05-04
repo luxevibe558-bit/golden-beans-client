@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import POSAuthGuard from "@/components/POSAuthGuard";
 
 export const metadata: Metadata = {
   title: "Golden Beans — POS",
@@ -6,5 +7,9 @@ export const metadata: Metadata = {
 };
 
 export default function POSLayout({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen bg-surface-50">{children}</div>;
+  return (
+    <POSAuthGuard>
+      <div className="min-h-screen bg-surface-50">{children}</div>
+    </POSAuthGuard>
+  );
 }

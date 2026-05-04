@@ -98,3 +98,17 @@ export default function POSSidebar() {
     </aside>
   );
 }
+
+// Logout button
+<div style={{ padding: "6px 6px 10px" }}>
+  <button
+    onClick={() => {
+      localStorage.removeItem("gb_admin_session");
+      localStorage.removeItem("gb_admin_token");
+      localStorage.removeItem("gb_admin_user");
+      window.location.href = "/pos/login";
+    }}
+    style={{ width: "100%", padding: "7px 4px", borderRadius: "8px", background: "rgba(192,57,43,0.15)", border: "1px solid rgba(192,57,43,0.25)", color: "#f87171", fontSize: "8px", fontWeight: 800, cursor: "pointer", letterSpacing: "0.3px" }}>
+    🚪 Logout
+  </button>
+</div>
