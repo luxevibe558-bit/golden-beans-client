@@ -79,24 +79,124 @@ interface SecurityResult {
  
 // REPLACE WITH:
  
+function WelcomeScreen({ cafeName, onDone }: { cafeName: string; onDone: () => void }) {
+  const [countdown, setCountdown] = useState(3);
+
+  useEffect(() => {
+    const iv = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(iv); onDone(); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [onDone]);
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: `linear-gradient(180deg, ${T.emerald} 0%, ${T.emeraldMid} 100%)`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: "20px",
+    }}>
+      <div style={{ textAlign: "center", maxWidth: "360px", width: "100%", animation: "gb-fadeInUp 0.6s ease" }}>
+        <div style={{
+          width: "120px", height: "120px", borderRadius: "50%", overflow: "hidden",
+          margin: "0 auto 28px",
+          border: "3px solid rgba(212,165,116,0.5)",
+          boxShadow: "0 0 0 8px rgba(212,165,116,0.1), 0 16px 40px rgba(0,0,0,0.4)",
+          background: "#1A1A1A",
+        }}>
+          <img src="/logo-large.png" alt="Golden Beans" draggable={false}
+            style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+        </div>
+
+        <p style={{ fontSize: "13px", color: "rgba(212,165,116,0.7)", margin: "0 0 8px", fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase" }}>
+          Welcome to
+        </p>
+        <h1 style={{
+          fontFamily: "'Playfair Display', serif",
+          fontSize: "36px", fontWeight: 800,
+          color: T.gold, margin: "0 0 6px",
+          letterSpacing: "-0.02em", lineHeight: 1.1,
+        }}>
+          Golden Beans
+        </h1>
+        <p style={{ fontSize: "14px", color: "rgba(212,165,116,0.6)", margin: "0 0 32px", fontWeight: 600 }}>
+          Cafe & Bistro ☕
+        </p>
+
+        <div style={{
+          background: "rgba(212,165,116,0.1)",
+          border: "1px solid rgba(212,165,116,0.25)",
+          borderRadius: "16px", padding: "16px 20px",
+          marginBottom: "28px",
+        }}>
+          <p style={{ fontSize: "15px", color: T.goldLight, margin: 0, fontWeight: 600, lineHeight: 1.6 }}>
+            We're glad you're here! 🎉<br />
+            <span style={{ fontSize: "13px", color: "rgba(212,165,116,0.7)" }}>
+              Explore our menu and enjoy your visit.
+            </span>
+          </p>
+        </div>
+
+        {/* Countdown ring */}
+        <div style={{ position: "relative", width: "64px", height: "64px", margin: "0 auto" }}>
+          <svg width="64" height="64" style={{ transform: "rotate(-90deg)" }}>
+            <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(212,165,116,0.2)" strokeWidth="4" />
+            <circle cx="32" cy="32" r="28" fill="none" stroke={T.gold} strokeWidth="4"
+              strokeDasharray={`${2 * Math.PI * 28}`}
+              strokeDashoffset={`${2 * Math.PI * 28 * (1 - countdown / 3)}`}
+              strokeLinecap="round"
+              style={{ transition: "stroke-dashoffset 0.9s linear" }}
+            />
+          </svg>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: "22px", fontWeight: 900, color: T.gold, fontFamily: "'DM Sans', sans-serif" }}>{countdown}</span>
+          </div>
+        </div>
+        <p style={{ fontSize: "11px", color: "rgba(212,165,116,0.45)", margin: "10px 0 0", fontWeight: 600 }}>
+          Loading menu...
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function SecurityCheckScreen({ onPassed, onFailed }: {
   onPassed: () => void;
   onFailed: (result: SecurityResult) => void;
 }) {
   type CheckState = "pending" | "loading" | "success" | "failed";
- 
   const [gpsCheck, setGpsCheck] = useState<CheckState>("pending");
   const [wifiCheck, setWifiCheck] = useState<CheckState>("pending");
- 
+  const [showWelcome, setShowWelcome] = useState(false);
+
   useEffect(() => {
     let mounted = true;
- 
+
     async function runSecurityCheck() {
       try {
-        // ─── Step 1: GPS Permission ───
-        if (mounted) setGpsCheck("loading");
-        await new Promise(r => setTimeout(r, 400)); // brief loading state
- 
+        setGpsCheck("loading");
+        await new Promise(r => setTimeout(r, 400));
+
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+
+        // First check if security is disabled
+        const settingsRes = await fetch(`${apiUrl}/security/settings`).then(r => r.json());
+        const settings = settingsRes.data;
+
+        if (settings && !settings.ipWhitelistEnabled && !settings.geofenceEnabled) {
+          // Security disabled — show welcome screen
+          if (mounted) {
+            setGpsCheck("success");
+            setWifiCheck("success");
+            setShowWelcome(true);
+          }
+          return;
+        }
+
+        // GPS needed
         if (!("geolocation" in navigator)) {
           if (mounted) {
             setGpsCheck("failed");
@@ -111,46 +211,54 @@ function SecurityCheckScreen({ onPassed, onFailed }: {
           }
           return;
         }
- 
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 15000,
-            maximumAge: 0,
+
+        // Only get GPS if geofence enabled
+        let position: GeolocationPosition | null = null;
+        if (settings?.geofenceEnabled) {
+          position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 15000,
+              maximumAge: 0,
+            });
+          }).catch(err => {
+            throw new Error(err.code === 1 ? "DENIED" : err.code === 2 ? "UNAVAILABLE" : "TIMEOUT");
           });
-        }).catch(err => {
-          throw new Error(err.code === 1 ? "DENIED" : err.code === 2 ? "UNAVAILABLE" : "TIMEOUT");
-        });
- 
+        }
+
         if (mounted) setGpsCheck("success");
         await new Promise(r => setTimeout(r, 500));
- 
-        // ─── Step 2: Server Check (IP + GPS) ───
         if (mounted) setWifiCheck("loading");
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+
         const res = await fetch(`${apiUrl}/security/check`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
+            latitude: position?.coords.latitude,
+            longitude: position?.coords.longitude,
           }),
         });
- 
+
         const data = await res.json();
         if (!data.success) throw new Error(data.message || "Security check failed");
- 
-        const result: SecurityResult = data.data;
- 
+
+        const result = data.data;
+
         if (mounted) {
-          // Update individual checks
+          // Security disabled from server
+          if (result.securityDisabled) {
+            setGpsCheck("success");
+            setWifiCheck("success");
+            setShowWelcome(true);
+            return;
+          }
+
           setGpsCheck(result.gpsAllowed ? "success" : "failed");
           setWifiCheck(result.ipAllowed ? "success" : "failed");
- 
           await new Promise(r => setTimeout(r, 800));
- 
+
           if (result.allowed) {
-            onPassed();
+            setShowWelcome(true);
           } else {
             onFailed(result);
           }
@@ -159,39 +267,40 @@ function SecurityCheckScreen({ onPassed, onFailed }: {
         if (!mounted) return;
         const msg = err instanceof Error ? err.message : "Unknown error";
         const isGPSDenied = msg === "DENIED" || msg.includes("permission") || msg.includes("denied");
- 
+
         if (isGPSDenied || msg === "TIMEOUT" || msg === "UNAVAILABLE") {
           setGpsCheck("failed");
         } else {
           setWifiCheck("failed");
         }
- 
+
         await new Promise(r => setTimeout(r, 800));
- 
+
         onFailed({
           allowed: false,
-          ipAllowed: !msg.toLowerCase().includes("ip") && !msg.toLowerCase().includes("connect"),
+          ipAllowed: !msg.toLowerCase().includes("ip"),
           gpsAllowed: !isGPSDenied && msg !== "TIMEOUT" && msg !== "UNAVAILABLE",
-          gpsRequired: true,
-          ipRequired: true,
+          gpsRequired: true, ipRequired: true,
           distance: null,
           cafeName: "Golden Beans Cafe & Bistro",
           cafeAddress: "Pramukh Darshan Society, Dabholi, Surat",
           cafePhone: "+91 XXXXX XXXXX",
           wifiName: "GoldenBeans-WiFi",
-          reason: isGPSDenied
-            ? "Location access denied"
-            : msg === "TIMEOUT"
-              ? "Location request timed out"
-              : "Connection error. Please connect to cafe WiFi.",
+          reason: isGPSDenied ? "Location access denied"
+            : msg === "TIMEOUT" ? "Location request timed out"
+            : "Connection error. Please connect to cafe WiFi.",
         });
       }
     }
- 
+
     runSecurityCheck();
     return () => { mounted = false; };
   }, [onPassed, onFailed]);
- 
+
+  if (showWelcome) {
+    return <WelcomeScreen cafeName="Golden Beans" onDone={onPassed} />;
+  }
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -201,31 +310,26 @@ function SecurityCheckScreen({ onPassed, onFailed }: {
     }}>
       <div style={{ textAlign: "center", maxWidth: "360px", width: "100%" }}>
         <div style={{
-          width: "110px", height: "110px",
-          borderRadius: "50%",
-          overflow: "hidden",
+          width: "110px", height: "110px", borderRadius: "50%", overflow: "hidden",
           margin: "0 auto 20px",
           border: "3px solid rgba(212,165,116,0.5)",
           boxShadow: "0 0 0 6px rgba(212,165,116,0.1), 0 12px 32px rgba(0,0,0,0.4)",
-          background: "#1A1A1A",
-          flexShrink: 0,
+          background: "#1A1A1A", flexShrink: 0,
         }}>
           <img src="/logo-large.png" alt="Golden Beans" draggable={false}
             style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
         </div>
- 
+
         <h2 style={{
           fontFamily: "'Playfair Display', serif",
           fontSize: "24px", fontWeight: 800,
-          color: T.gold, margin: "0 0 6px",
-          letterSpacing: "-0.02em",
+          color: T.gold, margin: "0 0 6px", letterSpacing: "-0.02em",
         }}>Securing Your Session</h2>
- 
+
         <p style={{ fontSize: "12px", color: "rgba(212,165,116,0.7)", margin: "0 0 24px", fontWeight: 600, lineHeight: 1.5 }}>
           Verifying you&apos;re at Golden Beans Cafe
         </p>
- 
-        {/* ─── Check Items ─── */}
+
         <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
           <CheckItem
             state={gpsCheck}
@@ -233,28 +337,26 @@ function SecurityCheckScreen({ onPassed, onFailed }: {
             title="Location Verification"
             description={
               gpsCheck === "pending" ? "Waiting to start..." :
-                gpsCheck === "loading" ? "Checking your location..." :
-                  gpsCheck === "success" ? "You're at the cafe ✓" :
-                    "Location not verified"
+              gpsCheck === "loading" ? "Checking your location..." :
+              gpsCheck === "success" ? "You're at the cafe ✓" :
+              "Location not verified"
             }
           />
- 
           <CheckItem
             state={wifiCheck}
             icon={<Icons.Wifi size={18} />}
             title="Network Verification"
             description={
               wifiCheck === "pending" ? "Waiting for location check..." :
-                wifiCheck === "loading" ? "Confirming cafe WiFi..." :
-                  wifiCheck === "success" ? "Connected to cafe network ✓" :
-                    "Network not verified"
+              wifiCheck === "loading" ? "Confirming cafe WiFi..." :
+              wifiCheck === "success" ? "Connected to cafe network ✓" :
+              "Network not verified"
             }
           />
         </div>
- 
+
         <p style={{ fontSize: "10px", color: "rgba(212,165,116,0.45)", margin: 0, fontWeight: 600, lineHeight: 1.5 }}>
-          🔒 This protects against fake orders & spam<br />
-          Your privacy is our priority
+          🔒 This protects against fake orders & spam
         </p>
       </div>
     </div>
