@@ -34,6 +34,8 @@ const NAV_ITEMS = [
   { href: "/kds", label: "Kitchen", icon: "👨‍🍳" },
   { href: "/pos/cancellation-logs", icon: "🚫", label: "Cancelled" },
 { href: "/pos/settings", icon: "⚙️", label: "Settings" },
+{ href: "/pos/waiter-performance", icon: "👥", label: "Waiters" },
+{ href: "/pos/aggregator", icon: "🛵", label: "Swiggy/Zomato" },
 ];
 
 export default function POSSidebar() {
