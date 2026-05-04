@@ -279,6 +279,11 @@ function UserModal({ user, isOpen, onClose, onSaved, token }: { user: AdminUser 
       const res = await fetch(url, { method, headers: authHeaders(token), body: JSON.stringify(payload) });
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
+      // Show TOTP QR if new user
+      if (isNew && data.totpSetup) {
+        const qr = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data.totpSetup.qrUrl)}`;
+        alert(`✅ User created!\n\n🔐 TOTP Setup Required:\nSecret: ${data.totpSetup.secret}\n\nQR Code: ${qr}\n\nShare this with ${name} to setup Google Authenticator.`);
+      }
       onSaved();
     } catch (err) { alert(err instanceof Error ? err.message : "Failed"); }
     finally { setSaving(false); }
