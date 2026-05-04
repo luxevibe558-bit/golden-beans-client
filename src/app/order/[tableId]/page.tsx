@@ -11,21 +11,12 @@ import LiveOrderTracker from "@/components/LiveOrderTracker";
 import type { MenuCategory, MenuItem, CartItem, Table, Order, VariantGroup } from "@/types";
 
 const T = {
-  emerald: "#0F3D2E",
-  emeraldMid: "#1A5340",
-  emeraldLight: "#2D7A5F",
-  gold: "#D4A574",
-  goldLight: "#E8C895",
-  goldDark: "#B08550",
-  cream: "#FAF6F0",
-  creamDark: "#F0E8DA",
-  ivory: "#FFFBF5",
-  text: "#1A1208",
-  textMuted: "#7A6B54",
-  textDim: "#A89B80",
-  border: "#E5DCC9",
-  success: "#4A8B4A",
-  danger: "#C0392B",
+  emerald: "#0F3D2E", emeraldMid: "#1A5340", emeraldLight: "#2D7A5F",
+  gold: "#D4A574", goldLight: "#E8C895", goldDark: "#B08550",
+  cream: "#FAF6F0", creamDark: "#F0E8DA", ivory: "#FFFBF5",
+  text: "#1A1208", textMuted: "#7A6B54", textDim: "#A89B80",
+  border: "#E5DCC9", success: "#4A8B4A", danger: "#C0392B",
+  dark: "#0A0A0A", darkCard: "#141414", darkBorder: "#222",
 };
 
 interface ExtendedCartItem extends CartItem {
@@ -35,865 +26,393 @@ interface ExtendedCartItem extends CartItem {
 }
 
 interface AppliedDiscount {
-  promotionId: string;
-  name: string;
-  description: string;
-  discount: number;
-  type: "auto" | "code";
-  code?: string;
-  promoCodeId?: string;
+  promotionId: string; name: string; description: string;
+  discount: number; type: "auto" | "code"; code?: string; promoCodeId?: string;
 }
 
 type BottomTab = "menu" | "order" | "cart" | "info";
 
 interface SecurityResult {
-  allowed: boolean;
-  ipAllowed: boolean;
-  gpsAllowed: boolean;
-  gpsRequired: boolean;
-  ipRequired: boolean;
-  distance: number | null;
-  cafeName: string;
-  cafeAddress: string;
-  cafePhone: string;
-  wifiName: string;
-  reason: string;
+  allowed: boolean; ipAllowed: boolean; gpsAllowed: boolean;
+  gpsRequired: boolean; ipRequired: boolean; distance: number | null;
+  cafeName: string; cafeAddress: string; cafePhone: string; wifiName: string; reason: string;
 }
 
-// ═════════════════════════════════════════════════════════════
-// SECURITY CHECK PAGE
-// ═════════════════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════
-// PREMIUM SECURITY CHECK SCREEN - Step by step verification
-// Replace the existing SecurityCheckScreen function in 
-// client-new/src/app/order/[tableId]/page.tsx
-// ════════════════════════════════════════════════════════════
- 
-// FIND THIS in your page.tsx:
-//   function SecurityCheckScreen({ onPassed, onFailed }: {
-//     onPassed: () => void;
-//     onFailed: (result: SecurityResult) => void;
-//   }) {
-//     ...entire function...
-//   }
- 
-// REPLACE WITH:
- 
-function WelcomeScreen({ cafeName, onDone }: { cafeName: string; onDone: () => void }) {
+// ══════════════════════════════════════════════════
+// WELCOME SCREEN
+// ══════════════════════════════════════════════════
+function WelcomeScreen({ onDone }: { cafeName: string; onDone: () => void }) {
   const [countdown, setCountdown] = useState(3);
-
   useEffect(() => {
     const iv = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) { clearInterval(iv); onDone(); return 0; }
-        return prev - 1;
-      });
+      setCountdown(prev => { if (prev <= 1) { clearInterval(iv); onDone(); return 0; } return prev - 1; });
     }, 1000);
     return () => clearInterval(iv);
   }, [onDone]);
 
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: `linear-gradient(180deg, ${T.emerald} 0%, ${T.emeraldMid} 100%)`,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      padding: "20px",
-    }}>
-      <div style={{ textAlign: "center", maxWidth: "360px", width: "100%", animation: "gb-fadeInUp 0.6s ease" }}>
-        <div style={{
-          width: "120px", height: "120px", borderRadius: "50%", overflow: "hidden",
-          margin: "0 auto 28px",
-          border: "3px solid rgba(212,165,116,0.5)",
-          boxShadow: "0 0 0 8px rgba(212,165,116,0.1), 0 16px 40px rgba(0,0,0,0.4)",
-          background: "#1A1A1A",
-        }}>
-          <img src="/logo-large.png" alt="Golden Beans" draggable={false}
-            style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+    <div style={{ minHeight: "100vh", background: "#000", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", position: "relative", overflow: "hidden" }}>
+      {/* Animated background */}
+      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse 80% 60% at 50% 40%, ${T.emerald}40 0%, transparent 70%)`, animation: "pulse 3s ease-in-out infinite" }} />
+      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse 60% 40% at 80% 80%, ${T.gold}20 0%, transparent 60%)` }} />
+
+      <div style={{ textAlign: "center", maxWidth: "360px", width: "100%", position: "relative", zIndex: 1 }}>
+        <div style={{ width: "130px", height: "130px", borderRadius: "50%", overflow: "hidden", margin: "0 auto 28px", border: "2px solid rgba(212,165,116,0.4)", boxShadow: `0 0 60px ${T.gold}40, 0 20px 60px rgba(0,0,0,0.8)`, animation: "welcomeLogo 1s cubic-bezier(0.34,1.56,0.64,1)" }}>
+          <img src="/logo-large.png" alt="Golden Beans" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         </div>
+        <p style={{ fontSize: "11px", color: "rgba(212,165,116,0.6)", margin: "0 0 6px", fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", animation: "fadeUp 0.6s 0.3s ease both" }}>Welcome to</p>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "42px", fontWeight: 800, color: T.gold, margin: "0 0 4px", lineHeight: 1, animation: "fadeUp 0.6s 0.4s ease both" }}>Golden Beans</h1>
+        <p style={{ fontSize: "14px", color: "rgba(212,165,116,0.5)", margin: "0 0 40px", fontWeight: 600, animation: "fadeUp 0.6s 0.5s ease both" }}>Cafe & Bistro ☕</p>
 
-        <p style={{ fontSize: "13px", color: "rgba(212,165,116,0.7)", margin: "0 0 8px", fontWeight: 700, letterSpacing: "0.15em", textTransform: "uppercase" }}>
-          Welcome to
-        </p>
-        <h1 style={{
-          fontFamily: "'Playfair Display', serif",
-          fontSize: "36px", fontWeight: 800,
-          color: T.gold, margin: "0 0 6px",
-          letterSpacing: "-0.02em", lineHeight: 1.1,
-        }}>
-          Golden Beans
-        </h1>
-        <p style={{ fontSize: "14px", color: "rgba(212,165,116,0.6)", margin: "0 0 32px", fontWeight: 600 }}>
-          Cafe & Bistro ☕
-        </p>
-
-        <div style={{
-          background: "rgba(212,165,116,0.1)",
-          border: "1px solid rgba(212,165,116,0.25)",
-          borderRadius: "16px", padding: "16px 20px",
-          marginBottom: "28px",
-        }}>
-          <p style={{ fontSize: "15px", color: T.goldLight, margin: 0, fontWeight: 600, lineHeight: 1.6 }}>
-            We're glad you're here! 🎉<br />
-            <span style={{ fontSize: "13px", color: "rgba(212,165,116,0.7)" }}>
-              Explore our menu and enjoy your visit.
-            </span>
-          </p>
-        </div>
-
-        {/* Countdown ring */}
-        <div style={{ position: "relative", width: "64px", height: "64px", margin: "0 auto" }}>
-          <svg width="64" height="64" style={{ transform: "rotate(-90deg)" }}>
-            <circle cx="32" cy="32" r="28" fill="none" stroke="rgba(212,165,116,0.2)" strokeWidth="4" />
-            <circle cx="32" cy="32" r="28" fill="none" stroke={T.gold} strokeWidth="4"
-              strokeDasharray={`${2 * Math.PI * 28}`}
-              strokeDashoffset={`${2 * Math.PI * 28 * (1 - countdown / 3)}`}
-              strokeLinecap="round"
-              style={{ transition: "stroke-dashoffset 0.9s linear" }}
-            />
+        <div style={{ position: "relative", width: "70px", height: "70px", margin: "0 auto", animation: "fadeUp 0.6s 0.6s ease both" }}>
+          <svg width="70" height="70" style={{ transform: "rotate(-90deg)" }}>
+            <circle cx="35" cy="35" r="30" fill="none" stroke="rgba(212,165,116,0.15)" strokeWidth="3" />
+            <circle cx="35" cy="35" r="30" fill="none" stroke={T.gold} strokeWidth="3"
+              strokeDasharray={`${2 * Math.PI * 30}`}
+              strokeDashoffset={`${2 * Math.PI * 30 * (1 - countdown / 3)}`}
+              strokeLinecap="round" style={{ transition: "stroke-dashoffset 0.9s linear" }} />
           </svg>
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontSize: "22px", fontWeight: 900, color: T.gold, fontFamily: "'DM Sans', sans-serif" }}>{countdown}</span>
+            <span style={{ fontSize: "24px", fontWeight: 900, color: T.gold, fontFamily: "'DM Sans', sans-serif" }}>{countdown}</span>
           </div>
         </div>
-        <p style={{ fontSize: "11px", color: "rgba(212,165,116,0.45)", margin: "10px 0 0", fontWeight: 600 }}>
-          Loading menu...
-        </p>
       </div>
     </div>
   );
 }
 
-function SecurityCheckScreen({ onPassed, onFailed }: {
-  onPassed: () => void;
-  onFailed: (result: SecurityResult) => void;
-}) {
-  type CheckState = "pending" | "loading" | "success" | "failed";
-  const [gpsCheck, setGpsCheck] = useState<CheckState>("pending");
-  const [wifiCheck, setWifiCheck] = useState<CheckState>("pending");
+// ══════════════════════════════════════════════════
+// SECURITY CHECK SCREEN
+// ══════════════════════════════════════════════════
+function SecurityCheckScreen({ onPassed, onFailed }: { onPassed: () => void; onFailed: (r: SecurityResult) => void }) {
+  type CS = "pending" | "loading" | "success" | "failed";
+  const [gpsCheck, setGpsCheck] = useState<CS>("pending");
+  const [wifiCheck, setWifiCheck] = useState<CS>("pending");
   const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-
-    async function runSecurityCheck() {
+    async function run() {
       try {
         setGpsCheck("loading");
         await new Promise(r => setTimeout(r, 400));
-
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
-
-        // First check if security is disabled
         const settingsRes = await fetch(`${apiUrl}/security/settings`).then(r => r.json());
         const settings = settingsRes.data;
-
         if (settings && !settings.ipWhitelistEnabled && !settings.geofenceEnabled) {
-          // Security disabled — show welcome screen
-          if (mounted) {
-            setGpsCheck("success");
-            setWifiCheck("success");
-            setShowWelcome(true);
-          }
+          if (mounted) { setGpsCheck("success"); setWifiCheck("success"); setShowWelcome(true); }
           return;
         }
-
-        // GPS needed
         if (!("geolocation" in navigator)) {
-          if (mounted) {
-            setGpsCheck("failed");
-            await new Promise(r => setTimeout(r, 600));
-            onFailed({
-              allowed: false, ipAllowed: false, gpsAllowed: false,
-              gpsRequired: true, ipRequired: true,
-              distance: null, cafeName: "Golden Beans", cafeAddress: "",
-              cafePhone: "", wifiName: "GoldenBeans-WiFi",
-              reason: "GPS not supported on this device",
-            });
-          }
+          if (mounted) { setGpsCheck("failed"); await new Promise(r => setTimeout(r, 600)); onFailed({ allowed: false, ipAllowed: false, gpsAllowed: false, gpsRequired: true, ipRequired: true, distance: null, cafeName: "Golden Beans", cafeAddress: "", cafePhone: "", wifiName: "GoldenBeans-WiFi", reason: "GPS not supported" }); }
           return;
         }
-
-        // Only get GPS if geofence enabled
         let position: GeolocationPosition | null = null;
         if (settings?.geofenceEnabled) {
           position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: true,
-              timeout: 15000,
-              maximumAge: 0,
-            });
-          }).catch(err => {
-            throw new Error(err.code === 1 ? "DENIED" : err.code === 2 ? "UNAVAILABLE" : "TIMEOUT");
-          });
+            navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+          }).catch(err => { throw new Error(err.code === 1 ? "DENIED" : err.code === 2 ? "UNAVAILABLE" : "TIMEOUT"); });
         }
-
         if (mounted) setGpsCheck("success");
         await new Promise(r => setTimeout(r, 500));
         if (mounted) setWifiCheck("loading");
-
-        const res = await fetch(`${apiUrl}/security/check`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            latitude: position?.coords.latitude,
-            longitude: position?.coords.longitude,
-          }),
-        });
-
+        const res = await fetch(`${apiUrl}/security/check`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ latitude: position?.coords.latitude, longitude: position?.coords.longitude }) });
         const data = await res.json();
         if (!data.success) throw new Error(data.message || "Security check failed");
-
         const result = data.data;
-
         if (mounted) {
-          // Security disabled from server
-          if (result.securityDisabled) {
-            setGpsCheck("success");
-            setWifiCheck("success");
-            setShowWelcome(true);
-            return;
-          }
-
+          if (result.securityDisabled) { setGpsCheck("success"); setWifiCheck("success"); setShowWelcome(true); return; }
           setGpsCheck(result.gpsAllowed ? "success" : "failed");
           setWifiCheck(result.ipAllowed ? "success" : "failed");
           await new Promise(r => setTimeout(r, 800));
-
-          if (result.allowed) {
-            setShowWelcome(true);
-          } else {
-            onFailed(result);
-          }
+          if (result.allowed) setShowWelcome(true);
+          else onFailed(result);
         }
       } catch (err: unknown) {
         if (!mounted) return;
         const msg = err instanceof Error ? err.message : "Unknown error";
         const isGPSDenied = msg === "DENIED" || msg.includes("permission") || msg.includes("denied");
-
-        if (isGPSDenied || msg === "TIMEOUT" || msg === "UNAVAILABLE") {
-          setGpsCheck("failed");
-        } else {
-          setWifiCheck("failed");
-        }
-
+        if (isGPSDenied || msg === "TIMEOUT" || msg === "UNAVAILABLE") setGpsCheck("failed");
+        else setWifiCheck("failed");
         await new Promise(r => setTimeout(r, 800));
-
-        onFailed({
-          allowed: false,
-          ipAllowed: !msg.toLowerCase().includes("ip"),
-          gpsAllowed: !isGPSDenied && msg !== "TIMEOUT" && msg !== "UNAVAILABLE",
-          gpsRequired: true, ipRequired: true,
-          distance: null,
-          cafeName: "Golden Beans Cafe & Bistro",
-          cafeAddress: "Pramukh Darshan Society, Dabholi, Surat",
-          cafePhone: "+91 XXXXX XXXXX",
-          wifiName: "GoldenBeans-WiFi",
-          reason: isGPSDenied ? "Location access denied"
-            : msg === "TIMEOUT" ? "Location request timed out"
-            : "Connection error. Please connect to cafe WiFi.",
-        });
+        onFailed({ allowed: false, ipAllowed: !msg.toLowerCase().includes("ip"), gpsAllowed: !isGPSDenied && msg !== "TIMEOUT" && msg !== "UNAVAILABLE", gpsRequired: true, ipRequired: true, distance: null, cafeName: "Golden Beans Cafe & Bistro", cafeAddress: "Pramukh Darshan Society, Dabholi, Surat", cafePhone: "+91 XXXXX XXXXX", wifiName: "GoldenBeans-WiFi", reason: isGPSDenied ? "Location access denied" : msg === "TIMEOUT" ? "Location timed out" : "Connect to cafe WiFi" });
       }
     }
-
-    runSecurityCheck();
+    run();
     return () => { mounted = false; };
   }, [onPassed, onFailed]);
 
-  if (showWelcome) {
-    return <WelcomeScreen cafeName="Golden Beans" onDone={onPassed} />;
-  }
+  if (showWelcome) return <WelcomeScreen cafeName="Golden Beans" onDone={onPassed} />;
 
-  return (
-    <div style={{
-      minHeight: "100vh",
-      background: `linear-gradient(180deg, ${T.emerald} 0%, ${T.emeraldMid} 100%)`,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      padding: "20px",
-    }}>
-      <div style={{ textAlign: "center", maxWidth: "360px", width: "100%" }}>
-        <div style={{
-          width: "110px", height: "110px", borderRadius: "50%", overflow: "hidden",
-          margin: "0 auto 20px",
-          border: "3px solid rgba(212,165,116,0.5)",
-          boxShadow: "0 0 0 6px rgba(212,165,116,0.1), 0 12px 32px rgba(0,0,0,0.4)",
-          background: "#1A1A1A", flexShrink: 0,
-        }}>
-          <img src="/logo-large.png" alt="Golden Beans" draggable={false}
-            style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+  const CheckRow = ({ state, icon, title, desc }: { state: CS; icon: string; title: string; desc: string }) => {
+    const c = { pending: "#333", loading: T.gold, success: T.success, failed: T.danger }[state];
+    return (
+      <div style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${c}40`, borderRadius: "16px", padding: "14px 16px", display: "flex", alignItems: "center", gap: "14px", marginBottom: "10px", transition: "all 0.4s" }}>
+        <span style={{ fontSize: "22px" }}>{icon}</span>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: "13px", fontWeight: 800, color: c, margin: 0 }}>{title}</p>
+          <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", margin: "2px 0 0", fontWeight: 600 }}>{desc}</p>
         </div>
-
-        <h2 style={{
-          fontFamily: "'Playfair Display', serif",
-          fontSize: "24px", fontWeight: 800,
-          color: T.gold, margin: "0 0 6px", letterSpacing: "-0.02em",
-        }}>Securing Your Session</h2>
-
-        <p style={{ fontSize: "12px", color: "rgba(212,165,116,0.7)", margin: "0 0 24px", fontWeight: 600, lineHeight: 1.5 }}>
-          Verifying you&apos;re at Golden Beans Cafe
-        </p>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
-          <CheckItem
-            state={gpsCheck}
-            icon={<Icons.Location size={18} />}
-            title="Location Verification"
-            description={
-              gpsCheck === "pending" ? "Waiting to start..." :
-              gpsCheck === "loading" ? "Checking your location..." :
-              gpsCheck === "success" ? "You're at the cafe ✓" :
-              "Location not verified"
-            }
-          />
-          <CheckItem
-            state={wifiCheck}
-            icon={<Icons.Wifi size={18} />}
-            title="Network Verification"
-            description={
-              wifiCheck === "pending" ? "Waiting for location check..." :
-              wifiCheck === "loading" ? "Confirming cafe WiFi..." :
-              wifiCheck === "success" ? "Connected to cafe network ✓" :
-              "Network not verified"
-            }
-          />
-        </div>
-
-        <p style={{ fontSize: "10px", color: "rgba(212,165,116,0.45)", margin: 0, fontWeight: 600, lineHeight: 1.5 }}>
-          🔒 This protects against fake orders & spam
-        </p>
+        {state === "loading" && <div style={{ width: "20px", height: "20px", borderRadius: "50%", border: `2px solid ${T.gold}40`, borderTopColor: T.gold, animation: "spin 0.8s linear infinite" }} />}
+        {state === "success" && <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: T.success, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px" }}>✓</div>}
+        {state === "failed" && <div style={{ width: "24px", height: "24px", borderRadius: "50%", background: T.danger, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px" }}>✕</div>}
       </div>
-    </div>
-  );
-}
- 
-// ─── CheckItem Component ───
-function CheckItem({ state, icon, title, description }: {
-  state: "pending" | "loading" | "success" | "failed";
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
-  const colors = {
-    pending: { bg: "rgba(255,255,255,0.04)", border: "rgba(212,165,116,0.15)", iconBg: "rgba(255,255,255,0.05)", iconColor: "rgba(212,165,116,0.4)", titleColor: "rgba(212,165,116,0.5)", descColor: "rgba(212,165,116,0.35)" },
-    loading: { bg: "rgba(212,165,116,0.08)", border: "rgba(212,165,116,0.35)", iconBg: "rgba(212,165,116,0.15)", iconColor: T.gold, titleColor: T.gold, descColor: "rgba(212,165,116,0.7)" },
-    success: { bg: "rgba(74,139,74,0.12)", border: "rgba(74,139,74,0.45)", iconBg: "rgba(74,139,74,0.25)", iconColor: "#86c686", titleColor: "#86c686", descColor: "rgba(134,198,134,0.85)" },
-    failed: { bg: "rgba(192,57,43,0.12)", border: "rgba(192,57,43,0.45)", iconBg: "rgba(192,57,43,0.25)", iconColor: "#fca5a5", titleColor: "#fca5a5", descColor: "rgba(252,165,165,0.85)" },
+    );
   };
-  const c = colors[state];
- 
+
   return (
-    <div style={{
-      background: c.bg,
-      border: `1.5px solid ${c.border}`,
-      borderRadius: "16px",
-      padding: "12px 14px",
-      display: "flex",
-      alignItems: "center",
-      gap: "12px",
-      transition: "all 400ms cubic-bezier(0.16, 1, 0.3, 1)",
-      animation: state === "success" ? "gb-fadeInUp 300ms ease both" : undefined,
-      boxShadow: state === "success" ? "0 4px 16px rgba(74,139,74,0.15)" : state === "loading" ? "0 4px 16px rgba(212,165,116,0.2)" : state === "failed" ? "0 4px 16px rgba(192,57,43,0.15)" : "none",
-    }}>
-      {/* Icon */}
-      <div style={{
-        width: "40px", height: "40px",
-        borderRadius: "10px",
-        background: c.iconBg,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        color: c.iconColor,
-        flexShrink: 0,
-        transition: "all 300ms ease",
-      }}>
-        {icon}
-      </div>
- 
-      {/* Info */}
-      <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
-        <p style={{
-          fontWeight: 800, fontSize: "13px",
-          color: c.titleColor,
-          margin: "0 0 2px",
-          letterSpacing: "-0.01em",
-          transition: "color 300ms ease",
-        }}>{title}</p>
-        <p style={{
-          fontSize: "11px",
-          color: c.descColor,
-          margin: 0,
-          fontWeight: 600,
-          lineHeight: 1.4,
-          transition: "color 300ms ease",
-        }}>{description}</p>
-      </div>
- 
-      {/* Status indicator */}
-      <div style={{ flexShrink: 0, width: "28px", height: "28px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {state === "pending" && (
-          <div style={{
-            width: "10px", height: "10px",
-            borderRadius: "50%",
-            border: "2px solid rgba(212,165,116,0.25)",
-          }} />
-        )}
- 
-        {state === "loading" && (
-          <div style={{
-            width: "20px", height: "20px",
-            borderRadius: "50%",
-            border: `2.5px solid rgba(212,165,116,0.2)`,
-            borderTopColor: T.gold,
-            animation: "gb-spin 0.7s linear infinite",
-          }} />
-        )}
- 
-        {state === "success" && (
-          <div style={{
-            width: "26px", height: "26px",
-            borderRadius: "50%",
-            background: "linear-gradient(135deg, #4A8B4A, #2d6a2d)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "white",
-            boxShadow: "0 4px 12px rgba(74,139,74,0.5)",
-            animation: "gb-scaleInBounce 400ms cubic-bezier(0.34, 1.56, 0.64, 1)",
-          }}>
-            <Icons.Check size={16} />
-          </div>
-        )}
- 
-        {state === "failed" && (
-          <div style={{
-            width: "26px", height: "26px",
-            borderRadius: "50%",
-            background: "linear-gradient(135deg, #C0392B, #d63b2a)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "white",
-            boxShadow: "0 4px 12px rgba(192,57,43,0.5)",
-            animation: "gb-scaleInBounce 400ms cubic-bezier(0.34, 1.56, 0.64, 1)",
-          }}>
-            <Icons.Close size={14} />
-          </div>
-        )}
+    <div style={{ minHeight: "100vh", background: "#000", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+      <div style={{ maxWidth: "360px", width: "100%", textAlign: "center" }}>
+        <div style={{ width: "90px", height: "90px", borderRadius: "50%", overflow: "hidden", margin: "0 auto 20px", border: "2px solid rgba(212,165,116,0.3)", boxShadow: `0 0 40px ${T.gold}30` }}>
+          <img src="/logo-large.png" alt="GB" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </div>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", fontWeight: 800, color: T.gold, margin: "0 0 6px" }}>Verifying Access</h2>
+        <p style={{ fontSize: "12px", color: "rgba(212,165,116,0.5)", margin: "0 0 28px", fontWeight: 600 }}>Confirming you're at Golden Beans</p>
+        <CheckRow state={gpsCheck} icon="📍" title="Location Check" desc={gpsCheck === "loading" ? "Getting your location..." : gpsCheck === "success" ? "You're at the cafe ✓" : gpsCheck === "failed" ? "Location not verified" : "Waiting..."} />
+        <CheckRow state={wifiCheck} icon="📶" title="Network Check" desc={wifiCheck === "loading" ? "Verifying network..." : wifiCheck === "success" ? "Cafe network confirmed ✓" : wifiCheck === "failed" ? "Network not verified" : "Waiting for location..."} />
+        <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.2)", margin: "20px 0 0", fontWeight: 600 }}>🔒 Protecting against fake orders</p>
       </div>
     </div>
   );
 }
 
-// ═════════════════════════════════════════════════════════════
-// AWARENESS SCREEN — When security check fails
-// ═════════════════════════════════════════════════════════════
 function AwarenessScreen({ result, onRetry }: { result: SecurityResult; onRetry: () => void }) {
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: `linear-gradient(180deg, ${T.emerald} 0%, ${T.emeraldMid} 100%)`,
-      display: "flex", flexDirection: "column",
-      padding: "20px",
-      overflowX: "hidden",
-    }}>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", maxWidth: "400px", width: "100%", margin: "0 auto" }}>
-        <div style={{
-  width: "100px", height: "100px",
-  borderRadius: "50%",
-  overflow: "hidden",
-  marginBottom: "20px",
-  border: "3px solid rgba(212,165,116,0.5)",
-  boxShadow: "0 0 0 6px rgba(212,165,116,0.1), 0 8px 24px rgba(0,0,0,0.4)",
-  background: "#1A1A1A",
-}}>
-  <img src="/logo-large.png" alt="Golden Beans" draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
-</div>
-
-        <div style={{
-          width: "76px", height: "76px",
-          background: "linear-gradient(135deg, rgba(192,57,43,0.15), rgba(192,57,43,0.05))",
-          border: "2px solid rgba(192,57,43,0.3)",
-          borderRadius: "20px",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          marginBottom: "20px",
-          color: "#f87171",
-          animation: "gb-pulse 2s ease-in-out infinite",
-        }}>
-          <Icons.Wifi size={36} />
-        </div>
-
-        <h1 style={{
-          fontFamily: "'Playfair Display', serif",
-          fontSize: "26px", fontWeight: 800,
-          color: T.gold, margin: "0 0 8px",
-          textAlign: "center", letterSpacing: "-0.02em",
-          lineHeight: 1.2,
-        }}>
-          Access Restricted
-        </h1>
-
-        <p style={{
-          fontSize: "13px",
-          color: "rgba(212,165,116,0.85)",
-          textAlign: "center",
-          margin: "0 0 24px",
-          fontWeight: 500, lineHeight: 1.6,
-          maxWidth: "320px",
-        }}>
-          {result.reason}
-        </p>
-
-        {/* Issue Cards */}
-        <div style={{ width: "100%", marginBottom: "20px" }}>
-          {!result.ipAllowed && (
-            <div style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(212,165,116,0.2)",
-              borderRadius: "16px",
-              padding: "14px",
-              marginBottom: "10px",
-              display: "flex", gap: "12px", alignItems: "flex-start",
-            }}>
-              <div style={{
-                width: "36px", height: "36px",
-                borderRadius: "10px",
-                background: "rgba(212,165,116,0.15)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: T.gold, flexShrink: 0,
-              }}>
-                <Icons.Wifi size={16} />
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontWeight: 800, fontSize: "12px", color: T.gold, margin: "0 0 3px" }}>
-                  Connect to Cafe WiFi
-                </p>
-                <p style={{ fontSize: "11px", color: "rgba(212,165,116,0.7)", margin: 0, lineHeight: 1.5 }}>
-                  Network: <strong style={{ color: T.goldLight }}>{result.wifiName}</strong>
-                </p>
-                <p style={{ fontSize: "10px", color: "rgba(212,165,116,0.5)", margin: "5px 0 0", lineHeight: 1.4 }}>
-                  Please disconnect from mobile data and join our WiFi
-                </p>
-              </div>
-            </div>
-          )}
-
-          {!result.gpsAllowed && (
-            <div style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(212,165,116,0.2)",
-              borderRadius: "16px",
-              padding: "14px",
-              marginBottom: "10px",
-              display: "flex", gap: "12px", alignItems: "flex-start",
-            }}>
-              <div style={{
-                width: "36px", height: "36px",
-                borderRadius: "10px",
-                background: "rgba(212,165,116,0.15)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                color: T.gold, flexShrink: 0,
-              }}>
-                <Icons.Location size={16} />
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontWeight: 800, fontSize: "12px", color: T.gold, margin: "0 0 3px" }}>
-                  Enable Location Access
-                </p>
-                <p style={{ fontSize: "11px", color: "rgba(212,165,116,0.7)", margin: 0, lineHeight: 1.5 }}>
-                  {result.distance !== null
-                    ? `You're ${result.distance}m away from cafe`
-                    : "Please allow location to verify you're at the cafe"}
-                </p>
-                <p style={{ fontSize: "10px", color: "rgba(212,165,116,0.5)", margin: "5px 0 0", lineHeight: 1.4 }}>
-                  Settings → Privacy → Location → Browser → Allow
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Privacy Notice */}
-        <div style={{
-          background: "rgba(74,139,74,0.1)",
-          border: "1px solid rgba(74,139,74,0.3)",
-          borderRadius: "16px",
-          padding: "14px",
-          width: "100%",
-          marginBottom: "20px",
-        }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
-            <div style={{
-              width: "30px", height: "30px",
-              borderRadius: "8px",
-              background: "rgba(74,139,74,0.2)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0,
-            }}>
-              <span style={{ fontSize: "16px" }}>🔒</span>
-            </div>
-            <div>
-              <p style={{ fontWeight: 800, fontSize: "12px", color: "#86c686", margin: "0 0 4px" }}>
-                Why these checks?
-              </p>
-              <p style={{ fontSize: "11px", color: "rgba(212,165,116,0.7)", margin: 0, lineHeight: 1.6 }}>
-                Restricting menu access to cafe customers protects you and us from fake orders, scam attempts, and ensures every order is legitimate.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Cafe Info */}
-        <div style={{ width: "100%", marginBottom: "20px" }}>
-          <div style={{
-            background: "rgba(255,255,255,0.04)",
-            borderRadius: "14px",
-            padding: "12px 14px",
-            display: "flex", alignItems: "center", gap: "10px",
-            marginBottom: "8px",
-          }}>
-            <Icons.Location size={14} color="rgba(212,165,116,0.6)" />
-            <span style={{ fontSize: "11px", color: "rgba(212,165,116,0.85)", fontWeight: 600 }}>
-              {result.cafeAddress}
-            </span>
-          </div>
-          <div style={{
-            background: "rgba(255,255,255,0.04)",
-            borderRadius: "14px",
-            padding: "12px 14px",
-            display: "flex", alignItems: "center", gap: "10px",
-          }}>
-            <Icons.Phone size={14} color="rgba(212,165,116,0.6)" />
-            <span style={{ fontSize: "11px", color: "rgba(212,165,116,0.85)", fontWeight: 600 }}>
-              {result.cafePhone}
-            </span>
-          </div>
-        </div>
-
-        <Button variant="gold" size="lg" fullWidth onClick={onRetry} icon={<Icons.ArrowRight size={14} />} iconPosition="right">
-          Try Again
-        </Button>
-
-        <p style={{ fontSize: "10px", color: "rgba(212,165,116,0.4)", textAlign: "center", margin: "16px 0 0", fontWeight: 600 }}>
-          {result.cafeName}
-        </p>
+    <div style={{ minHeight: "100vh", background: "#000", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+      <div style={{ maxWidth: "380px", width: "100%", textAlign: "center" }}>
+        <div style={{ fontSize: "60px", marginBottom: "16px" }}>🚫</div>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "26px", fontWeight: 800, color: T.gold, margin: "0 0 10px" }}>Access Restricted</h1>
+        <p style={{ fontSize: "14px", color: "rgba(212,165,116,0.7)", margin: "0 0 28px", lineHeight: 1.6 }}>{result.reason}</p>
+        {!result.ipAllowed && <div style={{ background: "rgba(212,165,116,0.08)", border: "1px solid rgba(212,165,116,0.2)", borderRadius: "14px", padding: "14px", marginBottom: "12px", textAlign: "left" }}>
+          <p style={{ fontWeight: 800, fontSize: "13px", color: T.gold, margin: "0 0 4px" }}>📶 Connect to Cafe WiFi</p>
+          <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", margin: 0 }}>Network: {result.wifiName}</p>
+        </div>}
+        {!result.gpsAllowed && <div style={{ background: "rgba(212,165,116,0.08)", border: "1px solid rgba(212,165,116,0.2)", borderRadius: "14px", padding: "14px", marginBottom: "12px", textAlign: "left" }}>
+          <p style={{ fontWeight: 800, fontSize: "13px", color: T.gold, margin: "0 0 4px" }}>📍 Enable Location</p>
+          <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", margin: 0 }}>{result.distance ? `${result.distance}m from cafe` : "Allow location in browser settings"}</p>
+        </div>}
+        <button onClick={onRetry} style={{ width: "100%", padding: "16px", borderRadius: "14px", border: "none", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, color: T.emerald, fontWeight: 900, fontSize: "15px", cursor: "pointer", marginTop: "8px" }}>Try Again</button>
       </div>
     </div>
   );
 }
 
-// ═════════════════════════════════════════════════════════════
-// SETTLEMENT KILL SCREEN
-// ═════════════════════════════════════════════════════════════
-function SessionEndedScreen({ reason, onRestart }: { reason: string; onRestart: () => void; orderId?: string; tableId?: string; totalAmount?: number }) {
-  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+function SessionEndedScreen({ reason, onRestart }: { reason: string; onRestart: () => void }) {
   const [rating, setRating] = useState(0);
-  const [hoverRating, setHoverRating] = useState(0);
-  const [categories, setCategories] = useState({ food: 0, service: 0, ambiance: 0, value: 0 });
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [screen, setScreen] = useState<'feedback' | 'thankyou'>('feedback');
-
+  const [done, setDone] = useState(false);
   const API = 'https://golden-beans-server.onrender.com/api';
 
-  const handleSubmitFeedback = async () => {
+  useEffect(() => { if (done) { const t = setTimeout(() => onRestart(), 5000); return () => clearTimeout(t); } }, [done, onRestart]);
+
+  const submit = async () => {
     if (rating === 0) return;
     setSubmitting(true);
-    try {
-      await fetch(`${API}/feedback/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: localStorage.getItem('gb_settled_order_id') || 'unknown',
-          tableId: localStorage.getItem('gb_settled_table') || 'unknown',
-          tableNumber: localStorage.getItem('gb_settled_table') || 'unknown',
-          rating,
-          categories,
-          comment,
-        }),
-      });
-    } catch {}
-    setSubmitting(false);
-    setFeedbackSubmitted(true);
-    setScreen('thankyou');
+    try { await fetch(`${API}/feedback/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId: localStorage.getItem('gb_settled_order_id') || 'unknown', tableId: localStorage.getItem('gb_settled_table') || 'unknown', tableNumber: localStorage.getItem('gb_settled_table') || 'unknown', rating, categories: {}, comment }) }); } catch {}
+    setSubmitting(false); setDone(true);
   };
 
-  const handleSkip = () => {
-    setScreen('thankyou');
-  };
-
-  // Auto redirect only after feedback submitted or on thank you screen
-  useEffect(() => {
-    if (screen !== 'thankyou') return;
-    const timer = setTimeout(() => onRestart(), 5000);
-    return () => clearTimeout(timer);
-  }, [screen, onRestart]);
-
-  // ── THANK YOU SCREEN ──
-  if (screen === 'thankyou') return (
-    <div style={{ minHeight: "100vh", background: `linear-gradient(180deg, ${T.emerald} 0%, ${T.emeraldMid} 100%)`, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
+  if (done) return (
+    <div style={{ minHeight: "100vh", background: "#000", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}>
       <div style={{ textAlign: "center", maxWidth: "320px" }}>
-        <div style={{ width: "84px", height: "84px", margin: "0 auto 20px", borderRadius: "50%", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 12px 32px rgba(212,165,116,0.4)", animation: "gb-scaleInBounce 0.5s cubic-bezier(0.34,1.56,0.64,1)" }}>
-          <Icons.Check size={42} color={T.emerald} />
+        <div style={{ fontSize: "70px", marginBottom: "16px", animation: "welcomeLogo 0.6s cubic-bezier(0.34,1.56,0.64,1)" }}>🎉</div>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "32px", fontWeight: 800, color: T.gold, margin: "0 0 10px" }}>Thank You!</h1>
+        <p style={{ fontSize: "14px", color: "rgba(212,165,116,0.6)", margin: "0 0 20px", lineHeight: 1.6 }}>{reason}</p>
+        <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.2)", margin: 0 }}>Auto-redirecting in 5 seconds...</p>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#000", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+      <div style={{ maxWidth: "380px", width: "100%" }}>
+        <div style={{ textAlign: "center", marginBottom: "28px" }}>
+          <span style={{ fontSize: "48px" }}>⭐</span>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "26px", fontWeight: 800, color: T.gold, margin: "12px 0 4px" }}>Rate Your Experience</h1>
+          <p style={{ fontSize: "13px", color: "rgba(212,165,116,0.5)", margin: 0 }}>How was your visit today?</p>
         </div>
-        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "28px", fontWeight: 800, color: T.gold, margin: "0 0 8px", letterSpacing: "-0.02em" }}>Thank You!</h1>
-        <p style={{ fontSize: "14px", color: "rgba(212,165,116,0.85)", margin: "0 0 24px", fontWeight: 500, lineHeight: 1.6 }}>{reason}</p>
-        {feedbackSubmitted && (
-          <div style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(212,165,116,0.25)", borderRadius: "14px", padding: "12px 14px", marginBottom: "20px" }}>
-            <p style={{ fontSize: "13px", color: T.goldLight, margin: 0, fontWeight: 600 }}>⭐ Thank you for your feedback!</p>
+        <div style={{ background: "#111", borderRadius: "24px", padding: "24px", border: "1px solid #222" }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: "12px", marginBottom: "20px" }}>
+            {[1,2,3,4,5].map(s => (
+              <button key={s} onClick={() => setRating(s)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: rating >= s ? "40px" : "32px", filter: rating >= s ? "none" : "grayscale(1) opacity(0.3)", transition: "all 0.15s", transform: rating >= s ? "scale(1.1)" : "scale(1)" }}>⭐</button>
+            ))}
+          </div>
+          {rating > 0 && <p style={{ textAlign: "center", fontSize: "14px", fontWeight: 700, color: T.gold, margin: "0 0 16px" }}>{['','😞 Poor','😐 Fair','🙂 Good','😊 Great','🤩 Excellent!'][rating]}</p>}
+          <textarea value={comment} onChange={e => setComment(e.target.value)} placeholder="Any comments? (optional)" rows={3}
+            style={{ width: "100%", padding: "12px", borderRadius: "12px", border: "1px solid #333", background: "#1a1a1a", color: "white", fontSize: "14px", outline: "none", resize: "none", boxSizing: "border-box", marginBottom: "16px", fontFamily: "inherit" }} />
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button onClick={() => setDone(true)} style={{ flex: 1, padding: "13px", borderRadius: "12px", border: "1px solid #333", background: "transparent", color: "#666", fontSize: "14px", cursor: "pointer" }}>Skip</button>
+            <button onClick={submit} disabled={rating === 0 || submitting} style={{ flex: 2, padding: "13px", borderRadius: "12px", border: "none", background: rating === 0 ? "#222" : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: rating === 0 ? "#444" : T.gold, fontSize: "14px", fontWeight: 800, cursor: rating === 0 ? "not-allowed" : "pointer" }}>
+              {submitting ? "Submitting..." : "Submit Feedback"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════
+// HERO CAROUSEL — Hotstar style
+// ══════════════════════════════════════════════════
+function HeroCarousel({ items, onTap, cart }: { items: MenuItem[]; onTap: (item: MenuItem) => void; cart: ExtendedCartItem[] }) {
+  const [active, setActive] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [dragDelta, setDragDelta] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const featured = items.filter(i => i.isAvailable).slice(0, 5);
+
+  const next = useCallback(() => setActive(p => (p + 1) % featured.length), [featured.length]);
+  const prev = useCallback(() => setActive(p => (p - 1 + featured.length) % featured.length), [featured.length]);
+
+  useEffect(() => {
+    if (dragging) return;
+    timerRef.current = setInterval(next, 4000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [next, dragging, active]);
+
+  const onStart = (x: number) => { setDragging(true); setStartX(x); setDragDelta(0); if (timerRef.current) clearInterval(timerRef.current); };
+  const onMove = (x: number) => { if (dragging) setDragDelta(x - startX); };
+  const onEnd = () => {
+    if (Math.abs(dragDelta) > 50) { dragDelta < 0 ? next() : prev(); }
+    setDragging(false); setDragDelta(0);
+  };
+
+  if (featured.length === 0) return null;
+  const item = featured[active];
+  const cartQty = cart.filter(c => c.menuItemId === item._id).reduce((s, c) => s + c.quantity, 0);
+
+  return (
+    <div style={{ position: "relative", width: "100%", height: "65vw", maxHeight: "280px", overflow: "hidden", userSelect: "none" }}
+      onTouchStart={e => onStart(e.touches[0].clientX)}
+      onTouchMove={e => onMove(e.touches[0].clientX)}
+      onTouchEnd={onEnd}
+      onMouseDown={e => onStart(e.clientX)}
+      onMouseMove={e => dragging && onMove(e.clientX)}
+      onMouseUp={onEnd}
+      onMouseLeave={onEnd}
+    >
+      {featured.map((fi, i) => (
+        <div key={fi._id} style={{
+          position: "absolute", inset: 0, transition: dragging ? "none" : "all 0.5s cubic-bezier(0.16,1,0.3,1)",
+          opacity: i === active ? 1 : 0,
+          transform: i === active ? `translateX(${dragDelta}px)` : i < active ? `translateX(calc(-100% + ${dragDelta}px))` : `translateX(calc(100% + ${dragDelta}px))`,
+          zIndex: i === active ? 1 : 0,
+        }}>
+          {fi.imageUrl ? (
+            <img src={getHeroUrl(fi.imageUrl)} alt={fi.name} style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+          ) : (
+            <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "80px" }}>☕</div>
+          )}
+        </div>
+      ))}
+
+      {/* Gradient overlay */}
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0) 70%)", zIndex: 2, pointerEvents: "none" }} />
+
+      {/* Content */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "16px", zIndex: 3 }}>
+        {item.tags?.includes("bestseller") && (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, color: T.emerald, fontSize: "9px", fontWeight: 900, padding: "3px 10px", borderRadius: "99px", marginBottom: "6px", letterSpacing: "0.5px" }}>
+            ⭐ BESTSELLER
           </div>
         )}
-        <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(212,165,116,0.2)", borderRadius: "14px", padding: "12px 14px", marginBottom: "20px" }}>
-          <p style={{ fontSize: "11px", color: "rgba(212,165,116,0.7)", margin: 0, fontWeight: 600, lineHeight: 1.5 }}>
-            ☕ We hope you enjoyed your visit!<br />See you again at Golden Beans soon.
-          </p>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h2 style={{ fontSize: "22px", fontWeight: 900, color: "white", margin: "0 0 2px", fontFamily: "'Playfair Display', serif", textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}>{item.name}</h2>
+            <p style={{ fontSize: "16px", fontWeight: 800, color: T.gold, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>₹{item.price}</p>
+          </div>
+          <button onClick={() => onTap(item)} style={{
+            background: cartQty > 0 ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
+            color: cartQty > 0 ? T.gold : T.emerald,
+            border: "none", borderRadius: "12px", padding: "10px 18px",
+            fontWeight: 900, fontSize: "13px", cursor: "pointer",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+            flexShrink: 0, marginLeft: "12px",
+          }}>
+            {cartQty > 0 ? `✓ ${cartQty}` : "+ Add"}
+          </button>
         </div>
-        <Button variant="gold" size="md" onClick={onRestart}>Scan QR for new session</Button>
-        <p style={{ fontSize: "10px", color: "rgba(212,165,116,0.4)", margin: "16px 0 0", fontWeight: 600 }}>Auto-redirecting in 5 seconds...</p>
+      </div>
+
+      {/* Dots */}
+      <div style={{ position: "absolute", bottom: "8px", left: "50%", transform: "translateX(-50%)", display: "flex", gap: "5px", zIndex: 4 }}>
+        {featured.map((_, i) => (
+          <button key={i} onClick={() => setActive(i)} style={{ width: i === active ? "20px" : "6px", height: "6px", borderRadius: "99px", background: i === active ? T.gold : "rgba(255,255,255,0.4)", border: "none", cursor: "pointer", transition: "all 0.3s", padding: 0 }} />
+        ))}
       </div>
     </div>
   );
+}
 
-  // ── FEEDBACK SCREEN ──
-  const CATEGORY_LABELS = [
-    { key: 'food', emoji: '🍽️', label: 'Food' },
-    { key: 'service', emoji: '🙋', label: 'Service' },
-    { key: 'ambiance', emoji: '✨', label: 'Ambiance' },
-    { key: 'value', emoji: '💰', label: 'Value' },
-  ];
-
+// ══════════════════════════════════════════════════
+// HORIZONTAL SCROLL SECTION — Hotstar style rows
+// ══════════════════════════════════════════════════
+function ItemRow({ title, items, cart, onTap, emoji }: { title: string; items: MenuItem[]; cart: ExtendedCartItem[]; onTap: (i: MenuItem) => void; emoji?: string }) {
+  if (items.length === 0) return null;
   return (
-    <div style={{ minHeight: "100vh", background: `linear-gradient(180deg, ${T.emerald} 0%, #071f17 100%)`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", fontFamily: "DM Sans, sans-serif", overflowY: "auto" }}>
-
-      {/* Header */}
-      <div style={{ textAlign: "center", marginBottom: "28px" }}>
-        <div style={{ fontSize: "48px", marginBottom: "8px" }}>⭐</div>
-        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "26px", fontWeight: 800, color: T.goldLight, margin: "0 0 6px" }}>How was your experience?</h1>
-        <p style={{ fontSize: "13px", color: "rgba(232,200,149,0.6)", margin: 0 }}>Your feedback helps us serve you better</p>
+    <div style={{ marginBottom: "24px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "0 16px", marginBottom: "12px" }}>
+        {emoji && <span style={{ fontSize: "18px" }}>{emoji}</span>}
+        <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: "18px", fontWeight: 800, color: "white", margin: 0 }}>{title}</h3>
       </div>
-
-      {/* Card */}
-      <div style={{ background: T.ivory, borderRadius: "28px", padding: "24px", width: "100%", maxWidth: "380px", boxShadow: "0 24px 64px rgba(0,0,0,0.4)" }}>
-
-        {/* Overall Rating */}
-        <p style={{ fontSize: "12px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.8px", margin: "0 0 12px", textAlign: "center" }}>Overall Rating</p>
-        <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "24px" }}>
-          {[1, 2, 3, 4, 5].map(star => (
-            <button key={star}
-              onMouseEnter={() => setHoverRating(star)}
-              onMouseLeave={() => setHoverRating(0)}
-              onClick={() => setRating(star)}
-              style={{ background: "none", border: "none", cursor: "pointer", padding: "4px", fontSize: (hoverRating || rating) >= star ? "38px" : "32px", transition: "all 0.15s ease", filter: (hoverRating || rating) >= star ? "none" : "grayscale(1) opacity(0.4)" }}>
-              ⭐
-            </button>
-          ))}
-        </div>
-
-        {/* Rating label */}
-        {rating > 0 && (
-          <p style={{ textAlign: "center", fontSize: "14px", fontWeight: 700, color: T.emerald, margin: "-12px 0 20px" }}>
-            {['', '😞 Poor', '😐 Fair', '🙂 Good', '😊 Great', '🤩 Excellent!'][rating]}
-          </p>
-        )}
-
-        {/* Category Ratings */}
-        <p style={{ fontSize: "12px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.8px", margin: "0 0 12px" }}>Rate Each Category</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "20px" }}>
-          {CATEGORY_LABELS.map(cat => (
-            <div key={cat.key} style={{ background: T.cream, borderRadius: "14px", padding: "12px", border: "1px solid #EDE8E0" }}>
-              <p style={{ margin: "0 0 8px", fontSize: "13px", fontWeight: 700, color: T.emerald }}>{cat.emoji} {cat.label}</p>
-              <div style={{ display: "flex", gap: "4px" }}>
-                {[1, 2, 3, 4, 5].map(star => (
-                  <button key={star} onClick={() => setCategories(prev => ({ ...prev, [cat.key]: star }))}
-                    style={{ background: "none", border: "none", cursor: "pointer", padding: "0", fontSize: categories[cat.key as keyof typeof categories] >= star ? "16px" : "13px", filter: categories[cat.key as keyof typeof categories] >= star ? "none" : "grayscale(1) opacity(0.4)", transition: "all 0.1s" }}>
-                    ⭐
-                  </button>
-                ))}
+      <div style={{ display: "flex", gap: "12px", overflowX: "auto", padding: "4px 16px 4px", scrollbarWidth: "none" }} className="scrollbar-hide">
+        {items.map((item, idx) => {
+          const qty = cart.filter(c => c.menuItemId === item._id).reduce((s, c) => s + c.quantity, 0);
+          return (
+            <div key={item._id} onClick={() => item.isAvailable && onTap(item)}
+              style={{ flexShrink: 0, width: "140px", cursor: item.isAvailable ? "pointer" : "not-allowed", opacity: item.isAvailable ? 1 : 0.5, animation: `fadeUp 0.4s ${idx * 0.06}s ease both` }}>
+              <div style={{ position: "relative", width: "140px", height: "140px", borderRadius: "16px", overflow: "hidden", marginBottom: "8px", boxShadow: qty > 0 ? `0 0 0 2px ${T.gold}, 0 8px 24px rgba(212,165,116,0.3)` : "0 4px 16px rgba(0,0,0,0.4)" }}>
+                {item.imageUrl ? (
+                  <img src={getThumbnailUrl(item.imageUrl)} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+                ) : (
+                  <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${T.emerald}60, ${T.emeraldMid}60)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "50px" }}>☕</div>
+                )}
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)" }} />
+                {qty > 0 && (
+                  <div style={{ position: "absolute", top: "8px", right: "8px", width: "24px", height: "24px", borderRadius: "50%", background: T.gold, color: T.emerald, fontSize: "11px", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>{qty}</div>
+                )}
+                {item.tags?.includes("bestseller") && (
+                  <div style={{ position: "absolute", top: "8px", left: "8px", background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, color: T.emerald, fontSize: "8px", fontWeight: 900, padding: "2px 7px", borderRadius: "99px" }}>⭐ BEST</div>
+                )}
+                <div style={{ position: "absolute", bottom: "8px", left: "8px", right: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "13px", fontWeight: 900, color: "white", fontFamily: "'DM Sans', sans-serif" }}>₹{item.price}</span>
+                  {!item.isAvailable && <span style={{ fontSize: "8px", color: "#f87171", fontWeight: 800, background: "rgba(0,0,0,0.8)", padding: "2px 6px", borderRadius: "4px" }}>OUT</span>}
+                </div>
+              </div>
+              <p style={{ fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.9)", margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{item.name}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: "3px", marginTop: "2px" }}>
+                <span style={{ color: T.gold, fontSize: "10px" }}>★</span>
+                <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)", fontFamily: "'DM Sans', sans-serif" }}>{item.rating?.toFixed(1) || "4.5"}</span>
               </div>
             </div>
-          ))}
-        </div>
-
-        {/* Comment */}
-        <p style={{ fontSize: "12px", fontWeight: 700, color: "#888", textTransform: "uppercase", letterSpacing: "0.8px", margin: "0 0 8px" }}>Comments (Optional)</p>
-        <textarea
-          value={comment}
-          onChange={e => setComment(e.target.value)}
-          placeholder="Tell us what you loved or how we can improve..."
-          rows={3}
-          style={{ width: "100%", padding: "12px 14px", borderRadius: "14px", border: "1.5px solid #EDE8E0", background: T.cream, fontSize: "14px", fontFamily: "DM Sans, sans-serif", outline: "none", boxSizing: "border-box", resize: "none", color: "#1a1a1a" }}
-        />
-
-        {/* Buttons */}
-        <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
-          <button onClick={handleSkip}
-            style={{ flex: 1, padding: "13px", borderRadius: "14px", border: "1.5px solid #EDE8E0", background: "transparent", color: "#aaa", fontSize: "14px", fontFamily: "DM Sans, sans-serif", cursor: "pointer" }}>
-            Skip
-          </button>
-          <button onClick={handleSubmitFeedback} disabled={rating === 0 || submitting}
-            style={{ flex: 2, padding: "13px", borderRadius: "14px", border: "none", background: rating === 0 ? "#ccc" : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.goldLight, fontSize: "14px", fontWeight: "700", fontFamily: "DM Sans, sans-serif", cursor: rating === 0 ? "not-allowed" : "pointer", boxShadow: rating > 0 ? "0 6px 20px rgba(15,61,46,0.25)" : "none", transition: "all 0.2s" }}>
-            {submitting ? 'Submitting...' : '⭐ Submit Feedback'}
-          </button>
-        </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// ═════════════════════════════════════════════════════════════
-// IMAGE & SUB-COMPONENTS (same as before)
-// ═════════════════════════════════════════════════════════════
-function ItemImagePlaceholder({ name, size = 100 }: { name: string; size?: number }) {
-  const initials = name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
-  return (
-    <div style={{
-      width: size, height: size,
-      background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`,
-      borderRadius: "50%",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      color: T.gold, fontWeight: 800, fontSize: size * 0.25,
-      fontFamily: "'Playfair Display', serif",
-      letterSpacing: "0.03em",
-      boxShadow: "inset 0 -3px 8px rgba(0,0,0,0.2), 0 4px 12px rgba(15,61,46,0.15)",
-      flexShrink: 0,
-    }}>
-      {initials}
-    </div>
-  );
-}
+// ══════════════════════════════════════════════════
+// CATEGORY PILL BAR
+// ══════════════════════════════════════════════════
+function CategoryBar({ categories, active, onSelect }: { categories: MenuCategory[]; active: string; onSelect: (id: string) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current?.querySelector(`[data-active="true"]`) as HTMLElement;
+    el?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [active]);
 
-function VerticalCategoryTabs({ categories, activeCategoryId, onSelect }: {
-  categories: MenuCategory[];
-  activeCategoryId: string;
-  onSelect: (id: string) => void;
-}) {
   return (
-    <div style={{
-      width: "44px", flexShrink: 0,
-      background: T.emerald,
-      borderRadius: "0 16px 16px 0",
-      display: "flex", flexDirection: "column",
-      paddingTop: "8px", paddingBottom: "8px",
-      boxShadow: "2px 0 12px rgba(15,61,46,0.15)",
-      position: "sticky", top: "120px",
-      maxHeight: "calc(100vh - 200px)",
-      overflowY: "auto",
-    }} className="scrollbar-hide">
-      {categories.map((cat, idx) => {
-        const isActive = activeCategoryId === cat._id;
+    <div ref={ref} style={{ display: "flex", gap: "8px", overflowX: "auto", padding: "0 16px 12px", scrollbarWidth: "none" }} className="scrollbar-hide">
+      {categories.map(cat => {
+        const isActive = cat._id === active;
         return (
-          <button
-            key={cat._id}
-            onClick={() => onSelect(cat._id)}
-            style={{
-              padding: "16px 4px",
-              background: isActive ? T.gold : "transparent",
-              color: isActive ? T.emerald : "rgba(212,165,116,0.7)",
-              border: "none",
-              cursor: "pointer",
-              fontFamily: "'Inter', sans-serif",
-              fontWeight: isActive ? 800 : 600,
-              fontSize: "11px",
-              letterSpacing: "0.05em",
-              writingMode: "vertical-rl",
-              textOrientation: "mixed",
-              transition: "all 200ms ease",
-              borderRadius: isActive ? "10px" : "0",
-              margin: "2px 4px",
-              animation: `gb-fadeInUp 0.3s ${idx * 0.05}s ease both`,
-            }}
-          >
-            {cat.name.toUpperCase()}
+          <button key={cat._id} data-active={isActive} onClick={() => onSelect(cat._id)}
+            style={{ flexShrink: 0, padding: "8px 16px", borderRadius: "99px", border: `1.5px solid ${isActive ? T.gold : "#333"}`, background: isActive ? `linear-gradient(135deg, ${T.gold}, ${T.goldLight})` : "transparent", color: isActive ? T.emerald : "rgba(255,255,255,0.6)", fontWeight: isActive ? 900 : 600, fontSize: "12px", cursor: "pointer", transition: "all 0.2s", whiteSpace: "nowrap" }}>
+            {cat.icon} {cat.name}
           </button>
         );
       })}
@@ -901,83 +420,12 @@ function VerticalCategoryTabs({ categories, activeCategoryId, onSelect }: {
   );
 }
 
-function ProductCard({ item, onTap, cartQty }: { item: MenuItem; onTap: () => void; cartQty: number }) {
-  return (
-    <div onClick={item.isAvailable ? onTap : undefined} style={{
-      background: item.isAvailable ? T.ivory : T.creamDark,
-      borderRadius: "20px", padding: "16px 12px 12px",
-      cursor: item.isAvailable ? "pointer" : "not-allowed",
-      boxShadow: item.isAvailable ? "0 4px 16px rgba(15,61,46,0.06)" : "none",
-      transition: "all 250ms cubic-bezier(0.16, 1, 0.3, 1)",
-      position: "relative", border: `1px solid ${item.isAvailable ? T.creamDark : '#E0D8CC'}`,
-      overflow: "hidden", opacity: item.isAvailable ? 1 : 0.75,
-      filter: item.isAvailable ? "none" : "grayscale(0.3)",
-    }}>
-      
-      {item.tags?.includes("bestseller") && (
-        <div style={{
-          position: "absolute", top: "8px", left: "8px",
-          background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
-          padding: "3px 8px", borderRadius: "99px",
-          fontSize: "9px", fontWeight: 800, color: T.emerald,
-          zIndex: 2, display: "flex", alignItems: "center", gap: "3px",
-        }}>
-          <Icons.Sparkle size={9} /> BEST
-        </div>
-      )}
-
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: "12px", position: "relative" }}>
-        {item.imageUrl ? (
-          <div style={{ width: "100px", height: "100px", borderRadius: "50%", overflow: "hidden", border: `3px solid ${T.cream}`, boxShadow: "0 6px 16px rgba(15,61,46,0.15)" }}>
-            <img src={getThumbnailUrl(item.imageUrl)} alt={item.name} draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} loading="lazy" />
-          </div>
-        ) : (
-          <ItemImagePlaceholder name={item.name} size={100} />
-        )}
-        <div style={{
-          position: "absolute", bottom: "0", right: "calc(50% - 50px - 4px)",
-          width: "20px", height: "20px", background: T.success, borderRadius: "5px",
-          display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid white",
-        }}>
-          <div style={{ width: "8px", height: "8px", borderRadius: "50%", background: "white" }} />
-        </div>
-      </div>
-
-      <p style={{
-        fontWeight: 800, fontSize: "14px", color: T.text, margin: "0 0 4px",
-        textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-      }}>{item.name}</p>
-
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px", padding: "0 4px" }}>
-        <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 800, fontSize: "16px", color: T.emerald }}>₹{item.price}</span>
-        <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
-          <span style={{ color: T.gold, fontSize: "11px" }}>★</span>
-          <span style={{ fontSize: "11px", fontWeight: 700, color: T.textMuted, fontFamily: "'DM Sans', sans-serif" }}>
-            {item.rating?.toFixed(1) || "4.5"}
-          </span>
-        </div>
-      </div>
-
-      <button onClick={(e) => { e.stopPropagation(); if(item.isAvailable) onTap(); }} style={{
-        width: "100%",
-        background: !item.isAvailable ? T.creamDark : cartQty > 0 ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
-        color: !item.isAvailable ? T.textDim : cartQty > 0 ? T.gold : T.emerald,
-        border: "none", borderRadius: "12px", padding: "10px",
-        fontWeight: 800, fontSize: "12px",
-        cursor: !item.isAvailable ? "not-allowed" : "pointer",
-        boxShadow: !item.isAvailable ? "none" : cartQty > 0 ? "0 4px 12px rgba(15,61,46,0.3)" : "0 4px 12px rgba(212,165,116,0.4)",
-        display: "flex", alignItems: "center", justifyContent: "center", gap: "5px",
-        opacity: !item.isAvailable ? 0.7 : 1,
-      }}>
-        {!item.isAvailable ? <>⛔ Out of Stock</> : cartQty > 0 ? (<><Icons.Check size={12} /> ADDED ({cartQty})</>) : (<><Icons.Plus size={12} /> ADD</>)}
-      </button>
-    </div>
-  );
-}
-
+// ══════════════════════════════════════════════════
+// PRODUCT DETAIL MODAL
+// ══════════════════════════════════════════════════
 function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
   item: MenuItem | null; isOpen: boolean; onClose: () => void;
-  onAddToCart: (item: MenuItem, quantity: number, variants: { groupName: string; selected: string[] }[], priceModifier: number) => void;
+  onAddToCart: (item: MenuItem, qty: number, variants: { groupName: string; selected: string[] }[], mod: number) => void;
 }) {
   const [quantity, setQuantity] = useState(1);
   const [selections, setSelections] = useState<Record<string, string[]>>({});
@@ -986,11 +434,11 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
     if (item) {
       setQuantity(1);
       const defaults: Record<string, string[]> = {};
-      item.variantGroups?.forEach(group => {
-        const def = group.options.find(o => o.isDefault);
-        if (def) defaults[group.name] = [def.name];
-        else if (group.required && group.options.length > 0) defaults[group.name] = [group.options[0].name];
-        else defaults[group.name] = [];
+      item.variantGroups?.forEach(g => {
+        const def = g.options.find(o => o.isDefault);
+        if (def) defaults[g.name] = [def.name];
+        else if (g.required && g.options.length > 0) defaults[g.name] = [g.options[0].name];
+        else defaults[g.name] = [];
       });
       setSelections(defaults);
     }
@@ -1006,73 +454,52 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
     });
   };
 
-  let priceModifier = 0;
-  item.variantGroups?.forEach(g => (selections[g.name] || []).forEach(n => {
-    const o = g.options.find(o => o.name === n);
-    if (o) priceModifier += o.priceModifier;
-  }));
-
-  const itemTotal = (item.price + priceModifier) * quantity;
-  const variantSelections = Object.entries(selections).map(([gn, sel]) => ({ groupName: gn, selected: sel }));
+  let mod = 0;
+  item.variantGroups?.forEach(g => (selections[g.name] || []).forEach(n => { const o = g.options.find(o => o.name === n); if (o) mod += o.priceModifier; }));
+  const total = (item.price + mod) * quantity;
+  const varSel = Object.entries(selections).map(([gn, sel]) => ({ groupName: gn, selected: sel }));
 
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,61,46,0.75)", zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center", backdropFilter: "blur(8px)" }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background: T.ivory, width: "100%", maxWidth: "480px", maxHeight: "92vh",
-        borderRadius: "28px 28px 0 0", display: "flex", flexDirection: "column",
-        animation: "gb-slideUpModal 350ms cubic-bezier(0.32, 0.72, 0, 1)", overflow: "hidden",
-      }}>
-        <div style={{ position: "relative", height: "260px", background: item.imageUrl ? "transparent" : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, overflow: "hidden" }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", backdropFilter: "blur(12px)" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#111", width: "100%", maxWidth: "480px", maxHeight: "92vh", borderRadius: "24px 24px 0 0", display: "flex", flexDirection: "column", animation: "slideUp 350ms cubic-bezier(0.32,0.72,0,1)", overflow: "hidden", border: "1px solid #222" }}>
+        <div style={{ position: "relative", height: "260px", background: "#1a1a1a", overflow: "hidden", flexShrink: 0 }}>
           {item.imageUrl ? (
-            <img src={getHeroUrl(item.imageUrl)} alt={item.name} draggable={false} style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+            <img src={getHeroUrl(item.imageUrl)} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           ) : (
-            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <ItemImagePlaceholder name={item.name} size={140} />
-            </div>
+            <div style={{ width: "100%", height: "100%", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "80px" }}>☕</div>
           )}
-          <div style={{ position: "absolute", bottom: "-1px", left: 0, right: 0, height: "32px", background: T.ivory, borderRadius: "32px 32px 0 0" }} />
-          <button onClick={onClose} style={{ position: "absolute", top: "16px", right: "16px", width: "36px", height: "36px", borderRadius: "50%", background: "rgba(255,255,255,0.95)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", color: T.emerald, boxShadow: "0 4px 12px rgba(15,61,46,0.2)" }}>
-            <Icons.Close size={18} />
-          </button>
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "60px", background: "linear-gradient(to top, #111, transparent)" }} />
+          <button onClick={onClose} style={{ position: "absolute", top: "16px", right: "16px", width: "36px", height: "36px", borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.1)", color: "white", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "18px", backdropFilter: "blur(8px)" }}>✕</button>
           <div style={{ position: "absolute", top: "16px", left: "16px", display: "flex", gap: "6px" }}>
-            <Pill variant="success" size="sm" icon={<Icons.Leaf size={10} />}>VEG</Pill>
-            {item.tags?.includes("bestseller") && <Pill variant="gold" size="sm" icon={<Icons.Sparkle size={10} />}>BESTSELLER</Pill>}
+            <div style={{ background: T.success, color: "white", fontSize: "9px", fontWeight: 800, padding: "3px 8px", borderRadius: "99px" }}>🌿 VEG</div>
+            {item.tags?.includes("bestseller") && <div style={{ background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`, color: T.emerald, fontSize: "9px", fontWeight: 900, padding: "3px 8px", borderRadius: "99px" }}>⭐ BEST</div>}
           </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px 0" }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "8px", gap: "12px" }}>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "24px", fontWeight: 800, color: T.text, margin: 0 }}>{item.name}</h2>
-            <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0, background: T.cream, padding: "4px 10px", borderRadius: "99px" }}>
-              <span style={{ color: T.gold, fontSize: "13px" }}>★</span>
-              <span style={{ fontSize: "12px", fontWeight: 800, color: T.emerald, fontFamily: "'DM Sans', sans-serif" }}>{item.rating?.toFixed(1) || "4.5"}</span>
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "8px" }}>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "26px", fontWeight: 800, color: "white", margin: 0, flex: 1 }}>{item.name}</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px", background: "#1a1a1a", padding: "4px 10px", borderRadius: "99px", flexShrink: 0, marginLeft: "12px" }}>
+              <span style={{ color: T.gold, fontSize: "12px" }}>★</span>
+              <span style={{ fontSize: "12px", fontWeight: 800, color: "white", fontFamily: "'DM Sans', sans-serif" }}>{item.rating?.toFixed(1) || "4.5"}</span>
             </div>
           </div>
-          {item.description && <p style={{ fontSize: "13px", color: T.textMuted, margin: "0 0 16px", lineHeight: 1.5, fontWeight: 500 }}>{item.description}</p>}
+          {item.description && <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)", margin: "0 0 20px", lineHeight: 1.6 }}>{item.description}</p>}
 
-          {item.variantGroups?.map((group: VariantGroup, gIdx: number) => (
-            <div key={group.name} style={{ marginBottom: "20px" }}>
+          {item.variantGroups?.map((g: VariantGroup) => (
+            <div key={g.name} style={{ marginBottom: "20px" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: "16px", fontWeight: 700, color: T.emerald, margin: 0 }}>{group.name}</h3>
-                {group.required && <Pill variant="danger" size="sm">Required</Pill>}
+                <h3 style={{ fontSize: "14px", fontWeight: 800, color: "white", margin: 0 }}>{g.name}</h3>
+                {g.required && <span style={{ background: T.danger + "30", color: T.danger, fontSize: "9px", fontWeight: 800, padding: "2px 8px", borderRadius: "99px" }}>Required</span>}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: group.options.length > 3 ? "1fr 1fr" : `repeat(${group.options.length}, 1fr)`, gap: "8px" }}>
-                {group.options.map(opt => {
-                  const sel = selections[group.name]?.includes(opt.name);
+              <div style={{ display: "grid", gridTemplateColumns: g.options.length > 3 ? "1fr 1fr" : `repeat(${g.options.length}, 1fr)`, gap: "8px" }}>
+                {g.options.map(opt => {
+                  const sel = selections[g.name]?.includes(opt.name);
                   return (
-                    <button key={opt.name} onClick={() => toggleVariant(group.name, opt.name, group.multiSelect)} style={{
-                      padding: "12px",
-                      background: sel ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : T.cream,
-                      border: `2px solid ${sel ? T.emerald : T.creamDark}`, borderRadius: "14px",
-                      cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "4px",
-                      boxShadow: sel ? "0 4px 12px rgba(15,61,46,0.25)" : "none",
-                    }}>
-                      <span style={{ fontWeight: 800, fontSize: "13px", color: sel ? T.gold : T.text }}>{opt.name}</span>
-                      {opt.priceModifier !== 0 && (
-                        <span style={{ fontSize: "11px", color: sel ? "rgba(212,165,116,0.7)" : T.textMuted, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
-                          {opt.priceModifier > 0 ? `+₹${opt.priceModifier}` : `-₹${Math.abs(opt.priceModifier)}`}
-                        </span>
-                      )}
+                    <button key={opt.name} onClick={() => toggleVariant(g.name, opt.name, g.multiSelect)}
+                      style={{ padding: "12px", background: sel ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : "#1a1a1a", border: `1.5px solid ${sel ? T.emerald : "#333"}`, borderRadius: "12px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}>
+                      <span style={{ fontWeight: 800, fontSize: "13px", color: sel ? T.gold : "white" }}>{opt.name}</span>
+                      {opt.priceModifier !== 0 && <span style={{ fontSize: "11px", color: sel ? "rgba(212,165,116,0.6)" : "rgba(255,255,255,0.4)", fontFamily: "'DM Sans', sans-serif" }}>{opt.priceModifier > 0 ? `+₹${opt.priceModifier}` : `-₹${Math.abs(opt.priceModifier)}`}</span>}
                     </button>
                   );
                 })}
@@ -1081,24 +508,18 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
           ))}
         </div>
 
-        <div style={{ padding: "14px 20px 20px", borderTop: `1px solid ${T.border}`, background: T.ivory }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-            <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 700 }}>Quantity</span>
-            <div style={{ display: "flex", alignItems: "center", background: T.emerald, borderRadius: "99px", overflow: "hidden", boxShadow: "0 4px 12px rgba(15,61,46,0.25)" }}>
-              <button onClick={() => setQuantity(Math.max(1, quantity - 1))} style={{ width: "36px", height: "36px", background: "none", border: "none", color: T.gold, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icons.Minus size={14} /></button>
-              <span style={{ minWidth: "30px", textAlign: "center", color: T.gold, fontWeight: 900, fontSize: "16px", fontFamily: "'DM Sans', sans-serif" }}>{quantity}</span>
-              <button onClick={() => setQuantity(quantity + 1)} style={{ width: "36px", height: "36px", background: "none", border: "none", color: T.gold, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><Icons.Plus size={14} /></button>
+        <div style={{ padding: "16px 20px 24px", borderTop: "1px solid #222", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+            <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", fontWeight: 700 }}>QUANTITY</span>
+            <div style={{ display: "flex", alignItems: "center", background: "#1a1a1a", borderRadius: "99px", overflow: "hidden", border: "1px solid #333" }}>
+              <button onClick={() => setQuantity(Math.max(1, quantity - 1))} style={{ width: "40px", height: "40px", background: "none", border: "none", color: T.gold, cursor: "pointer", fontSize: "20px", display: "flex", alignItems: "center", justifyContent: "center" }}>−</button>
+              <span style={{ minWidth: "36px", textAlign: "center", color: "white", fontWeight: 900, fontSize: "18px", fontFamily: "'DM Sans', sans-serif" }}>{quantity}</span>
+              <button onClick={() => setQuantity(quantity + 1)} style={{ width: "40px", height: "40px", background: "none", border: "none", color: T.gold, cursor: "pointer", fontSize: "20px", display: "flex", alignItems: "center", justifyContent: "center" }}>+</button>
             </div>
           </div>
-          <button onClick={() => { onAddToCart(item, quantity, variantSelections, priceModifier); onClose(); }} style={{
-            width: "100%", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`,
-            color: T.gold, border: "none", borderRadius: "16px", padding: "16px 22px",
-            fontWeight: 800, fontSize: "15px", cursor: "pointer",
-            boxShadow: "0 8px 24px rgba(15,61,46,0.35)",
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-          }}>
+          <button onClick={() => { onAddToCart(item, quantity, varSel, mod); onClose(); }} style={{ width: "100%", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: T.gold, border: "none", borderRadius: "16px", padding: "18px 24px", fontWeight: 900, fontSize: "16px", cursor: "pointer", boxShadow: `0 8px 32px ${T.emerald}60`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span>Add to Cart</span>
-            <span style={{ fontFamily: "'DM Sans', sans-serif" }}>₹{itemTotal.toFixed(0)}</span>
+            <span style={{ fontFamily: "'DM Sans', sans-serif" }}>₹{total.toFixed(0)}</span>
           </button>
         </div>
       </div>
@@ -1106,53 +527,133 @@ function ProductDetailModal({ item, isOpen, onClose, onAddToCart }: {
   );
 }
 
-function CustomerDataPopup({ onSubmit, onSkip }: { onSubmit: (d: { name: string; phone: string; birthdate: string; anniversary: string }) => void; onSkip: () => void; }) {
-  const [name, setName] = useState(""); const [phone, setPhone] = useState("");
-  const [birthdate, setBirthdate] = useState(""); const [anniversary, setAnniversary] = useState("");
-  const [step, setStep] = useState(1);
-  const handleSubmit = () => {
-    if (step === 1) { if (!name.trim() || phone.length < 10) return alert("Valid name and 10-digit phone needed"); setStep(2); }
-    else onSubmit({ name, phone, birthdate, anniversary });
+// ══════════════════════════════════════════════════
+// CART VIEW
+// ══════════════════════════════════════════════════
+function CartView({ cart, onUpdateQty, onPlaceOrder, isPlacing, appliedDiscount, onDiscountChange }: {
+  cart: ExtendedCartItem[]; onUpdateQty: (k: string, d: number) => void; onPlaceOrder: () => void;
+  isPlacing: boolean; appliedDiscount: AppliedDiscount | null; onDiscountChange: (d: AppliedDiscount | null) => void;
+}) {
+  const [promoCode, setPromoCode] = useState("");
+  const [validating, setValidating] = useState(false);
+  const [codeError, setCodeError] = useState("");
+
+  const subtotal = cart.reduce((s, i) => s + (i.price + (i.totalPriceModifier || 0)) * i.quantity, 0);
+  const discount = appliedDiscount?.discount || 0;
+  const discountedSub = Math.max(0, subtotal - discount);
+  const tax = discountedSub * 0.05;
+  const total = discountedSub + tax;
+  const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
+
+  useEffect(() => {
+    if (cart.length === 0 || appliedDiscount?.type === "code") { if (cart.length === 0) onDiscountChange(null); return; }
+    const items = cart.map(c => ({ menuItemId: c.menuItemId, name: c.name, price: c.price + (c.totalPriceModifier || 0), quantity: c.quantity }));
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+    fetch(`${apiUrl}/promotions/calculate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items, subtotal }) })
+      .then(r => r.json())
+      .then(d => { if (d.success && d.data?.applied) onDiscountChange({ ...d.data.applied, type: "auto" }); else if (appliedDiscount?.type === "auto") onDiscountChange(null); })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart.length, subtotal]);
+
+  const applyCode = async () => {
+    if (!promoCode.trim()) return;
+    setValidating(true); setCodeError("");
+    try {
+      const items = cart.map(c => ({ menuItemId: c.menuItemId, name: c.name, price: c.price + (c.totalPriceModifier || 0), quantity: c.quantity }));
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+      const res = await fetch(`${apiUrl}/promotions/codes/validate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: promoCode.trim(), items, subtotal }) });
+      const data = await res.json();
+      if (!data.success) { setCodeError(data.message || "Invalid code"); return; }
+      onDiscountChange({ ...data.data, type: "code", code: data.data.code });
+      setPromoCode("");
+    } catch (e: unknown) { setCodeError(e instanceof Error ? e.message : "Failed"); }
+    finally { setValidating(false); }
   };
+
+  if (cart.length === 0) return (
+    <div style={{ padding: "40px 20px", textAlign: "center" }}>
+      <div style={{ fontSize: "60px", marginBottom: "12px" }}>🛒</div>
+      <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", color: "white", margin: "0 0 6px" }}>Cart is Empty</h3>
+      <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.4)", margin: 0 }}>Browse the menu to add items</p>
+    </div>
+  );
+
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(15,61,46,0.75)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px", backdropFilter: "blur(8px)" }}>
-      <div style={{ width: "100%", maxWidth: "400px", background: T.ivory, borderRadius: "20px", padding: "0 0 16px", animation: "gb-scaleIn 0.3s cubic-bezier(0.34,1.56,0.64,1)" }}>
-        <div style={{ height: "3px", background: `linear-gradient(90deg, ${T.goldDark}, ${T.gold}, ${T.goldLight}, ${T.gold}, ${T.goldDark})`, borderRadius: "20px 20px 0 0" }} />
-        <div style={{ padding: "18px 20px 0" }}>
-          <div style={{ textAlign: "center", marginBottom: "14px" }}>
-            <div style={{ fontSize: "32px", marginBottom: "4px" }}>{step === 1 ? "👋" : "🎂"}</div>
-            <h2 style={{ fontWeight: 800, fontSize: "20px", color: T.emerald, margin: "0 0 3px", fontFamily: "'Playfair Display', serif" }}>{step === 1 ? "Welcome!" : "Special dates?"}</h2>
-            <p style={{ fontSize: "12px", color: T.textMuted, margin: 0 }}>{step === 1 ? "Quick detail" : "We'll surprise you! 🎁"}</p>
+    <div style={{ padding: "16px 16px 100px" }}>
+      <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", fontWeight: 800, color: "white", margin: "0 0 4px" }}>My Cart</h2>
+      <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", margin: "0 0 16px" }}>{totalItems} item{totalItems !== 1 ? "s" : ""}</p>
+
+      {cart.map(item => (
+        <div key={item.menuItemId + JSON.stringify(item.variants)} style={{ background: "#1a1a1a", borderRadius: "16px", padding: "12px", marginBottom: "10px", border: "1px solid #222", display: "flex", gap: "12px", alignItems: "center" }}>
+          <div style={{ flexShrink: 0 }}>
+            {item.imageUrl ? (
+              <img src={getThumbnailUrl(item.imageUrl)} alt={item.name} style={{ width: "56px", height: "56px", borderRadius: "12px", objectFit: "cover" }} />
+            ) : (
+              <div style={{ width: "56px", height: "56px", borderRadius: "12px", background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px" }}>☕</div>
+            )}
           </div>
-          {step === 1 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <div>
-                <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "4px", textTransform: "uppercase" }}>Your Name *</label>
-                <input type="text" placeholder="e.g. Nirav" value={name} onChange={e => setName(e.target.value)} autoFocus style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${name ? T.gold : T.creamDark}`, background: T.cream, fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "4px", textTransform: "uppercase" }}>Mobile *</label>
-                <input type="tel" placeholder="10-digit" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${phone.length === 10 ? T.gold : T.creamDark}`, background: T.cream, fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <div>
-                <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "4px", textTransform: "uppercase" }}>🎂 Birthday (Optional)</label>
-                <input type="date" value={birthdate} onChange={e => setBirthdate(e.target.value)} style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${birthdate ? T.gold : T.creamDark}`, background: T.cream, fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
-              </div>
-              <div>
-                <label style={{ display: "block", fontSize: "10px", fontWeight: 800, color: T.textMuted, marginBottom: "4px", textTransform: "uppercase" }}>💑 Anniversary (Optional)</label>
-                <input type="date" value={anniversary} onChange={e => setAnniversary(e.target.value)} style={{ width: "100%", padding: "11px 13px", borderRadius: "10px", border: `2px solid ${anniversary ? T.gold : T.creamDark}`, background: T.cream, fontSize: "16px", outline: "none", boxSizing: "border-box" }} />
-              </div>
-            </div>
-          )}
-          <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
-            <Button variant="secondary" fullWidth onClick={onSkip}>Skip</Button>
-            <Button variant="primary" fullWidth onClick={handleSubmit}>{step === 1 ? "Continue →" : "Place Order"}</Button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontWeight: 800, fontSize: "14px", color: "white", margin: "0 0 2px" }}>{item.name}</p>
+            {item.variants && item.variants.some(v => v.selected.length > 0) && <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.4)", margin: "0 0 4px" }}>{item.variants.flatMap(v => v.selected).join(", ")}</p>}
+            <p style={{ fontWeight: 900, fontSize: "14px", color: T.gold, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>₹{((item.price + (item.totalPriceModifier || 0)) * item.quantity).toFixed(0)}</p>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", background: "#111", borderRadius: "10px", overflow: "hidden", border: "1px solid #333" }}>
+            <button onClick={() => onUpdateQty(item.menuItemId + JSON.stringify(item.variants), -1)} style={{ width: "32px", height: "32px", background: "none", border: "none", color: T.gold, cursor: "pointer", fontSize: "18px" }}>−</button>
+            <span style={{ fontWeight: 900, color: "white", fontSize: "13px", minWidth: "20px", textAlign: "center" }}>{item.quantity}</span>
+            <button onClick={() => onUpdateQty(item.menuItemId + JSON.stringify(item.variants), 1)} style={{ width: "32px", height: "32px", background: "none", border: "none", color: T.gold, cursor: "pointer", fontSize: "18px" }}>+</button>
           </div>
         </div>
+      ))}
+
+      {/* Discount */}
+      {appliedDiscount && (
+        <div style={{ background: appliedDiscount.type === "auto" ? `${T.success}20` : `${T.gold}20`, borderRadius: "14px", padding: "12px 14px", marginTop: "12px", border: `1px solid ${appliedDiscount.type === "auto" ? T.success + "40" : T.gold + "40"}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <p style={{ fontSize: "11px", color: appliedDiscount.type === "auto" ? T.success : T.gold, fontWeight: 800, margin: "0 0 2px" }}>{appliedDiscount.type === "auto" ? "🎉 Auto Promo" : `🎫 Code: ${appliedDiscount.code}`}</p>
+            <p style={{ fontSize: "13px", color: "white", fontWeight: 800, margin: 0 }}>Saved ₹{appliedDiscount.discount}</p>
+          </div>
+          {appliedDiscount.type === "code" && <button onClick={() => onDiscountChange(null)} style={{ background: "rgba(255,255,255,0.1)", border: "none", color: "white", width: "28px", height: "28px", borderRadius: "50%", cursor: "pointer", fontSize: "14px" }}>✕</button>}
+        </div>
+      )}
+
+      {/* Promo Code */}
+      {(!appliedDiscount || appliedDiscount.type === "auto") && (
+        <div style={{ background: "#1a1a1a", borderRadius: "14px", padding: "12px", marginTop: "12px", border: "1px dashed #333" }}>
+          <p style={{ fontSize: "10px", fontWeight: 800, color: "rgba(255,255,255,0.4)", letterSpacing: "0.05em", textTransform: "uppercase", margin: "0 0 8px" }}>Promo Code</p>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <input value={promoCode} onChange={e => { setPromoCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")); setCodeError(""); }}
+              placeholder="Enter code..." style={{ flex: 1, padding: "10px 12px", borderRadius: "10px", border: `1px solid ${codeError ? T.danger : "#333"}`, background: "#111", color: "white", fontSize: "14px", fontFamily: "'DM Sans', sans-serif", fontWeight: 700, outline: "none", letterSpacing: "0.05em" }} />
+            <button onClick={applyCode} disabled={!promoCode.trim() || validating}
+              style={{ padding: "10px 18px", borderRadius: "10px", background: promoCode.trim() ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : "#222", color: promoCode.trim() ? T.gold : "#555", border: "none", fontWeight: 800, fontSize: "12px", cursor: promoCode.trim() ? "pointer" : "not-allowed" }}>
+              {validating ? "..." : "Apply"}
+            </button>
+          </div>
+          {codeError && <p style={{ fontSize: "11px", color: T.danger, margin: "6px 0 0", fontWeight: 700 }}>⚠ {codeError}</p>}
+        </div>
+      )}
+
+      {/* Bill */}
+      <div style={{ background: "#1a1a1a", borderRadius: "16px", padding: "16px", marginTop: "14px", border: "1px solid #222" }}>
+        {[{ label: "Subtotal", value: `₹${subtotal.toFixed(0)}`, color: "rgba(255,255,255,0.6)" },
+          ...(discount > 0 ? [{ label: "Discount", value: `-₹${discount.toFixed(0)}`, color: T.success }] : []),
+          { label: "GST (5%)", value: `₹${tax.toFixed(0)}`, color: "rgba(255,255,255,0.6)" }
+        ].map(row => (
+          <div key={row.label} style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+            <span style={{ fontSize: "13px", color: row.color }}>{row.label}</span>
+            <span style={{ fontSize: "13px", color: row.color, fontFamily: "'DM Sans', sans-serif", fontWeight: 700 }}>{row.value}</span>
+          </div>
+        ))}
+        <div style={{ borderTop: "1px solid #333", paddingTop: "10px", marginTop: "4px", display: "flex", justifyContent: "space-between" }}>
+          <span style={{ fontSize: "16px", fontWeight: 800, color: "white" }}>Total</span>
+          <span style={{ fontSize: "18px", fontWeight: 900, color: T.gold, fontFamily: "'DM Sans', sans-serif" }}>₹{total.toFixed(0)}</span>
+        </div>
+        {discount > 0 && <p style={{ fontSize: "11px", color: T.success, textAlign: "center", margin: "10px 0 0", fontWeight: 800 }}>🎉 You're saving ₹{discount}!</p>}
       </div>
+
+      <button onClick={onPlaceOrder} disabled={isPlacing} style={{ width: "100%", marginTop: "16px", padding: "18px", borderRadius: "16px", border: "none", background: isPlacing ? "#333" : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, color: isPlacing ? "#666" : T.gold, fontWeight: 900, fontSize: "16px", cursor: isPlacing ? "not-allowed" : "pointer", boxShadow: isPlacing ? "none" : `0 8px 32px ${T.emerald}60`, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+        {isPlacing ? "Placing Order..." : `🛒 Place Order — ₹${total.toFixed(0)}`}
+      </button>
     </div>
   );
 }
@@ -1161,484 +662,52 @@ function TopCancelBar({ order, onCancelled }: { order: Order; onCancelled: () =>
   const placedAt = new Date(order.createdAt).getTime();
   const [secondsLeft, setSecondsLeft] = useState(() => Math.max(0, 120 - Math.floor((Date.now() - placedAt) / 1000)));
   const [cancelling, setCancelling] = useState(false);
-  const [pulse, setPulse] = useState(false);
 
-  useEffect(() => {
-    const iv = setInterval(() => {
-      setSecondsLeft(Math.max(0, 120 - Math.floor((Date.now() - placedAt) / 1000)));
-      setPulse(p => !p);
-    }, 1000);
-    return () => clearInterval(iv);
-  }, [placedAt]);
-
+  useEffect(() => { const iv = setInterval(() => setSecondsLeft(Math.max(0, 120 - Math.floor((Date.now() - placedAt) / 1000))), 1000); return () => clearInterval(iv); }, [placedAt]);
   if (secondsLeft <= 0) return null;
+
+  const isUrgent = secondsLeft <= 30;
+  const pct = (secondsLeft / 120) * 100;
   const mins = Math.floor(secondsLeft / 60); const secs = secondsLeft % 60;
-  const isUrgent = secondsLeft <= 30; const pct = (secondsLeft / 120) * 100;
 
   const handleCancel = async () => {
-    if (cancelling) return;
-    if (!confirm(`Cancel order #${order.orderNumber}?`)) return;
+    if (cancelling || !confirm(`Cancel order #${order.orderNumber}?`)) return;
     setCancelling(true);
     try { await orderApi.cancelOrder(order._id); localStorage.removeItem("gb_active_order"); onCancelled(); }
     catch { alert("Failed"); setCancelling(false); }
   };
-  return (
-    <div style={{
-  position: "sticky", top: 0, zIndex: 45,
-  background: isUrgent
-    ? "linear-gradient(135deg, #7f1d1d, #C0392B)"
-    : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`,
-  borderBottom: `2px solid ${isUrgent ? "#ef4444" : T.gold}`,
-  boxShadow: isUrgent
-    ? `0 4px 20px rgba(192,57,43,0.5), 0 0 ${pulse ? "20px" : "8px"} rgba(239,68,68,0.4)`
-    : `0 4px 20px rgba(15,61,46,0.3), 0 0 ${pulse ? "16px" : "6px"} rgba(212,165,116,0.3)`,
-  transition: "box-shadow 500ms ease",
-}}>
-  <div style={{ padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
-    <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
-      <div style={{
-        width: "38px", height: "38px", borderRadius: "10px",
-        background: isUrgent
-          ? `rgba(255,255,255,${pulse ? "0.25" : "0.15"})`
-          : `rgba(212,165,116,${pulse ? "0.25" : "0.15"})`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        border: `2px solid ${isUrgent ? "rgba(255,255,255,0.6)" : T.gold}`,
-        boxShadow: pulse
-          ? `0 0 12px ${isUrgent ? "rgba(255,255,255,0.4)" : "rgba(212,165,116,0.5)"}`
-          : "none",
-        transition: "all 500ms ease",
-        flexShrink: 0,
-      }}>
-        <span style={{
-          fontWeight: 900, fontSize: "11px", color: "white",
-          fontFamily: "'DM Sans', sans-serif",
-          fontVariantNumeric: "tabular-nums",
-          textShadow: pulse ? "0 0 8px rgba(255,255,255,0.8)" : "none",
-          transition: "text-shadow 500ms ease",
-        }}>{mins}:{String(secs).padStart(2, "0")}</span>
-      </div>
-      <div>
-        <p style={{
-          fontWeight: 800, fontSize: "11px", color: "white", margin: 0,
-          textShadow: isUrgent && pulse ? "0 0 8px rgba(255,255,255,0.5)" : "none",
-          transition: "text-shadow 500ms ease",
-        }}>
-          {isUrgent ? "⚠️ Cancel ending!" : "✕ Cancel within 2 min"}
-        </p>
-        <p style={{ fontSize: "9px", color: "rgba(255,255,255,0.75)", margin: "1px 0 0", fontWeight: 600 }}>
-          Order #{order.orderNumber}
-        </p>
-      </div>
-    </div>
-    <button
-      onClick={handleCancel}
-      disabled={cancelling}
-      style={{
-        background: isUrgent
-          ? `rgba(255,255,255,${pulse ? "1" : "0.9"})`
-          : "white",
-        color: isUrgent ? T.danger : T.emerald,
-        border: "none", borderRadius: "8px",
-        padding: "7px 14px",
-        fontWeight: 800, fontSize: "11px",
-        cursor: cancelling ? "wait" : "pointer",
-        fontFamily: "'Inter', sans-serif",
-        boxShadow: isUrgent && pulse ? "0 0 12px rgba(255,255,255,0.6)" : "none",
-        transition: "all 300ms ease",
-        letterSpacing: "0.02em",
-      }}
-    >
-      {cancelling ? "..." : "✕ CANCEL"}
-    </button>
-  </div>
-
-  {/* Premium animated progress bar */}
-  <div style={{ height: "3px", background: "rgba(0,0,0,0.2)", position: "relative", overflow: "hidden" }}>
-    <div style={{
-      height: "100%", width: `${pct}%`,
-      background: isUrgent
-        ? "linear-gradient(90deg, #fca5a5, white, #fca5a5)"
-        : `linear-gradient(90deg, ${T.goldDark}, ${T.gold}, ${T.goldLight}, ${T.gold}, ${T.goldDark})`,
-      backgroundSize: "200% 100%",
-      transition: "width 1s linear",
-      animation: "gb-shimmer 2s linear infinite",
-      boxShadow: `0 0 8px ${isUrgent ? "rgba(255,255,255,0.6)" : "rgba(212,165,116,0.6)"}`,
-    }} />
-  </div>
-</div>
-  );
-}
-
-function CartView({
-  cart,
-  onUpdateQty,
-  onPlaceOrder,
-  isPlacing,
-  appliedDiscount,
-  onDiscountChange,
-}: {
-  cart: ExtendedCartItem[];
-  onUpdateQty: (k: string, d: number) => void;
-  onPlaceOrder: () => void;
-  isPlacing: boolean;
-  appliedDiscount: AppliedDiscount | null;
-  onDiscountChange: (d: AppliedDiscount | null) => void;
-}) {
-  const [promoCode, setPromoCode] = useState("");
-  const [validating, setValidating] = useState(false);
-  const [codeError, setCodeError] = useState("");
-  const [autoChecking, setAutoChecking] = useState(false);
-
-  const subtotal = cart.reduce((s, i) => s + (i.price + (i.totalPriceModifier || 0)) * i.quantity, 0);
-  const discount = appliedDiscount?.discount || 0;
-  const discountedSubtotal = Math.max(0, subtotal - discount);
-  const tax = discountedSubtotal * 0.05;
-  const total = discountedSubtotal + tax;
-  const totalItems = cart.reduce((s, i) => s + i.quantity, 0);
-
-  // ─── Auto-check promotions when cart changes ───
-  useEffect(() => {
-    if (cart.length === 0 || appliedDiscount?.type === "code") {
-      // Don't auto-check if user has manually applied code
-      if (cart.length === 0) onDiscountChange(null);
-      return;
-    }
-
-    const items = cart.map(c => ({
-      menuItemId: c.menuItemId,
-      name: c.name,
-      price: c.price + (c.totalPriceModifier || 0),
-      quantity: c.quantity,
-    }));
-
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
-
-    setAutoChecking(true);
-    fetch(`${apiUrl}/promotions/calculate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items, subtotal }),
-    })
-      .then(r => r.json())
-      .then(d => {
-        if (d.success && d.data?.applied) {
-          onDiscountChange({
-            ...d.data.applied,
-            type: "auto",
-          });
-        } else if (appliedDiscount?.type === "auto") {
-          onDiscountChange(null);
-        }
-      })
-      .catch(() => { })
-      .finally(() => setAutoChecking(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cart.length, subtotal]);
-
-  const handleApplyCode = async () => {
-    if (!promoCode.trim()) return;
-    setValidating(true);
-    setCodeError("");
-    try {
-      const items = cart.map(c => ({
-        menuItemId: c.menuItemId,
-        name: c.name,
-        price: c.price + (c.totalPriceModifier || 0),
-        quantity: c.quantity,
-      }));
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
-      const res = await fetch(`${apiUrl}/promotions/codes/validate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: promoCode.trim(), items, subtotal }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        setCodeError(data.message || "Invalid code");
-        return;
-      }
-      onDiscountChange({
-        ...data.data,
-        type: "code",
-        code: data.data.code,
-      });
-      setPromoCode("");
-    } catch (e: unknown) {
-      setCodeError(e instanceof Error ? e.message : "Failed to apply");
-    } finally {
-      setValidating(false);
-    }
-  };
-
-  const handleRemoveDiscount = () => {
-    onDiscountChange(null);
-    setPromoCode("");
-    setCodeError("");
-  };
 
   return (
-    <div style={{ padding: "16px 14px 100px" }}>
-      <h2 style={{ fontWeight: 800, fontSize: "22px", color: T.emerald, margin: "0 0 4px", fontFamily: "'Playfair Display', serif" }}>My Cart</h2>
-      <p style={{ fontSize: "12px", color: T.textMuted, margin: "0 0 16px" }}>
-        {totalItems > 0 ? `${totalItems} item${totalItems !== 1 ? "s" : ""}` : "Cart empty"}
-      </p>
-
-      {cart.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "60px 20px" }}>
-          <div style={{ width: "80px", height: "80px", margin: "0 auto 16px", borderRadius: "20px", background: T.cream, display: "flex", alignItems: "center", justifyContent: "center", color: T.emerald }}>
-            <Icons.Cart size={36} />
+    <div style={{ position: "sticky", top: 0, zIndex: 45, background: isUrgent ? "linear-gradient(135deg, #7f1d1d, #C0392B)" : "linear-gradient(135deg, #0F3D2E, #1A5340)", borderBottom: `1px solid ${isUrgent ? "#ef4444" : T.gold}` }}>
+      <div style={{ padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: "8px", padding: "5px 10px", border: `1px solid ${isUrgent ? "rgba(255,255,255,0.4)" : T.gold}` }}>
+            <span style={{ fontWeight: 900, fontSize: "12px", color: "white", fontFamily: "'DM Sans', sans-serif" }}>{mins}:{String(secs).padStart(2, "0")}</span>
           </div>
-          <p style={{ fontWeight: 800, fontSize: "16px", color: T.emerald, margin: "0 0 4px" }}>Cart is empty</p>
-          <p style={{ fontSize: "12px", color: T.textMuted, margin: 0 }}>Browse menu to add</p>
+          <p style={{ fontWeight: 800, fontSize: "12px", color: "white", margin: 0 }}>{isUrgent ? "⚠️ Cancel ending!" : "Cancel within 2 min"}</p>
         </div>
-      ) : (
-        <>
-          {cart.map(item => (
-            <div key={item.menuItemId + JSON.stringify(item.variants)} style={{
-              background: T.ivory, borderRadius: "16px", padding: "12px",
-              marginBottom: "10px", border: `1px solid ${T.creamDark}`,
-              display: "flex", gap: "12px",
-            }}>
-              <div style={{ flexShrink: 0 }}>
-                {item.imageUrl ? (
-                  <img src={getThumbnailUrl(item.imageUrl)} alt={item.name} draggable={false}
-                    style={{ width: "60px", height: "60px", borderRadius: "12px", objectFit: "cover", pointerEvents: "none" }} />
-                ) : (
-                  <ItemImagePlaceholder name={item.name} size={60} />
-                )}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontWeight: 800, fontSize: "14px", color: T.text, margin: "0 0 2px" }}>{item.name}</p>
-                {item.variants && item.variants.some(v => v.selected.length > 0) && (
-                  <p style={{ fontSize: "10px", color: T.textMuted, margin: "0 0 4px", fontWeight: 600 }}>
-                    {item.variants.flatMap(v => v.selected).join(", ")}
-                  </p>
-                )}
-                <p style={{ fontWeight: 800, fontSize: "13px", color: T.emerald, margin: 0, fontFamily: "'DM Sans', sans-serif" }}>
-                  ₹{((item.price + (item.totalPriceModifier || 0)) * item.quantity).toFixed(0)}
-                </p>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", background: T.emerald, borderRadius: "10px", overflow: "hidden", height: "fit-content" }}>
-                <button onClick={() => onUpdateQty(item.menuItemId + JSON.stringify(item.variants), -1)}
-                  style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Icons.Minus size={12} />
-                </button>
-                <span style={{ fontWeight: 900, color: T.gold, fontSize: "12px", minWidth: "20px", textAlign: "center", fontFamily: "'DM Sans', sans-serif" }}>{item.quantity}</span>
-                <button onClick={() => onUpdateQty(item.menuItemId + JSON.stringify(item.variants), 1)}
-                  style={{ width: "28px", height: "28px", background: "none", border: "none", color: T.gold, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Icons.Plus size={12} />
-                </button>
-              </div>
-            </div>
-          ))}
-
-          {/* ─── Auto-applied Discount Banner ─── */}
-          {appliedDiscount && appliedDiscount.type === "auto" && (
-            <div style={{
-              background: `linear-gradient(135deg, ${T.success}, #2d6a2d)`,
-              borderRadius: "14px", padding: "12px 14px", marginTop: "12px",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              boxShadow: "0 4px 16px rgba(74,139,74,0.25)",
-              animation: "gb-fadeInUp 0.3s ease both",
-            }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
-                  <Icons.Sparkle size={12} color="white" />
-                  <span style={{ fontSize: "10px", color: "white", fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", opacity: 0.9 }}>
-                    Auto Promotion Applied
-                  </span>
-                </div>
-                <p style={{ fontSize: "13px", color: "white", margin: 0, fontWeight: 800 }}>
-                  🎉 You saved ₹{appliedDiscount.discount}!
-                </p>
-                <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.85)", margin: "2px 0 0", fontWeight: 600 }}>
-                  {appliedDiscount.name} · {appliedDiscount.description}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* ─── Code-applied Discount Banner ─── */}
-          {appliedDiscount && appliedDiscount.type === "code" && (
-            <div style={{
-              background: `linear-gradient(135deg, ${T.gold}, ${T.goldLight})`,
-              borderRadius: "14px", padding: "12px 14px", marginTop: "12px",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              boxShadow: "0 4px 16px rgba(212,165,116,0.35)",
-              animation: "gb-fadeInUp 0.3s ease both",
-            }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
-                  <span style={{ fontSize: "11px" }}>🎫</span>
-                  <span style={{ fontSize: "10px", color: T.emerald, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase" }}>
-                    Code: {appliedDiscount.code}
-                  </span>
-                </div>
-                <p style={{ fontSize: "13px", color: T.emerald, margin: 0, fontWeight: 800 }}>
-                  💰 Saved ₹{appliedDiscount.discount}
-                </p>
-                <p style={{ fontSize: "11px", color: "rgba(15,61,46,0.75)", margin: "2px 0 0", fontWeight: 600 }}>
-                  {appliedDiscount.name}
-                </p>
-              </div>
-              <button onClick={handleRemoveDiscount} style={{
-                width: "32px", height: "32px", borderRadius: "50%",
-                background: T.emerald, color: T.gold, border: "none", cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                flexShrink: 0,
-              }}>
-                <Icons.Close size={14} />
-              </button>
-            </div>
-          )}
-
-          {/* ─── Promo Code Input ─── */}
-          {(!appliedDiscount || appliedDiscount.type === "auto") && (
-            <div style={{
-              background: T.ivory, borderRadius: "14px", padding: "12px",
-              marginTop: "12px", border: `1px dashed ${T.creamDark}`,
-            }}>
-              <p style={{ fontSize: "10px", fontWeight: 800, color: T.textMuted, letterSpacing: "0.05em", textTransform: "uppercase", margin: "0 0 8px" }}>
-                Have a Promo Code?
-              </p>
-              <div style={{ display: "flex", gap: "6px" }}>
-                <input
-                  type="text"
-                  placeholder="Enter code..."
-                  value={promoCode}
-                  onChange={e => { setPromoCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "")); setCodeError(""); }}
-                  style={{
-                    flex: 1, padding: "10px 12px", borderRadius: "10px",
-                    border: `1.5px solid ${codeError ? T.danger : T.border}`,
-                    background: T.cream, color: T.text, fontSize: "14px",
-                    fontFamily: "'DM Sans', sans-serif", letterSpacing: "0.05em",
-                    fontWeight: 700, outline: "none", boxSizing: "border-box",
-                  }}
-                />
-                <button
-                  onClick={handleApplyCode}
-                  disabled={!promoCode.trim() || validating}
-                  style={{
-                    padding: "10px 18px", borderRadius: "10px",
-                    background: !promoCode.trim() ? T.creamDark : `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`,
-                    color: !promoCode.trim() ? T.textDim : T.gold,
-                    border: "none",
-                    fontWeight: 800, fontSize: "12px",
-                    cursor: !promoCode.trim() ? "not-allowed" : "pointer",
-                    fontFamily: "'Inter', sans-serif",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {validating ? "..." : "Apply"}
-                </button>
-              </div>
-              {codeError && (
-                <p style={{ fontSize: "11px", color: T.danger, margin: "6px 0 0", fontWeight: 700 }}>
-                  ⚠ {codeError}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* ─── Bill Summary ─── */}
-          <div style={{ background: T.ivory, borderRadius: "16px", padding: "14px", marginTop: "14px", border: `1px solid ${T.creamDark}` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: T.textMuted, marginBottom: "5px" }}>
-              <span>Subtotal</span>
-              <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: T.text }}>₹{subtotal.toFixed(0)}</span>
-            </div>
-            {discount > 0 && (
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: T.success, marginBottom: "5px", fontWeight: 700 }}>
-                <span>Discount</span>
-                <span style={{ fontFamily: "'DM Sans', sans-serif" }}>-₹{discount.toFixed(0)}</span>
-              </div>
-            )}
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: T.textMuted, paddingBottom: "9px", borderBottom: `1px dashed ${T.creamDark}`, marginBottom: "9px" }}>
-              <span>Taxes (5%)</span>
-              <span style={{ fontFamily: "'DM Sans', sans-serif", fontWeight: 700, color: T.text }}>₹{tax.toFixed(0)}</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: "16px", color: T.emerald }}>
-              <span>Total</span>
-              <span style={{ fontFamily: "'DM Sans', sans-serif" }}>₹{total.toFixed(0)}</span>
-            </div>
-            {discount > 0 && (
-              <p style={{ fontSize: "10px", color: T.success, margin: "8px 0 0", textAlign: "center", fontWeight: 800 }}>
-                🎉 You&apos;re saving ₹{discount} on this order!
-              </p>
-            )}
-          </div>
-
-          <div style={{ marginTop: "14px" }}>
-            <Button variant="primary" size="xl" fullWidth onClick={onPlaceOrder} loading={isPlacing}>
-              🛒 Place Order — ₹{total.toFixed(0)}
-            </Button>
-          </div>
-        </>
-      )}
+        <button onClick={handleCancel} disabled={cancelling} style={{ background: "rgba(255,255,255,0.9)", color: isUrgent ? T.danger : T.emerald, border: "none", borderRadius: "8px", padding: "6px 14px", fontWeight: 800, fontSize: "11px", cursor: cancelling ? "wait" : "pointer" }}>
+          {cancelling ? "..." : "✕ CANCEL"}
+        </button>
+      </div>
+      <div style={{ height: "2px", background: "rgba(0,0,0,0.2)" }}>
+        <div style={{ height: "100%", width: `${pct}%`, background: isUrgent ? "linear-gradient(90deg, #fca5a5, white)" : `linear-gradient(90deg, ${T.gold}, ${T.goldLight})`, transition: "width 1s linear" }} />
+      </div>
     </div>
   );
 }
 
-function OrderView({ order, queuePosition }: { order: Order | null; queuePosition?: number }) {
-  if (!order) return (
-    <div style={{ padding: "16px 14px 100px" }}>
-      <h2 style={{ fontWeight: 800, fontSize: "22px", color: T.emerald, margin: "0 0 4px", fontFamily: "'Playfair Display', serif" }}>My Orders</h2>
-      <p style={{ fontSize: "12px", color: T.textMuted, margin: "0 0 16px" }}>Active orders will appear here</p>
-      <div style={{ textAlign: "center", padding: "60px 20px" }}>
-        <div style={{ width: "80px", height: "80px", margin: "0 auto 16px", borderRadius: "20px", background: T.cream, display: "flex", alignItems: "center", justifyContent: "center", color: T.emerald }}><Icons.Receipt size={36} /></div>
-        <p style={{ fontWeight: 800, fontSize: "16px", color: T.emerald, margin: "0 0 4px" }}>No active orders</p>
-        <p style={{ fontSize: "12px", color: T.textMuted, margin: 0 }}>Place an order to see live tracking</p>
-      </div>
-    </div>
-  );
-  return (
-    <div style={{ paddingBottom: "100px" }}>
-      <div style={{ padding: "16px 14px 0" }}>
-        <h2 style={{ fontWeight: 800, fontSize: "22px", color: T.emerald, margin: "0 0 4px", fontFamily: "'Playfair Display', serif" }}>My Order</h2>
-        <p style={{ fontSize: "12px", color: T.textMuted, margin: "0 0 12px" }}>Live tracking</p>
-      </div>
-      <LiveOrderTracker order={order} queuePosition={queuePosition} />
-    </div>
-  );
-}
-
-function InfoView({ table }: { table: Table | null }) {
-  return (
-    <div style={{ padding: "16px 14px 100px" }}>
-      <h2 style={{ fontWeight: 800, fontSize: "22px", color: T.emerald, margin: "0 0 4px", fontFamily: "'Playfair Display', serif" }}>About Us</h2>
-      <p style={{ fontSize: "12px", color: T.textMuted, margin: "0 0 16px" }}>Golden Beans Cafe & Bistro</p>
-      <div style={{ background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, borderRadius: "20px", padding: "20px", marginBottom: "12px", boxShadow: "0 8px 20px rgba(15,61,46,0.25)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
-          <img src="/logo-small.png" alt="GB" draggable={false} style={{ width: "48px", height: "48px", borderRadius: "12px", pointerEvents: "none" }} />
-          <div>
-            <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", fontWeight: 800, color: T.gold, margin: 0 }}>Golden Beans</p>
-            <p style={{ fontSize: "10px", color: "rgba(212,165,116,0.8)", margin: "2px 0 0", fontWeight: 600, letterSpacing: "0.1em" }}>CAFE & BISTRO</p>
-          </div>
-        </div>
-        <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.85)", margin: 0, lineHeight: 1.6 }}>Premium 100% pure vegetarian cafe in Surat. Handcrafted coffee, fresh snacks.</p>
-      </div>
-      {table && <div style={{ background: T.ivory, borderRadius: "16px", padding: "14px", marginBottom: "12px", border: `1px solid ${T.creamDark}`, display: "flex", alignItems: "center", gap: "12px" }}>
-        <div style={{ width: "40px", height: "40px", borderRadius: "10px", background: T.cream, display: "flex", alignItems: "center", justifyContent: "center", color: T.emerald }}><Icons.ChairFill size={20} /></div>
-        <div><p style={{ fontSize: "10px", color: T.textMuted, fontWeight: 700, textTransform: "uppercase", margin: 0 }}>Your Table</p><p style={{ fontWeight: 800, fontSize: "14px", color: T.emerald, margin: "2px 0 0" }}>Table {table.tableNumber}</p></div>
-      </div>}
-      <div style={{ marginTop: "20px", textAlign: "center", padding: "16px" }}><Pill variant="success" size="md" icon={<Icons.Leaf size={11} />}>100% Pure Vegetarian</Pill></div>
-    </div>
-  );
-}
-
-// ═════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════
 // MAIN COMPONENT
-// ═════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════
 export default function CustomerOrderPage() {
   const params = useParams();
   const router = useRouter();
   const tableId = params.tableId as string;
 
-  // ─── Security state ───
   const [securityStatus, setSecurityStatus] = useState<"checking" | "passed" | "failed" | "session_ended">("checking");
   const [securityResult, setSecurityResult] = useState<SecurityResult | null>(null);
   const [sessionEndReason, setSessionEndReason] = useState("");
-
-  // ─── App state ───
   const [menu, setMenu] = useState<MenuCategory[]>([]);
   const [table, setTable] = useState<Table | null>(null);
   const [existingOrder, setExistingOrder] = useState<Order | null>(null);
@@ -1649,58 +718,23 @@ export default function CustomerOrderPage() {
   const [isPlacing, setIsPlacing] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
-  const [showCustomerPopup, setShowCustomerPopup] = useState(false);
   const [appliedDiscount, setAppliedDiscount] = useState<AppliedDiscount | null>(null);
   const [customerData, setCustomerData] = useState<{ name: string; phone: string } | null>(null);
   const prevStatusRef = useRef<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleSecurityPassed = useCallback(() => setSecurityStatus("passed"), []);
-  const handleSecurityFailed = useCallback((result: SecurityResult) => {
-    setSecurityResult(result);
-    setSecurityStatus("failed");
-  }, []);
-  const handleRetrySecurity = useCallback(() => {
-    setSecurityStatus("checking");
-    setSecurityResult(null);
-  }, []);
+  const handleSecurityFailed = useCallback((result: SecurityResult) => { setSecurityResult(result); setSecurityStatus("failed"); }, []);
+  const handleRetrySecurity = useCallback(() => { setSecurityStatus("checking"); setSecurityResult(null); }, []);
 
   useEffect(() => {
     if (securityStatus !== "passed") return;
     const saved = localStorage.getItem("gb_customer");
-    if (saved) {
-      try { const data = JSON.parse(saved); setCustomerData({ name: data.name, phone: data.phone }); }
-      catch { }
-    }
-
-    // Watch localStorage for CRM updates
-    const handleStorage = () => {
-      const updated = localStorage.getItem("gb_customer");
-      if (updated) {
-        try { const data = JSON.parse(updated); setCustomerData({ name: data.name, phone: data.phone }); }
-        catch { }
-      }
-    };
+    if (saved) { try { const d = JSON.parse(saved); setCustomerData({ name: d.name, phone: d.phone }); } catch {} }
+    const handleStorage = () => { const u = localStorage.getItem("gb_customer"); if (u) { try { const d = JSON.parse(u); setCustomerData({ name: d.name, phone: d.phone }); } catch {} } };
     window.addEventListener("storage", handleStorage);
-
-    // Poll every 2 seconds for same-tab updates
-    const iv = setInterval(() => {
-      const updated = localStorage.getItem("gb_customer");
-      if (updated) {
-        try {
-          const data = JSON.parse(updated);
-          setCustomerData(prev => {
-            if (prev?.name === data.name && prev?.phone === data.phone) return prev;
-            return { name: data.name, phone: data.phone };
-          });
-        } catch { }
-      }
-    }, 2000);
-
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      clearInterval(iv);
-    };
+    const iv = setInterval(() => { const u = localStorage.getItem("gb_customer"); if (u) { try { const d = JSON.parse(u); setCustomerData(prev => prev?.name === d.name && prev?.phone === d.phone ? prev : { name: d.name, phone: d.phone }); } catch {} } }, 2000);
+    return () => { window.removeEventListener("storage", handleStorage); clearInterval(iv); };
   }, [securityStatus]);
 
   useEffect(() => {
@@ -1709,113 +743,57 @@ export default function CustomerOrderPage() {
       try {
         setLoading(true);
         const [menuRes, tableRes] = await Promise.all([menuApi.getMenu(), tableApi.getTable(tableId)]);
-        setMenu(menuRes.data.data);
-        setTable(tableRes.data.data);
+        setMenu(menuRes.data.data); setTable(tableRes.data.data);
         if (menuRes.data.data.length > 0) setActiveCategory(menuRes.data.data[0]._id);
         const orderRes = await orderApi.getOrderByTable(tableId);
         if (orderRes.data.data) {
           const order = orderRes.data.data;
-          if (["settled", "cancelled"].includes(order.status)) {
-            localStorage.removeItem("gb_active_order");
-            setExistingOrder(null);
-          } else {
-            setExistingOrder(order);
-            prevStatusRef.current = order.status;
-            localStorage.setItem("gb_active_order", order._id);
-          }
+          if (["settled", "cancelled"].includes(order.status)) { localStorage.removeItem("gb_active_order"); setExistingOrder(null); }
+          else { setExistingOrder(order); prevStatusRef.current = order.status; localStorage.setItem("gb_active_order", order._id); }
         }
-      } catch { }
-      finally { setLoading(false); }
+      } catch {} finally { setLoading(false); }
     }
     load();
   }, [tableId, securityStatus]);
 
   useEffect(() => {
     if (securityStatus !== "passed") return;
-
     let cancelled = false;
-
     const checkOrder = async () => {
       if (cancelled) return;
       try {
-        // ─── SETTLEMENT WATCHER (Priority Check) ───
         if (existingOrder) {
-          try {
-            const directRes = await orderApi.getOrder(existingOrder._id);
-            const directOrder: Order | null = directRes.data?.data;
-            if (directOrder) {
-              if (directOrder.status === "settled") {
-                // orderId save કરો feedback માટે — remove પહેલા
-                localStorage.setItem("gb_settled_order_id", existingOrder._id);
-                localStorage.setItem("gb_settled_table", existingOrder.tableNumber || tableId);
-                localStorage.removeItem("gb_active_order");
-                localStorage.removeItem("gb_customer");
-                setSessionEndReason("Your bill has been settled. Thank you for visiting!");
-                setSecurityStatus("session_ended");
-                return;
-              }
-              if (directOrder.status === "cancelled") {
-                localStorage.removeItem("gb_active_order");
-                setSessionEndReason("Your order was cancelled.");
-                setSecurityStatus("session_ended");
-                return;
-              }
-            }
-          } catch { }
+          const directRes = await orderApi.getOrder(existingOrder._id);
+          const directOrder: Order | null = directRes.data?.data;
+          if (directOrder) {
+            if (directOrder.status === "settled") { localStorage.setItem("gb_settled_order_id", existingOrder._id); localStorage.setItem("gb_settled_table", existingOrder.tableNumber || tableId); localStorage.removeItem("gb_active_order"); localStorage.removeItem("gb_customer"); setSessionEndReason("Your bill has been settled. Thank you!"); setSecurityStatus("session_ended"); return; }
+            if (directOrder.status === "cancelled") { localStorage.removeItem("gb_active_order"); setSessionEndReason("Your order was cancelled."); setSecurityStatus("session_ended"); return; }
+          }
         }
-
-        const [orderRes, allRes] = await Promise.all([
-          orderApi.getOrderByTable(tableId),
-          orderApi.getKdsOrders(),
-        ]);
+        const [orderRes, allRes] = await Promise.all([orderApi.getOrderByTable(tableId), orderApi.getKdsOrders()]);
         if (cancelled) return;
         if (allRes.data.data) setAllOrders(allRes.data.data);
-
         const newOrder: Order | null = orderRes.data.data;
         if (!newOrder) return;
         prevStatusRef.current = newOrder.status;
         setExistingOrder(newOrder);
-      } catch { }
+      } catch {}
     };
-
-    // Start polling every 5 seconds
     pollRef.current = setInterval(checkOrder, 5000);
-
-    // Re-check immediately when page becomes visible (iPhone Safari fix)
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        checkOrder();
-      }
-    };
-    const handleFocus = () => checkOrder();
-    const handlePageShow = () => checkOrder();
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleFocus);
-    window.addEventListener("pageshow", handlePageShow);
-
-    // Initial check
+    const onVis = () => { if (document.visibilityState === "visible") checkOrder(); };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", checkOrder);
     checkOrder();
-
-    return () => {
-      cancelled = true;
-      if (pollRef.current) clearInterval(pollRef.current);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleFocus);
-      window.removeEventListener("pageshow", handlePageShow);
-    };
+    return () => { cancelled = true; if (pollRef.current) clearInterval(pollRef.current); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("focus", checkOrder); };
   }, [securityStatus, tableId, existingOrder]);
 
-  const queuePosition = existingOrder
-    ? allOrders.filter(o => ["kotSent", "open"].includes(o.status) && o._id !== existingOrder._id)
-      .filter(o => new Date(o.createdAt).getTime() < new Date(existingOrder.createdAt).getTime()).length
-    : undefined;
+  const queuePosition = existingOrder ? allOrders.filter(o => ["kotSent", "open"].includes(o.status) && o._id !== existingOrder._id && new Date(o.createdAt).getTime() < new Date(existingOrder.createdAt).getTime()).length : undefined;
 
   const handleAddToCart = (item: MenuItem, qty: number, variants: { groupName: string; selected: string[] }[], modifier: number) => {
-    const cartKey = item._id + JSON.stringify(variants);
+    const key = item._id + JSON.stringify(variants);
     setCart(prev => {
-      const ex = prev.find(c => (c.menuItemId + JSON.stringify(c.variants)) === cartKey);
-      if (ex) return prev.map(c => (c.menuItemId + JSON.stringify(c.variants)) === cartKey ? { ...c, quantity: c.quantity + qty } : c);
+      const ex = prev.find(c => (c.menuItemId + JSON.stringify(c.variants)) === key);
+      if (ex) return prev.map(c => (c.menuItemId + JSON.stringify(c.variants)) === key ? { ...c, quantity: c.quantity + qty } : c);
       return [...prev, { menuItemId: item._id, name: item.name, price: item.price, quantity: qty, notes: "", isVeg: true, variants, totalPriceModifier: modifier, imageUrl: item.imageUrl }];
     });
   };
@@ -1831,258 +809,225 @@ export default function CustomerOrderPage() {
 
   const handlePlaceOrderClick = async () => {
     if (cart.length === 0) return;
-    // Check payment mode
     try {
       const API = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
       const pmRes = await fetch(`${API}/settings/payment_mode`).then(r => r.json());
-      const paymentMode = pmRes.data || "counter";
-      if (paymentMode === "online" || paymentMode === "both") {
-        // Show Razorpay
-        await initiateRazorpayPayment();
-      } else {
-        placeOrder(customerData || undefined);
-      }
-    } catch {
-      placeOrder(customerData || undefined);
-    }
+      const pm = pmRes.data || "counter";
+      if (pm === "online" || pm === "both") await initiateRazorpayPayment();
+      else placeOrder(customerData || undefined);
+    } catch { placeOrder(customerData || undefined); }
   };
 
   const initiateRazorpayPayment = async () => {
     const subtotal = cart.reduce((s, i) => s + (i.price + (i.totalPriceModifier || 0)) * i.quantity, 0);
     const discount = appliedDiscount?.discount || 0;
-    const total = Math.round((Math.max(0, subtotal - discount) * 1.05));
+    const total = Math.round(Math.max(0, subtotal - discount) * 1.05);
     const API = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
     setIsPlacing(true);
     try {
-      // Create Razorpay order
-      const res = await fetch(`${API}/payment/create-order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: total, tableNumber: table?.tableNumber }),
-      }).then(r => r.json());
-
+      const res = await fetch(`${API}/payment/create-order`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amount: total, tableNumber: table?.tableNumber }) }).then(r => r.json());
       if (!res.success) throw new Error(res.message);
       const { orderId: rzpOrderId, keyId } = res.data;
-
-      // Load Razorpay script
+      await new Promise<void>((resolve, reject) => { if ((window as any).Razorpay) { resolve(); return; } const s = document.createElement("script"); s.src = "https://checkout.razorpay.com/v1/checkout.js"; s.onload = () => resolve(); s.onerror = () => reject(new Error("Razorpay load failed")); document.body.appendChild(s); });
       await new Promise<void>((resolve, reject) => {
-        if ((window as any).Razorpay) { resolve(); return; }
-        const script = document.createElement("script");
-        script.src = "https://checkout.razorpay.com/v1/checkout.js";
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error("Razorpay load failed"));
-        document.body.appendChild(script);
-      });
-
-      // Open Razorpay checkout
-      await new Promise<void>((resolve, reject) => {
-        const rzp = new (window as any).Razorpay({
-          key: keyId,
-          amount: total * 100,
-          currency: "INR",
-          name: "Golden Beans Café",
-          description: `Table ${table?.tableNumber} — Order`,
-          order_id: rzpOrderId,
-          prefill: { name: customerData?.name || "", contact: customerData?.phone || "" },
-          theme: { color: "#0F3D2E" },
-          handler: async (response: any) => {
-            // Verify payment
-            try {
-              const verRes = await fetch(`${API}/payment/verify`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(response),
-              }).then(r => r.json());
-              if (verRes.success) {
-                await placeOrder(customerData || undefined, response.razorpay_payment_id);
-                resolve();
-              } else {
-                reject(new Error("Payment verification failed"));
-              }
-            } catch (e) { reject(e); }
-          },
-          modal: { ondismiss: () => reject(new Error("Payment cancelled")) },
-        });
+        const rzp = new (window as any).Razorpay({ key: keyId, amount: total * 100, currency: "INR", name: "Golden Beans Café", description: `Table ${table?.tableNumber}`, order_id: rzpOrderId, prefill: { name: customerData?.name || "", contact: customerData?.phone || "" }, theme: { color: "#0F3D2E" }, handler: async (response: any) => { try { const v = await fetch(`${API}/payment/verify`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(response) }).then(r => r.json()); if (v.success) { await placeOrder(customerData || undefined, response.razorpay_payment_id); resolve(); } else reject(new Error("Verification failed")); } catch (e) { reject(e); } }, modal: { ondismiss: () => reject(new Error("Payment cancelled")) } });
         rzp.open();
       });
-    } catch (err: any) {
-      if (err.message !== "Payment cancelled") {
-        alert(err.message || "Payment failed");
-      }
-    } finally {
-      setIsPlacing(false);
-    }
-  };
-
-  const handleCustomerDataSubmit = (data: { name: string; phone: string; birthdate: string; anniversary: string }) => {
-    setCustomerData({ name: data.name, phone: data.phone });
-    localStorage.setItem("gb_customer", JSON.stringify(data));
-    setShowCustomerPopup(false);
-    placeOrder(data);
+    } catch (err: any) { if (err.message !== "Payment cancelled") alert(err.message || "Payment failed"); }
+    finally { setIsPlacing(false); }
   };
 
   const placeOrder = async (customer?: { name: string; phone: string }, paymentId?: string) => {
     if (cart.length === 0) return;
     setIsPlacing(true);
     try {
-      const orderItems = cart.map(c => ({
-        menuItemId: c.menuItemId, name: c.name,
-        price: c.price + (c.totalPriceModifier || 0),
-        quantity: c.quantity,
-        notes: c.variants && c.variants.length > 0 ? c.variants.flatMap(v => v.selected).join(", ") : c.notes,
-        isVeg: c.isVeg,
-      }));
-      const res = await orderApi.createOrder({
-  tableId,
-  items: orderItems,
-  createdBy: "customer",
-  customerName: customer?.name || customerData?.name || "",
-  customerPhone: customer?.phone || customerData?.phone || "",
-  discount: appliedDiscount?.discount || 0,
-  appliedPromoId: appliedDiscount?.promotionId || null,
-  appliedPromoCode: appliedDiscount?.code || null,
-  razorpayPaymentId: paymentId || null,
-});
-       
+      const orderItems = cart.map(c => ({ menuItemId: c.menuItemId, name: c.name, price: c.price + (c.totalPriceModifier || 0), quantity: c.quantity, notes: c.variants && c.variants.length > 0 ? c.variants.flatMap(v => v.selected).join(", ") : c.notes, isVeg: c.isVeg }));
+      const res = await orderApi.createOrder({ tableId, items: orderItems, createdBy: "customer", customerName: customer?.name || customerData?.name || "", customerPhone: customer?.phone || customerData?.phone || "", discount: appliedDiscount?.discount || 0, appliedPromoId: appliedDiscount?.promotionId || null, appliedPromoCode: appliedDiscount?.code || null, razorpayPaymentId: paymentId || null });
       const newOrder: Order = res.data.data;
-      setCart([]);
-      setAppliedDiscount(null);
-      setExistingOrder(newOrder);
-      prevStatusRef.current = newOrder.status;
-      localStorage.setItem("gb_active_order", newOrder._id);
-      setActiveTab("order");
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed");
-    } finally { setIsPlacing(false); }
+      setCart([]); setAppliedDiscount(null); setExistingOrder(newOrder); prevStatusRef.current = newOrder.status; localStorage.setItem("gb_active_order", newOrder._id); setActiveTab("order");
+    } catch (err: unknown) { alert(err instanceof Error ? err.message : "Failed"); }
+    finally { setIsPlacing(false); }
   };
 
   const handleCancelled = () => { setExistingOrder(null); prevStatusRef.current = null; };
   const totalCartItems = cart.reduce((s, i) => s + i.quantity, 0);
-  const activeCategoryItems = (menu.find(c => c._id === activeCategory)?.items || []) as MenuItem[];
+  const activeCategory_items = (menu.find(c => c._id === activeCategory)?.items || []) as MenuItem[];
+  const allItems = menu.flatMap(c => c.items as MenuItem[]);
+  const bestsellers = allItems.filter(i => i.tags?.includes("bestseller") && i.isAvailable);
 
-  // ─── RENDER ─── 
-  if (securityStatus === "checking") {
-    return <SecurityCheckScreen onPassed={handleSecurityPassed} onFailed={handleSecurityFailed} />;
-  }
-
-  if (securityStatus === "failed" && securityResult) {
-    return <AwarenessScreen result={securityResult} onRetry={handleRetrySecurity} />;
-  }
-
-  if (securityStatus === "session_ended") {
-    return <SessionEndedScreen reason={sessionEndReason} onRestart={() => router.replace("/")} />;
-  }
+  if (securityStatus === "checking") return <SecurityCheckScreen onPassed={handleSecurityPassed} onFailed={handleSecurityFailed} />;
+  if (securityStatus === "failed" && securityResult) return <AwarenessScreen result={securityResult} onRetry={handleRetrySecurity} />;
+  if (securityStatus === "session_ended") return <SessionEndedScreen reason={sessionEndReason} onRestart={() => router.replace("/")} />;
 
   return (
-    <div className="customer-app" style={{ minHeight: "100vh", background: T.cream, display: "flex", flexDirection: "column", width: "100%", margin: "0 auto", overflowX: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: T.dark, display: "flex", flexDirection: "column", width: "100%", overflowX: "hidden", fontFamily: "'Nunito', sans-serif" }}>
       <style>{`
-        html, body { overflow-x: hidden; margin: 0; padding: 0; max-width: 100vw; touch-action: pan-y; overscroll-behavior: none; }
-        .customer-app { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
-        .customer-app input, .customer-app textarea { -webkit-user-select: text; user-select: text; }
-        .customer-app img { -webkit-user-drag: none; user-drag: none; pointer-events: none; }
-        @keyframes gb-shimmer { 0% { background-position: 200% center; } 100% { background-position: -200% center; } }
-@keyframes cartBadgeBounce { 0%,100% { transform: scale(1); } 30% { transform: scale(1.5); } 60% { transform: scale(0.9); } 80% { transform: scale(1.1); } }
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Nunito:wght@400;600;700;800;900&family=DM+Sans:wght@400;600;700;800;900&display=swap');
+        html, body { overflow-x: hidden; margin: 0; padding: 0; background: #0A0A0A; }
+        .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        img { -webkit-user-drag: none; user-select: none; pointer-events: none; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes welcomeLogo { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
+        @keyframes cartBounce { 0%,100% { transform: scale(1); } 30% { transform: scale(1.5); } 80% { transform: scale(1.05); } }
       `}</style>
 
       {existingOrder && !["settled", "cancelled"].includes(existingOrder.status) && <TopCancelBar order={existingOrder} onCancelled={handleCancelled} />}
 
-      <header style={{ background: `linear-gradient(180deg, ${T.cream} 0%, ${T.ivory} 100%)`, position: "sticky", top: 0, zIndex: 30, padding: "12px 16px 12px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-          <div style={{ width: "40px", height: "40px", borderRadius: "12px", overflow: "hidden", background: T.emerald, flexShrink: 0 }}>
-            <img src="/logo-small.png" alt="GB" draggable={false} style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }} />
+      {/* Header */}
+      <header style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(10,10,10,0.95)", backdropFilter: "blur(20px)", padding: "12px 16px", borderBottom: "1px solid #1a1a1a" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ width: "36px", height: "36px", borderRadius: "10px", overflow: "hidden", border: "1px solid rgba(212,165,116,0.3)" }}>
+              <img src="/logo-small.png" alt="GB" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+            </div>
+            <div>
+              <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "16px", fontWeight: 800, color: T.gold, margin: 0, lineHeight: 1 }}>Golden Beans</p>
+              <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", margin: 0, fontWeight: 600 }}>
+                {table ? `Table ${table.tableNumber}` : "..."}{customerData ? ` · ${customerData.name}` : ""}
+              </p>
+            </div>
           </div>
-          <div style={{ flex: 1, textAlign: "center", padding: "0 12px" }}>
-            <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", fontWeight: 800, color: T.emerald, margin: 0 }}>Golden Beans</p>
-            <p style={{ fontSize: "10px", color: T.textMuted, margin: "1px 0 0", fontWeight: 600 }}>{table ? `Table ${table.tableNumber}` : "..."}</p>
-          </div>
-          <div style={{ width: "40px", height: "40px", borderRadius: "12px", background: T.emerald, color: T.gold, display: "flex", alignItems: "center", justifyContent: "center" }}><Icons.Coffee size={16} /></div>
+          {activeTab === "menu" && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "#1a1a1a", borderRadius: "10px", padding: "6px 12px", border: "1px solid #222" }}>
+              <span style={{ fontSize: "12px" }}>🌿</span>
+              <span style={{ fontSize: "10px", fontWeight: 800, color: T.success }}>100% Veg</span>
+            </div>
+          )}
         </div>
-        {activeTab === "menu" && (
-          <div>
-            <p style={{ fontSize: "13px", color: T.textMuted, fontWeight: 600, margin: "0 0 2px" }}>Welcome{customerData ? "," : "!"}</p>
-            <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "24px", fontWeight: 800, color: T.emerald, margin: 0, letterSpacing: "-0.02em", lineHeight: 1.1 }}>{customerData?.name || "Order Now"} ☕</h1>
-          </div>
-        )}
       </header>
 
       <main style={{ flex: 1, paddingBottom: "80px" }}>
+        {/* MENU TAB */}
         {activeTab === "menu" && (
-          <div style={{ display: "flex", paddingBottom: "12px" }}>
-            {menu.length > 0 && <VerticalCategoryTabs categories={menu} activeCategoryId={activeCategory} onSelect={setActiveCategory} />}
-            <div style={{ flex: 1, padding: "12px 14px 12px 12px" }}>
-              {loading ? (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                  {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} height="200px" style={{ borderRadius: "20px" }} />)}
+          <div>
+            {loading ? (
+              <div style={{ padding: "20px" }}>
+                <div style={{ height: "260px", background: "#1a1a1a", borderRadius: "0", marginBottom: "20px", animation: "pulse 1.5s infinite" }} />
+                <div style={{ display: "flex", gap: "12px", overflowX: "auto", padding: "0 16px", marginBottom: "20px" }}>
+                  {[1,2,3].map(i => <div key={i} style={{ flexShrink: 0, width: "140px", height: "160px", background: "#1a1a1a", borderRadius: "16px", animation: "pulse 1.5s infinite" }} />)}
                 </div>
-              ) : activeCategoryItems.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "40px 16px" }}><div style={{ fontSize: "40px", marginBottom: "8px" }}>☕</div><p style={{ fontWeight: 700, color: T.emerald, fontSize: "14px" }}>No items here yet</p></div>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                  {activeCategoryItems.map((item, idx) => {
-                    const cartQty = cart.filter(c => c.menuItemId === item._id).reduce((s, c) => s + c.quantity, 0);
-                    return <div key={item._id} style={{ animation: `gb-fadeInUp 0.3s ${idx * 0.05}s ease both` }}><ProductCard item={item} cartQty={cartQty} onTap={() => setSelectedItem(item)} /></div>;
-                  })}
+              </div>
+            ) : (
+              <>
+                {/* Hero Carousel */}
+                <HeroCarousel items={allItems} onTap={setSelectedItem} cart={cart} />
+
+                <div style={{ padding: "20px 0 0" }}>
+                  {/* Bestsellers row */}
+                  {bestsellers.length > 0 && <ItemRow title="Bestsellers" emoji="⭐" items={bestsellers} cart={cart} onTap={setSelectedItem} />}
+
+                  {/* Category filter */}
+                  <CategoryBar categories={menu} active={activeCategory} onSelect={setActiveCategory} />
+
+                  {/* Category items row */}
+                  <ItemRow
+                    title={menu.find(c => c._id === activeCategory)?.name || ""}
+                    emoji={menu.find(c => c._id === activeCategory)?.icon}
+                    items={activeCategory_items}
+                    cart={cart}
+                    onTap={setSelectedItem}
+                  />
+
+                  {/* All other categories */}
+                  {menu.filter(c => c._id !== activeCategory).map(cat => (
+                    <ItemRow key={cat._id} title={cat.name} emoji={cat.icon} items={cat.items as MenuItem[]} cart={cart} onTap={setSelectedItem} />
+                  ))}
                 </div>
-              )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* CART TAB */}
+        {activeTab === "cart" && (
+          <CartView cart={cart} onUpdateQty={updateQty} onPlaceOrder={handlePlaceOrderClick} isPlacing={isPlacing} appliedDiscount={appliedDiscount} onDiscountChange={setAppliedDiscount} />
+        )}
+
+        {/* ORDER TAB */}
+        {activeTab === "order" && (
+          <div style={{ paddingBottom: "20px" }}>
+            <div style={{ padding: "16px 16px 0" }}>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", fontWeight: 800, color: "white", margin: "0 0 4px" }}>My Order</h2>
+              <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", margin: "0 0 16px" }}>Live tracking</p>
+            </div>
+            {existingOrder ? <LiveOrderTracker order={existingOrder} queuePosition={queuePosition} /> : (
+              <div style={{ textAlign: "center", padding: "60px 20px" }}>
+                <div style={{ fontSize: "60px", marginBottom: "12px" }}>📋</div>
+                <p style={{ fontWeight: 800, fontSize: "16px", color: "white", margin: "0 0 6px" }}>No Active Orders</p>
+                <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.4)", margin: 0 }}>Place an order to track it here</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* INFO TAB */}
+        {activeTab === "info" && (
+          <div style={{ padding: "20px 16px 20px" }}>
+            <div style={{ background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, borderRadius: "20px", padding: "24px", marginBottom: "16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "14px" }}>
+                <img src="/logo-small.png" alt="GB" style={{ width: "52px", height: "52px", borderRadius: "14px" }} />
+                <div>
+                  <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "22px", fontWeight: 800, color: T.gold, margin: 0 }}>Golden Beans</p>
+                  <p style={{ fontSize: "11px", color: "rgba(212,165,116,0.7)", margin: "2px 0 0", letterSpacing: "0.1em", fontWeight: 700 }}>CAFE & BISTRO</p>
+                </div>
+              </div>
+              <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)", margin: 0, lineHeight: 1.6 }}>Premium 100% pure vegetarian cafe in Surat. Handcrafted coffee, fresh snacks & more.</p>
+            </div>
+            {table && (
+              <div style={{ background: "#1a1a1a", borderRadius: "16px", padding: "16px", border: "1px solid #222", display: "flex", alignItems: "center", gap: "12px" }}>
+                <span style={{ fontSize: "28px" }}>🪑</span>
+                <div>
+                  <p style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", fontWeight: 700, textTransform: "uppercase", margin: 0 }}>Your Table</p>
+                  <p style={{ fontWeight: 900, fontSize: "18px", color: "white", margin: "2px 0 0" }}>Table {table.tableNumber}</p>
+                </div>
+              </div>
+            )}
+            <div style={{ marginTop: "16px", display: "flex", gap: "10px" }}>
+              <div style={{ flex: 1, background: "#1a1a1a", borderRadius: "14px", padding: "14px", border: "1px solid #222", textAlign: "center" }}>
+                <p style={{ fontSize: "22px", margin: "0 0 4px" }}>🌿</p>
+                <p style={{ fontSize: "11px", fontWeight: 800, color: T.success, margin: 0 }}>100% Pure Vegetarian</p>
+              </div>
+              <div style={{ flex: 1, background: "#1a1a1a", borderRadius: "14px", padding: "14px", border: "1px solid #222", textAlign: "center" }}>
+                <p style={{ fontSize: "22px", margin: "0 0 4px" }}>☕</p>
+                <p style={{ fontSize: "11px", fontWeight: 800, color: T.gold, margin: 0 }}>Handcrafted Coffee</p>
+              </div>
             </div>
           </div>
         )}
-        {activeTab === "cart" && (
-  <CartView
-    cart={cart}
-    onUpdateQty={updateQty}
-    onPlaceOrder={handlePlaceOrderClick}
-    isPlacing={isPlacing}
-    appliedDiscount={appliedDiscount}
-    onDiscountChange={setAppliedDiscount}
-  />
-)}
-        {activeTab === "order" && <OrderView order={existingOrder} queuePosition={queuePosition} />}
-        {activeTab === "info" && <InfoView table={table} />}
-      <CRMCaptureCard tableId={tableId} />
-<WaiterHelpSheet
-  tableId={tableId}
-  tableNumber={table?.tableNumber || tableId}
-/>
+
+        <CRMCaptureCard tableId={tableId} />
+        <WaiterHelpSheet tableId={tableId} tableNumber={table?.tableNumber || tableId} />
       </main>
 
-      <nav style={{ position: "fixed", bottom: "12px", left: "50%", transform: "translateX(-50%)", background: T.emerald, borderRadius: "99px", padding: "6px", display: "flex", alignItems: "center", gap: "4px", boxShadow: "0 8px 32px rgba(15,61,46,0.4)", zIndex: 40 }}>
-        {([
-          { id: "menu", icon: <Icons.Menu size={18} />, label: "Menu", badge: null },
-          { id: "order", icon: <Icons.Receipt size={18} />, label: "Order", badge: existingOrder ? "•" : null },
-          { id: "cart", icon: <Icons.Cart size={18} />, label: "Cart", badge: totalCartItems > 0 ? totalCartItems : null },
-          { id: "info", icon: <Icons.Coffee size={18} />, label: "Info", badge: null },
-        ] as { id: BottomTab; icon: React.ReactNode; label: string; badge: number | string | null }[]).map(tab => {
-          const isActive = activeTab === tab.id;
-          return (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
-              background: isActive ? `linear-gradient(135deg, ${T.gold}, ${T.goldLight})` : "transparent",
-              color: isActive ? T.emerald : "rgba(212,165,116,0.7)",
-              borderRadius: "99px",
-              padding: isActive ? "10px 16px" : "10px 12px",
-              display: "flex", alignItems: "center", gap: "6px",
-              cursor: "pointer", border: "none",
-              transition: "all 200ms cubic-bezier(0.16, 1, 0.3, 1)",
-              fontWeight: 800, fontSize: "11px", position: "relative", whiteSpace: "nowrap",
-            }}>
-              {tab.icon}
-              {isActive && <span>{tab.label}</span>}
-              {tab.badge !== null && !isActive && (
-                <div key={typeof tab.badge === "number" ? tab.badge : "dot"} style={{
-                  position: "absolute", top: "4px", right: "4px",
-                  minWidth: typeof tab.badge === "number" ? "16px" : "8px",
-                  height: typeof tab.badge === "number" ? "16px" : "8px",
-                  padding: typeof tab.badge === "number" ? "0 4px" : "0",
-                  borderRadius: "99px", background: T.danger, color: "white",
-                  fontSize: "9px", fontWeight: 800,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  border: `2px solid ${T.emerald}`, fontFamily: "'DM Sans', sans-serif",
-                  animation: "cartBadgeBounce 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97)",
-                }}>{typeof tab.badge === "number" ? tab.badge : ""}</div>
-              )}
-            </button>
-          );
-        })}
+      {/* Bottom Nav */}
+      <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "rgba(10,10,10,0.97)", backdropFilter: "blur(20px)", borderTop: "1px solid #1a1a1a", padding: "8px 0 max(8px, env(safe-area-inset-bottom))", zIndex: 40 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-around", maxWidth: "480px", margin: "0 auto" }}>
+          {([
+            { id: "menu", icon: "🍽️", label: "Menu", badge: null },
+            { id: "order", icon: "📋", label: "Order", badge: existingOrder ? "•" : null },
+            { id: "cart", icon: "🛒", label: "Cart", badge: totalCartItems > 0 ? totalCartItems : null },
+            { id: "info", icon: "ℹ️", label: "Info", badge: null },
+          ] as { id: BottomTab; icon: string; label: string; badge: number | string | null }[]).map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "3px", background: "none", border: "none", cursor: "pointer", padding: "4px 20px", position: "relative", transition: "all 0.2s" }}>
+                <span style={{ fontSize: "22px", filter: isActive ? "none" : "grayscale(0.8) opacity(0.5)", transform: isActive ? "scale(1.1)" : "scale(1)", transition: "all 0.2s" }}>{tab.icon}</span>
+                <span style={{ fontSize: "10px", fontWeight: isActive ? 800 : 600, color: isActive ? T.gold : "rgba(255,255,255,0.3)", transition: "color 0.2s" }}>{tab.label}</span>
+                {isActive && <div style={{ position: "absolute", bottom: "-8px", left: "50%", transform: "translateX(-50%)", width: "20px", height: "2px", background: T.gold, borderRadius: "2px" }} />}
+                {tab.badge !== null && (
+                  <div style={{ position: "absolute", top: "0", right: "10px", minWidth: typeof tab.badge === "number" ? "18px" : "10px", height: typeof tab.badge === "number" ? "18px" : "10px", padding: typeof tab.badge === "number" ? "0 4px" : "0", borderRadius: "99px", background: T.danger, color: "white", fontSize: "9px", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #0A0A0A", animation: "cartBounce 0.5s ease" }}>
+                    {typeof tab.badge === "number" ? tab.badge : ""}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </nav>
 
       <ProductDetailModal item={selectedItem} isOpen={!!selectedItem} onClose={() => setSelectedItem(null)} onAddToCart={handleAddToCart} />
