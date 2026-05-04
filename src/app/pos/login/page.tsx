@@ -35,8 +35,15 @@ export default function POSLoginPage() {
     try {
       const res = await fetch(`${API}/admin-auth/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, totpToken: step === "2fa" ? totpToken : undefined }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-login-type": "pos",
+        },
+        body: JSON.stringify({
+          username,
+          password,
+          totpToken: step === "2fa" ? totpToken : undefined,
+        }),
       });
       const data = await res.json();
 
@@ -74,11 +81,7 @@ export default function POSLoginPage() {
       `}</style>
 
       <div style={{ width: "100%", maxWidth: "400px", background: T.ivory, borderRadius: "24px", overflow: "hidden", boxShadow: "0 32px 64px rgba(0,0,0,0.3)", animation: "fadeIn 0.4s ease" }}>
-
-        {/* Gold bar */}
         <div style={{ height: "4px", background: `linear-gradient(90deg, ${T.gold}, ${T.goldLight}, ${T.gold})` }} />
-
-        {/* Header */}
         <div style={{ background: `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})`, padding: "32px 28px 28px", textAlign: "center" }}>
           <div style={{ width: "80px", height: "80px", margin: "0 auto 16px", borderRadius: "20px", overflow: "hidden", background: "rgba(212,165,116,0.15)", border: "2px solid rgba(212,165,116,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <img src="/logo-small.png" alt="GB" draggable={false} style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }} />
@@ -87,7 +90,6 @@ export default function POSLoginPage() {
           <p style={{ fontSize: "12px", color: "rgba(212,165,116,0.7)", margin: 0, fontWeight: 600 }}>Staff Login — Secure Access</p>
         </div>
 
-        {/* Form */}
         <div style={{ padding: "28px" }}>
           {step === "credentials" ? (
             <>
