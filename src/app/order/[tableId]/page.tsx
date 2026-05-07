@@ -535,19 +535,24 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
 // ═══════════════════════════════════════════════════
 // MENU TAB — Cinematic full grid
 // ═══════════════════════════════════════════════════
-function MenuTab({ menu, cart, loading, activeCat, onCatSelect, onItemTap, favs, onFav }: {
+function MenuTab({ menu, cart, loading, activeCat, onCatSelect, onItemTap, favs, onFav, onBack }: {
   menu:MenuCategory[]; cart:ECI[]; loading:boolean; activeCat:string;
   onCatSelect:(id:string)=>void; onItemTap:(i:MenuItem)=>void;
-  favs:Set<string>; onFav:(id:string)=>void;
+  favs:Set<string>; onFav:(id:string)=>void; onBack:()=>void;
 }) {
   const catItems=(menu.find(c=>c._id===activeCat)?.items||[]) as MenuItem[];
 
   return(
     <div style={{minHeight:"100dvh",background:C.void,paddingBottom:120}}>
       {/* Section header */}
-      <div style={{padding:"18px 20px 0",animation:`fadeRise 0.5s ${EASE} both`}}>
-        <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".18em",textTransform:"uppercase",margin:"0 0 4px"}}>✦ Menu</p>
-        <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:600,color:C.ink,margin:0}}>Our Offerings</h2>
+      <div style={{padding:"16px 18px 0",display:"flex",alignItems:"center",gap:13,animation:`fadeRise 0.5s ${EASE} both`}}>
+        <button onClick={onBack} style={{width:38,height:38,borderRadius:12,background:C.gl1,border:`1px solid ${C.glBd}`,color:C.ink,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+          <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><path d="M11 4l-5 5 5 5" stroke={C.ink} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+        <div>
+          <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".18em",textTransform:"uppercase",margin:"0 0 3px"}}>✦ Menu</p>
+          <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:600,color:C.ink,margin:0}}>Our Offerings</h2>
+        </div>
       </div>
 
       {/* Sticky glass category bar */}
@@ -822,8 +827,8 @@ function ProductModal({ item, open, onClose, onAdd }: {
 // ═══════════════════════════════════════════════════
 // CART SCREEN — Cinematic
 // ═══════════════════════════════════════════════════
-function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange, allItems, onAddMore }:{
-  cart:ECI[];onUpdateQty:(k:string,d:number)=>void;onCheckout:()=>void;
+function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange, allItems, onAddMore, onBack }:{
+  cart:ECI[];onUpdateQty:(k:string,d:number)=>void;onCheckout:()=>void;onBack:()=>void;
   discount:Disc|null;onDiscountChange:(d:Disc|null)=>void;
   allItems:MenuItem[];onAddMore:(i:MenuItem)=>void;
 }) {
@@ -858,9 +863,14 @@ function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange,
   return(
     <div style={{minHeight:"100dvh",background:C.void,display:"flex",flexDirection:"column"}}>
       {/* Header */}
-      <div style={{padding:"20px 20px 14px",background:C.void,borderBottom:`1px solid ${C.gl2}`,flexShrink:0}}>
-        <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 3px"}}>✦ Your Order</p>
-        <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:600,color:C.ink,margin:0}}>Cart</h2>
+      <div style={{padding:"16px 18px 14px",background:C.void,borderBottom:`1px solid ${C.gl2}`,flexShrink:0,display:"flex",alignItems:"center",gap:13}}>
+        <button onClick={onBack} style={{width:38,height:38,borderRadius:12,background:C.gl1,border:`1px solid ${C.glBd}`,color:C.ink,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+          <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><path d="M11 4l-5 5 5 5" stroke={C.ink} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+        <div>
+          <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 1px"}}>✦ Your Order</p>
+          <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:600,color:C.ink,margin:0}}>Cart</h2>
+        </div>
       </div>
 
       <div className="hs" style={{flex:1,overflowY:"auto",padding:"16px 18px",paddingBottom:200}}>
@@ -1186,7 +1196,7 @@ function OrderPlacedScreen({ order, onTrack, onHome }:{order:Order;onTrack:()=>v
 // ═══════════════════════════════════════════════════
 // ORDER TRACKING — Cinematic live timeline
 // ═══════════════════════════════════════════════════
-function OrderTrackingScreen({ order, onReady }:{order:Order;onReady:()=>void}) {
+function OrderTrackingScreen({ order, onReady, onBack }:{order:Order;onReady:()=>void;onBack:()=>void}) {
   const stages=[
     {id:"open",      icon:"📝",label:"Order Confirmed",  sub:"Kitchen has received your order"},
     {id:"kotSent",   icon:"👨‍🍳",label:"Being Prepared",   sub:"Our chef is crafting your items"},
@@ -1204,6 +1214,10 @@ function OrderTrackingScreen({ order, onReady }:{order:Order;onReady:()=>void}) 
       <div style={{position:"relative",height:220,overflow:"hidden"}}>
         <div style={{position:"absolute",inset:0,background:`radial-gradient(ellipse 100% 100% at 50% 0%,#3D2010 0%,${C.void} 70%)`}}/>
         {[0,1,2,3].map(i=><div key={i} style={{position:"absolute",bottom:"30%",left:`${38+i*8}%`,width:5,height:24,borderRadius:99,background:`linear-gradient(to top,${C.g60},transparent)`,animation:`smokeUp ${2.4+i*.55}s ${i*.7}s ease-out infinite`,filter:"blur(1.5px)",opacity:0}}/>)}
+        {/* Back button */}
+        <button onClick={onBack} style={{position:"absolute",top:16,left:16,zIndex:10,width:38,height:38,borderRadius:12,background:"rgba(2,1,0,0.65)",backdropFilter:"blur(12px)",border:`1px solid ${C.glBd}`,color:C.ink,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><path d="M11 4l-5 5 5 5" stroke={C.ink} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
         <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
           <div style={{fontSize:52,marginBottom:10,animation:"floatY 3s ease-in-out infinite"}}>☕</div>
           <div style={{background:`${C.gold}18`,border:`1px solid ${C.g25}`,borderRadius:99,padding:"6px 18px",marginBottom:6}}>
@@ -1745,7 +1759,7 @@ export default function CustomerOrderPage() {
   if(screen==="cart")return(
     <div style={{minHeight:"100dvh",background:C.void}}><style>{CSS}</style>
       {existingOrder&&!["settled","cancelled"].includes(existingOrder.status)&&<TopCancelBar order={existingOrder} onCancelled={()=>{setExistingOrder(null);prevStatus.current=null;}}/>}
-      <CartScreen cart={cart} onUpdateQty={updateQty} onCheckout={()=>setScreen("checkout")} discount={discount} onDiscountChange={setDiscount} allItems={allItems} onAddMore={item=>setSelectedItem(item)}/>
+      <CartScreen cart={cart} onUpdateQty={updateQty} onCheckout={()=>setScreen("checkout")} onBack={()=>{setScreen("home");setActiveTab("home");}} discount={discount} onDiscountChange={setDiscount} allItems={allItems} onAddMore={item=>setSelectedItem(item)}/>
       <ProductModal item={selectedItem} open={!!selectedItem} onClose={()=>setSelectedItem(null)} onAdd={addToCart}/>
     </div>
   );
@@ -1765,7 +1779,7 @@ export default function CustomerOrderPage() {
   if(screen==="tracking"&&existingOrder)return(
     <div style={{minHeight:"100dvh",background:C.void}}><style>{CSS}</style>
       {existingOrder&&!["settled","cancelled"].includes(existingOrder.status)&&<TopCancelBar order={existingOrder} onCancelled={()=>{setExistingOrder(null);prevStatus.current=null;setScreen("home");}}/>}
-      <OrderTrackingScreen order={existingOrder} onReady={()=>setScreen("ready")}/>
+      <OrderTrackingScreen order={existingOrder} onReady={()=>setScreen("ready")} onBack={()=>setScreen("home")}/>
     </div>
   );
 
@@ -1803,6 +1817,7 @@ export default function CustomerOrderPage() {
             activeCat={activeCat} onCatSelect={setActiveCat}
             onItemTap={item=>setSelectedItem(item)}
             favs={favs} onFav={toggleFav}
+            onBack={()=>setActiveTab("home")}
           />
         )}
 
