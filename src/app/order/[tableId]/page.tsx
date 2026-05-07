@@ -1757,7 +1757,7 @@ export default function CustomerOrderPage() {
       <style>{CSS}</style>
 
       {/* TOP CANCEL BAR — always visible when order active */}
-      {existingOrder&&!["settled","cancelled"].includes(existingOrder.status)&&screen!=="ready"&&(
+      {existingOrder&&!["settled","cancelled"].includes(existingOrder.status)&&(
         <TopCancelBar order={existingOrder} onCancelled={()=>{setExistingOrder(null);prevStatus.current=null;setScreen("home");}}/>
       )}
 
