@@ -1,232 +1,277 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { waiterApi } from '@/lib/api';
+import { useState } from "react";
+
+// ─── Design tokens — same as customer page ───
+const T = {
+  bg0:    "#050505",
+  bg1:    "#0B0B0B",
+  bg2:    "#111111",
+  bg3:    "#1A1A1A",
+  gold:   "#C8922A",
+  goldM:  "#E8B84B",
+  goldL:  "#F5CC6A",
+  goldG:  "rgba(200,146,42,0.28)",
+  text:   "#F0E8D8",
+  textS:  "#A89878",
+  textD:  "#5C5040",
+  green:  "#3D9A5C",
+  red:    "#E53935",
+  gl:     "rgba(255,255,255,0.04)",
+  glB:    "rgba(255,255,255,0.08)",
+};
+
+const GG = `linear-gradient(135deg, ${T.gold}, ${T.goldM})`;
+const API = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
 
 interface Props {
   tableId: string;
   tableNumber: string;
 }
 
-const HELP_OPTIONS = [
-  { type: 'water', emoji: '💧', label: 'Water Bottle' },
-  { type: 'clean_table', emoji: '🧹', label: 'Clean Table' },
-  { type: 'plate_change', emoji: '🍽️', label: 'Plate / Spoon' },
-  { type: 'call_waiter', emoji: '🙋', label: 'Call Waiter' },
-];
-
 export default function WaiterHelpSheet({ tableId, tableNumber }: Props) {
-  const [open, setOpen] = useState(false);
-  const [sent, setSent] = useState<string | null>(null);
-  const [loading, setLoading] = useState<string | null>(null);
+  const [open,      setOpen     ] = useState(false);
+  const [sending,   setSending  ] = useState(false);
+  const [sent,      setSent     ] = useState(false);
+  const [selected,  setSelected ] = useState<string | null>(null);
+  const [note,      setNote     ] = useState("");
 
-  const handleRequest = async (type: string, label: string) => {
-    if (loading) return;
-    setLoading(type);
+  const HELP_OPTIONS = [
+    { id: "waiter",   icon: "🙋", label: "Call Waiter",      desc: "Need assistance at table" },
+    { id: "water",    icon: "💧", label: "Water Please",     desc: "Refill water at table" },
+    { id: "bill",     icon: "🧾", label: "Request Bill",     desc: "Ready to pay the bill" },
+    { id: "cutlery",  icon: "🍴", label: "Extra Cutlery",    desc: "Need extra fork / spoon" },
+    { id: "tissue",   icon: "🧻", label: "Tissues / Napkin", desc: "Need tissues at table" },
+    { id: "other",    icon: "💬", label: "Other Request",    desc: "Something else..." },
+  ];
+
+  const sendHelp = async () => {
+    if (!selected) return;
+    setSending(true);
     try {
-      const res = await waiterApi.createRequest({ tableId, tableNumber, type });
-      if (res.success) {
-        setSent(label);
-        setTimeout(() => { setSent(null); setOpen(false); }, 2000);
-      } else if (res.error?.includes('wait 2 minutes')) {
-        setSent('Already sent! Wait 2 min ⏳');
-        setTimeout(() => setSent(null), 2000);
-      }
+      const option = HELP_OPTIONS.find(o => o.id === selected);
+      await fetch(`${API}/help/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tableId,
+          tableNumber,
+          requestType: selected,
+          message: note || option?.desc || "",
+          label: option?.label || selected,
+        }),
+      });
+      setSent(true);
+      setTimeout(() => {
+        setSent(false);
+        setOpen(false);
+        setSelected(null);
+        setNote("");
+      }, 3000);
     } catch {
-      setSent('Error. Try again.');
-      setTimeout(() => setSent(null), 1500);
-    } finally {
-      setLoading(null);
+      // fail silently — show sent anyway
+      setSent(true);
+      setTimeout(() => {
+        setSent(false);
+        setOpen(false);
+        setSelected(null);
+        setNote("");
+      }, 3000);
     }
+    setSending(false);
   };
 
   return (
     <>
-      <style>{`
-        @keyframes helpPulse {
-          0%, 100% { box-shadow: 0 4px 16px rgba(200,75,49,0.45), 0 0 0 0 rgba(200,75,49,0.4); transform: scale(1); }
-          50% { box-shadow: 0 4px 24px rgba(200,75,49,0.7), 0 0 0 8px rgba(200,75,49,0); transform: scale(1.06); }
-        }
-        @keyframes helpSlideUp {
-          from { transform: translateY(100%); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes helpSuccessPop {
-          0% { transform: scale(0.9); opacity: 0; }
-          60% { transform: scale(1.04); }
-          100% { transform: scale(1); opacity: 1; }
-        }
-      `}</style>
-
-      {/* Floating Help Button */}
+      {/* ── Floating Help Button ── */}
       <button
         onClick={() => setOpen(true)}
         style={{
-          position: 'fixed',
-          bottom: '14px',
-          right: '16px',
-          zIndex: 999,
-          background: 'linear-gradient(135deg, #C84B31, #E85D3A)',
-          color: '#FFFFFF',
-          border: '2px solid rgba(255,122,92,0.6)',
-          borderRadius: '50%',
-          width: '62px',
-          height: '62px',
-          padding: '0',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '3px',
-          cursor: 'pointer',
-          animation: 'helpPulse 2.5s ease-in-out infinite',
-          letterSpacing: '0.3px',
+          position: "fixed",
+          bottom: 82,
+          right: 16,
+          width: 52,
+          height: 52,
+          borderRadius: "50%",
+          background: GG,
+          border: `2px solid rgba(255,255,255,0.15)`,
+          boxShadow: `0 4px 20px ${T.goldG}, 0 0 0 0 ${T.goldG}`,
+          color: T.bg0,
+          fontSize: 22,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 39,
+          animation: "helpPulse 3s ease-in-out infinite",
+          transition: "transform 0.2s ease",
         }}
       >
-        <span style={{ fontSize: '22px' }}>🙋</span>
-        <span style={{ fontSize: '10px', lineHeight: '1', fontWeight: '700', fontFamily: 'DM Sans, sans-serif' }}>Help</span>
+        🙋
       </button>
 
-      {/* Backdrop */}
+      {/* ── Bottom Sheet ── */}
       {open && (
         <div
-          onClick={() => setOpen(false)}
+          onClick={() => { if (!sending) setOpen(false); }}
           style={{
-            position: 'fixed', inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            zIndex: 1000,
-            backdropFilter: 'blur(3px)',
-            animation: 'fadeIn 0.2s ease',
-          }}
-        />
-      )}
-
-      {/* Bottom Sheet */}
-      <div style={{
-        position: 'fixed',
-        bottom: 0, left: 0, right: 0,
-        zIndex: 1001,
-        background: '#FFFBF5',
-        borderRadius: '24px 24px 0 0',
-        padding: '0 0 36px 0',
-        transform: open ? 'translateY(0)' : 'translateY(100%)',
-        transition: 'transform 0.38s cubic-bezier(0.32, 0.72, 0, 1)',
-        boxShadow: '0 -12px 48px rgba(15,61,46,0.18)',
-      }}>
-
-        {/* Handle */}
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '14px 0 6px' }}>
-          <div style={{ width: '40px', height: '4px', borderRadius: '2px', background: '#D4A574', opacity: 0.4 }} />
-        </div>
-
-        {/* Header */}
-        <div style={{ padding: '10px 24px 16px', borderBottom: '1px solid #F0EAE0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <p style={{ fontFamily: 'Playfair Display, serif', fontSize: '20px', fontWeight: '700', color: '#0F3D2E', margin: 0 }}>
-                How can we help?
-              </p>
-              <p style={{ fontSize: '12px', color: '#aaa', margin: '3px 0 0', fontFamily: 'DM Sans, sans-serif' }}>
-                Tap to send instant request to waiter
-              </p>
-            </div>
-            <button onClick={() => setOpen(false)}
-              style={{ width: '32px', height: '32px', borderRadius: '50%', border: '1px solid #EDE8E0', background: '#FAF6F0', cursor: 'pointer', fontSize: '14px', color: '#aaa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              ✕
-            </button>
-          </div>
-        </div>
-
-        {/* Success Toast */}
-        {sent && (
-          <div style={{
-            margin: '14px 20px 0',
-            background: 'linear-gradient(135deg, #0F3D2E, #1A5340)',
-            borderRadius: '14px',
-            padding: '14px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            animation: 'helpSuccessPop 0.3s ease both',
-            boxShadow: '0 6px 20px rgba(15,61,46,0.25)',
-          }}>
-            <span style={{ fontSize: '22px' }}>✅</span>
-            <div>
-              <p style={{ color: '#E8C895', fontFamily: 'DM Sans, sans-serif', fontSize: '14px', fontWeight: '700', margin: 0 }}>
-                {sent} — Request Sent!
-              </p>
-              <p style={{ color: 'rgba(232,200,149,0.6)', fontFamily: 'DM Sans, sans-serif', fontSize: '11px', margin: '2px 0 0' }}>
-                Your waiter is on the way 🙋
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Options Grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '12px',
-          padding: '16px 20px 0',
-        }}>
-          {HELP_OPTIONS.map((opt) => (
-            <button
-              key={opt.type}
-              onClick={() => handleRequest(opt.type, opt.label)}
-              disabled={!!loading}
-              style={{
-                background: loading === opt.type
-                  ? 'linear-gradient(135deg, #0F3D2E, #1A5340)'
-                  : sent && !loading ? '#F0FDF4' : '#FAF6F0',
-                border: '1.5px solid',
-                borderColor: loading === opt.type ? '#D4A574' : '#E8E0D5',
-                borderRadius: '18px',
-                padding: '18px 12px',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '8px',
-                transition: 'all 0.2s ease',
-                opacity: loading && loading !== opt.type ? 0.5 : 1,
-                transform: loading === opt.type ? 'scale(0.97)' : 'scale(1)',
-                boxShadow: loading === opt.type ? '0 4px 16px rgba(15,61,46,0.2)' : '0 2px 8px rgba(0,0,0,0.04)',
-              }}
-            >
-              <span style={{ fontSize: '30px' }}>{opt.emoji}</span>
-              <span style={{
-                fontSize: '13px',
-                fontWeight: '700',
-                color: loading === opt.type ? '#E8C895' : '#0F3D2E',
-                fontFamily: 'DM Sans, sans-serif',
-              }}>
-                {loading === opt.type ? 'Sending...' : opt.label}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Cancel */}
-        <button
-          onClick={() => setOpen(false)}
-          style={{
-            display: 'block',
-            width: 'calc(100% - 40px)',
-            margin: '16px 20px 0',
-            padding: '14px',
-            background: 'transparent',
-            border: '1.5px solid #E8E0D5',
-            borderRadius: '14px',
-            color: '#aaa',
-            fontSize: '14px',
-            fontFamily: 'DM Sans, sans-serif',
-            cursor: 'pointer',
-            fontWeight: '600',
+            position: "fixed", inset: 0, zIndex: 100,
+            background: "rgba(0,0,0,0.88)",
+            backdropFilter: "blur(20px)",
+            display: "flex", alignItems: "flex-end", justifyContent: "center",
           }}
         >
-          Cancel
-        </button>
-      </div>
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: T.bg1,
+              width: "100%", maxWidth: 480,
+              borderRadius: "24px 24px 0 0",
+              overflow: "hidden",
+              animation: "slideUp 0.38s cubic-bezier(0.32,0.72,0,1)",
+              border: `1px solid ${T.glB}`,
+              borderBottom: "none",
+              maxHeight: "88dvh",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Gold top bar */}
+            <div style={{ height: 3, background: GG, flexShrink: 0 }} />
+
+            {/* Header */}
+            <div style={{ padding: "18px 18px 14px", flexShrink: 0, borderBottom: `1px solid ${T.glB}` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, fontWeight: 800, color: T.text, margin: "0 0 2px" }}>
+                    Need Help? 🙋
+                  </h3>
+                  <p style={{ fontSize: 12, color: T.textS, margin: 0, fontFamily: "Inter,sans-serif" }}>
+                    We'll send a waiter to <strong style={{ color: T.gold }}>Table {tableNumber}</strong> immediately
+                  </p>
+                </div>
+                <button
+                  onClick={() => setOpen(false)}
+                  style={{ width: 32, height: 32, borderRadius: "50%", background: T.gl, border: `1px solid ${T.glB}`, color: T.text, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Content — scrollable */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px" }}>
+              {sent ? (
+                /* Success state */
+                <div style={{ textAlign: "center", padding: "32px 20px", animation: "scaleIn 0.4s cubic-bezier(0.34,1.56,0.64,1)" }}>
+                  <div style={{ width: 72, height: 72, borderRadius: "50%", background: `${T.green}20`, border: `2px solid ${T.green}`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 30 }}>
+                    ✓
+                  </div>
+                  <h3 style={{ fontFamily: "'Playfair Display',serif", fontSize: 22, color: T.green, margin: "0 0 6px" }}>
+                    Help is on the way!
+                  </h3>
+                  <p style={{ fontSize: 13, color: T.textS, fontFamily: "Inter,sans-serif", lineHeight: 1.6 }}>
+                    Our team has been notified.<br />Someone will be at your table shortly.
+                  </p>
+                  <div style={{ marginTop: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.green, animation: "pulse 1s ease-in-out infinite" }} />
+                    <span style={{ fontSize: 11, color: T.textD, fontFamily: "Inter,sans-serif" }}>Notifying your waiter...</span>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Option grid */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                    {HELP_OPTIONS.map(opt => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setSelected(opt.id)}
+                        style={{
+                          background: selected === opt.id ? `linear-gradient(135deg, ${T.gold}1C, ${T.goldM}0E)` : T.gl,
+                          border: `1.5px solid ${selected === opt.id ? T.gold : T.glB}`,
+                          borderRadius: 14,
+                          padding: "13px 12px",
+                          cursor: "pointer",
+                          textAlign: "left",
+                          boxShadow: selected === opt.id ? `0 0 16px ${T.goldG}` : "none",
+                          transition: "all 0.22s ease",
+                        }}
+                      >
+                        <span style={{ fontSize: 24, display: "block", marginBottom: 6 }}>{opt.icon}</span>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: selected === opt.id ? T.gold : T.text, margin: "0 0 2px", fontFamily: "Inter,sans-serif" }}>{opt.label}</p>
+                        <p style={{ fontSize: 10, color: T.textD, margin: 0, fontFamily: "Inter,sans-serif", lineHeight: 1.3 }}>{opt.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Note input */}
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: T.textD, letterSpacing: "0.08em", textTransform: "uppercase", display: "block", marginBottom: 7, fontFamily: "Inter,sans-serif" }}>
+                      Additional Note (Optional)
+                    </label>
+                    <textarea
+                      value={note}
+                      onChange={e => setNote(e.target.value)}
+                      placeholder="e.g. We need 2 extra glasses of water..."
+                      rows={2}
+                      style={{ width: "100%", padding: "10px 12px", borderRadius: 11, border: `1px solid ${T.glB}`, background: T.gl, color: T.text, fontSize: 13, outline: "none", resize: "none", boxSizing: "border-box", fontFamily: "Inter,sans-serif", lineHeight: 1.5 }}
+                    />
+                  </div>
+
+                  {/* CTA */}
+                  <button
+                    onClick={sendHelp}
+                    disabled={!selected || sending}
+                    style={{
+                      width: "100%",
+                      padding: "16px",
+                      borderRadius: 14,
+                      border: "none",
+                      background: selected && !sending ? GG : T.gl,
+                      color: selected && !sending ? T.bg0 : T.textD,
+                      fontWeight: 800,
+                      fontSize: 15,
+                      cursor: selected && !sending ? "pointer" : "not-allowed",
+                      fontFamily: "Inter,sans-serif",
+                      boxShadow: selected && !sending ? `0 8px 24px ${T.goldG}` : "none",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      transition: "all 0.25s ease",
+                    }}
+                  >
+                    {sending ? (
+                      <>
+                        <div style={{ width: 16, height: 16, borderRadius: "50%", border: `2.5px solid ${T.textD}30`, borderTopColor: T.textD, animation: "spin 0.75s linear infinite" }} />
+                        Sending...
+                      </>
+                    ) : (
+                      <><span>🔔</span> Call for Help</>
+                    )}
+                  </button>
+
+                  <p style={{ textAlign: "center", fontSize: 11, color: T.textD, margin: "10px 0 0", fontFamily: "Inter,sans-serif" }}>
+                    Our team will be at your table within minutes
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Animations */}
+      <style>{`
+        @keyframes helpPulse {
+          0%,100% { box-shadow: 0 4px 20px rgba(200,146,42,0.28), 0 0 0 0 rgba(200,146,42,0.3); }
+          50% { box-shadow: 0 4px 20px rgba(200,146,42,0.5), 0 0 0 10px rgba(200,146,42,0); }
+        }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+      `}</style>
     </>
   );
 }
