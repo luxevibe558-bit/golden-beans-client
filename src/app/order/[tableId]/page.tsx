@@ -239,25 +239,219 @@ function AwarenessScreen({ result, onRetry }: { result:SecRes; onRetry:()=>void 
     </div>
   );
 }
-    <p style={{fontSize:9.5,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".18em",textTransform:"uppercase",margin:"0 0 5px"}}>Special For You</p>
-    <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:34,fontWeight:700,color:C.goldL,margin:"0 0 5px",lineHeight:1}}>Flat 20% Off</h3>
-    <p style={{fontSize:12.5,color:C.inkSub,margin:"0 0 18px",fontFamily:"'DM Sans',sans-serif",maxWidth:200}}>On all beverages this evening</p>
-    <div style={{display:"flex",alignItems:"center",gap:8,background:`linear-gradient(135deg,${C.g15},${C.g08})`,backdropFilter:"blur(12px)",border:`1px solid rgba(200,146,42,.35)`,borderRadius:99,padding:"8px 16px",width:"fit-content"}}>
-      <span style={{fontSize:12,color:C.goldL,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>Order Now</span>
-      <svg width={13} height={13} viewBox="0 0 13 13"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke={C.goldL} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg>
+// ═══════════════════════════════════════════════════
+// C-COMPONENTS: Hero, GlassBar, Card, Row, Compact
+// ═══════════════════════════════════════════════════
+
+function CHero({items,cart,onTap,onExplore,greeting,name}:{items:MenuItem[];cart:ECI[];onTap:(i:MenuItem)=>void;onExplore:()=>void;greeting:string;name?:string}) {
+  const [active,setActive]=useState(0);
+  const [drag,setDrag]=useState(0);
+  const [isDrag,setIsDrag]=useState(false);
+  const [shown,setShown]=useState(false);
+  const sx=useRef(0);const tmr=useRef<NodeJS.Timeout|null>(null);
+  const slides=items.filter(i=>i.isAvailable).slice(0,5);
+  const next=useCallback(()=>setActive(p=>(p+1)%slides.length),[slides.length]);
+  const prev=useCallback(()=>setActive(p=>(p-1+slides.length)%slides.length),[slides.length]);
+  useEffect(()=>{const t=setTimeout(()=>setShown(true),60);return()=>clearTimeout(t);},[]);
+  useEffect(()=>{if(isDrag||!slides.length)return;tmr.current=setInterval(next,5400);return()=>{if(tmr.current)clearInterval(tmr.current);};},[next,isDrag,active,slides.length]);
+  if(!slides.length)return null;
+  const s=slides[active];
+  const qty=cart.filter(c=>c.menuItemId===s._id).reduce((t,c)=>t+c.quantity,0);
+  return(
+    <div style={{position:"relative",width:"100%",height:"100svh",maxHeight:680,minHeight:460,overflow:"hidden",background:C.void,userSelect:"none"}}
+      onTouchStart={e=>{setIsDrag(true);sx.current=e.touches[0].clientX;if(tmr.current)clearInterval(tmr.current);}}
+      onTouchMove={e=>{if(isDrag)setDrag(e.touches[0].clientX-sx.current);}}
+      onTouchEnd={()=>{if(Math.abs(drag)>46)drag<0?next():prev();setIsDrag(false);setDrag(0);}}
+      onMouseDown={e=>{setIsDrag(true);sx.current=e.clientX;}}
+      onMouseMove={e=>{if(isDrag)setDrag(e.clientX-sx.current);}}
+      onMouseUp={()=>{if(Math.abs(drag)>46)drag<0?next():prev();setIsDrag(false);setDrag(0);}}>
+      {/* Images */}
+      {slides.map((sl,i)=>(
+        <div key={sl._id} style={{position:"absolute",inset:"-5%",transition:isDrag?"none":`all 0.75s ${EASE}`,opacity:i===active?1:0,
+          transform:i===active?`translateX(${drag*.4}px) scale(1)`:i<active?`translateX(calc(-110% + ${drag*.4}px)) scale(.96)`:`translateX(calc(110% + ${drag*.4}px)) scale(.96)`,zIndex:i===active?1:0}}>
+          {sl.imageUrl?<img src={getHeroUrl(sl.imageUrl)} alt={sl.name} style={{width:"100%",height:"100%",objectFit:"cover",animation:i===active?"kBurns 10s ease-out forwards":"none"}}/>
+          :<div style={{width:"100%",height:"100%",background:`radial-gradient(ellipse 80% 80% at 60% 40%,#3D2010 0%,#1A0E06 40%,${C.void} 100%)`}}/>}
+        </div>
+      ))}
+      {/* Vignettes */}
+      <div style={{position:"absolute",inset:0,zIndex:3,pointerEvents:"none",background:`linear-gradient(to top,${C.void} 0%,rgba(11,9,6,.9) 16%,rgba(11,9,6,.6) 34%,rgba(11,9,6,.22) 54%,transparent 72%)`}}/>
+      <div style={{position:"absolute",inset:0,zIndex:3,pointerEvents:"none",background:`linear-gradient(to right,rgba(11,9,6,.88) 0%,rgba(11,9,6,.5) 38%,transparent 68%)`}}/>
+      <div style={{position:"absolute",top:"-10%",right:"-5%",width:"55%",height:"60%",zIndex:2,pointerEvents:"none",background:`radial-gradient(ellipse at top right,${C.g08} 0%,transparent 65%)`,animation:"breathG 6s ease-in-out infinite"}}/>
+      {/* Steam */}
+      {[0,1,2,3].map(i=><div key={i} style={{position:"absolute",zIndex:4,pointerEvents:"none",bottom:"28%",left:`${36+i*6}%`,width:5+i*1.5,height:28+i*8,borderRadius:99,background:`linear-gradient(to top,rgba(245,204,106,.32),transparent)`,animation:`smokeUp ${2.4+i*.5}s ${i*.65}s ease-out infinite`,filter:"blur(2px)",opacity:0}}/>)}
+      {/* Scan lines */}
+      <div style={{position:"absolute",inset:0,zIndex:4,pointerEvents:"none",opacity:.018,backgroundImage:"repeating-linear-gradient(0deg,transparent,transparent 1px,rgba(255,255,255,.05) 1px,rgba(255,255,255,.05) 2px)",backgroundSize:"100% 4px"}}/>
+      {/* Content */}
+      <div style={{position:"absolute",inset:0,zIndex:5,display:"flex",flexDirection:"column",justifyContent:"flex-end",padding:"0 22px 38px"}}>
+        {shown&&<div style={{marginBottom:6,animation:`fadeRise 0.55s .08s ${EASE} both`}}><span style={{fontSize:11.5,color:C.goldM,fontFamily:"'DM Sans',sans-serif",fontWeight:500,letterSpacing:".12em",textTransform:"uppercase"}}>{greeting}{name?`, ${name}`:""} ✦</span></div>}
+        {shown&&<div style={{marginBottom:15,animation:`fadeRise 0.65s .18s ${EASE} both`}}>
+          <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(36px,11vw,56px)",fontWeight:300,color:C.ink,lineHeight:1.06,margin:0,letterSpacing:"-.01em"}}>
+            Brewed to<br/><em style={{fontStyle:"italic",fontWeight:600,color:C.goldL}}>perfection,</em><br/><span style={{fontWeight:300}}>just for you.</span>
+          </h1>
+        </div>}
+        {shown&&<div style={{marginBottom:22,animation:`fadeRise 0.65s .3s ${EASE} both`}}><p style={{fontSize:12.5,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",fontWeight:400,margin:0,lineHeight:1.5,maxWidth:230}}>{s.description||"Handcrafted with rare single-origin beans."}</p></div>}
+        {shown&&<div style={{display:"flex",gap:12,alignItems:"center",animation:`fadeRise 0.65s .42s ${EASE} both`}}>
+          <button onClick={onExplore} style={{display:"flex",alignItems:"center",gap:8,background:"rgba(200,146,42,0.16)",backdropFilter:"blur(20px)",border:"1px solid rgba(200,146,42,0.38)",borderRadius:99,padding:"11px 22px",color:C.goldL,fontSize:13,fontWeight:600,fontFamily:"'DM Sans',sans-serif",cursor:"pointer",boxShadow:"inset 0 1px 0 rgba(255,255,255,.07)"}}>
+            Explore Menu <svg width={14} height={14} viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke={C.goldL} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </button>
+          <button onClick={()=>onTap(s)} style={{position:"relative",width:46,height:46,borderRadius:"50%",background:qty>0?GG:"rgba(200,146,42,0.11)",border:`1.5px solid ${qty>0?C.goldM:"rgba(200,146,42,0.42)"}`,color:qty>0?C.void:C.gold,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,fontWeight:800,backdropFilter:"blur(12px)",transition:`all 0.3s ${SPR}`}}>
+            {qty>0?"✓":"+"}
+            {qty>0&&<div style={{position:"absolute",top:-5,right:-5,width:18,height:18,borderRadius:"50%",background:GG,color:C.void,fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${C.void}`,animation:"cartPop .45s ease",fontFamily:"'DM Mono',monospace"}}>{qty}</div>}
+          </button>
+        </div>}
+      </div>
+      {/* Dot nav */}
+      <div style={{position:"absolute",right:18,bottom:"50%",transform:"translateY(50%)",zIndex:6,display:"flex",flexDirection:"column",gap:6,alignItems:"center"}}>
+        <span style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",fontWeight:500,marginBottom:4}}>0{active+1}</span>
+        {slides.map((_,i)=><button key={i} onClick={()=>setActive(i)} style={{width:i===active?2.5:2,height:i===active?22:7,borderRadius:99,background:i===active?GGV:"rgba(200,146,42,.25)",border:"none",cursor:"pointer",padding:0,transition:`all 0.4s ${SPR}`}}/>)}
+        <span style={{fontSize:10,color:C.inkGh,fontFamily:"'DM Mono',monospace",marginTop:4}}>0{slides.length}</span>
+      </div>
+      {/* Item name */}
+      {shown&&<div style={{position:"absolute",right:22,bottom:88,zIndex:6,textAlign:"right",animation:`fadeRise 0.6s .5s ${EASE} both`}}>
+        <p style={{fontSize:10.5,color:C.gold,fontFamily:"'DM Mono',monospace",margin:"0 0 3px",letterSpacing:".1em",textTransform:"uppercase"}}>Featured</p>
+        <p style={{fontSize:15,color:C.ink,fontFamily:"'Cormorant Garamond',serif",fontWeight:600,margin:"0 0 1px"}}>{s.name}</p>
+        <p style={{fontSize:13,color:C.gold,fontFamily:"'DM Mono',monospace"}}>₹{s.price}</p>
+      </div>}
     </div>
-  </div></div>);
+  );
 }
+
+function CGlassBar({cats,active,onSelect}:{cats:MenuCategory[];active:string;onSelect:(id:string)=>void}) {
+  const ref=useRef<HTMLDivElement>(null);
+  useEffect(()=>{const el=ref.current?.querySelector('[data-active="true"]') as HTMLElement;el?.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"});},[active]);
+  return(
+    <div style={{padding:"22px 0 8px"}}>
+      <div style={{padding:"0 22px",marginBottom:11}}><span style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".18em",textTransform:"uppercase"}}>✦ Explore</span></div>
+      <div ref={ref} className="hs" style={{display:"flex",gap:10,overflowX:"auto",padding:"4px 22px 8px"}}>
+        {cats.map((cat,idx)=>{const isA=cat._id===active;return(
+          <button key={cat._id} data-active={isA} onClick={()=>onSelect(cat._id)}
+            style={{flexShrink:0,display:"flex",alignItems:"center",gap:8,background:isA?`linear-gradient(135deg,rgba(200,146,42,.22),rgba(232,184,75,.12))`:C.gl1,backdropFilter:"blur(24px)",border:`1px solid ${isA?"rgba(200,146,42,.52)":C.glBd}`,borderRadius:99,padding:"9px 18px 9px 12px",cursor:"pointer",transition:`all 0.32s ${SPR}`,animation:`stgIn 0.45s ${idx*.06}s ${EASE} both`,position:"relative",overflow:"hidden",
+            boxShadow:isA?`0 0 24px ${C.g15},inset 0 1px 0 rgba(255,255,255,.06)`:"inset 0 1px 0 rgba(255,255,255,.04)"}}>
+            {isA&&<div style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"hidden",borderRadius:99}}><div style={{position:"absolute",top:0,left:0,width:"30%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent)",animation:"sweep 2.5s ease-in-out infinite"}}/></div>}
+            <span style={{fontSize:20,lineHeight:1}}>{cat.icon}</span>
+            <span style={{fontSize:12.5,fontWeight:isA?700:500,color:isA?C.goldL:C.inkSub,fontFamily:"'DM Sans',sans-serif",whiteSpace:"nowrap"}}>{cat.name}</span>
+            {isA&&<div style={{width:5,height:5,borderRadius:"50%",background:C.gold,boxShadow:`0 0 6px ${C.gold}`,marginLeft:2}}/>}
+          </button>
+        );})}
+      </div>
+    </div>
+  );
+}
+
+function CCard({item,qty,isFav,onFav,onTap,delay=0,size="normal"}:{item:MenuItem;qty:number;isFav:boolean;onFav:()=>void;onTap:()=>void;delay?:number;size?:"normal"|"large"|"compact"}) {
+  const [pressed,setPressed]=useState(false);
+  const [rp,setRp]=useState<{x:number;y:number}|null>(null);
+  const W=size==="large"?218:size==="compact"?148:170;
+  const H=size==="large"?178:size==="compact"?126:154;
+  const tap=(e:React.MouseEvent)=>{if(!item.isAvailable)return;const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setRp({x:e.clientX-r.left,y:e.clientY-r.top});setTimeout(()=>setRp(null),700);onTap();};
+  return(
+    <div onClick={tap} onMouseDown={()=>setPressed(true)} onMouseUp={()=>setPressed(false)} onMouseLeave={()=>setPressed(false)} onTouchStart={()=>setPressed(true)} onTouchEnd={()=>setPressed(false)}
+      style={{flexShrink:0,width:W,borderRadius:20,overflow:"hidden",cursor:item.isAvailable?"pointer":"not-allowed",opacity:item.isAvailable?1:.4,
+        background:`linear-gradient(160deg,${C.raise} 0%,${C.surface} 100%)`,
+        border:`1px solid ${qty>0?"rgba(200,146,42,0.45)":C.glBd}`,
+        boxShadow:qty>0?`0 0 0 1px ${C.g15},0 8px 32px ${C.g15},0 2px 8px rgba(0,0,0,.6)`:"0 4px 20px rgba(0,0,0,.5)",
+        transform:pressed?"scale(0.955) translateY(2px)":"scale(1)",transition:`all 0.28s ${SPR}`,
+        animation:`stgIn 0.5s ${delay}s ${EASE} both`,position:"relative"}}>
+      <div style={{position:"relative",height:H,overflow:"hidden"}}>
+        {item.imageUrl?<img src={getThumbnailUrl(item.imageUrl)} alt={item.name} style={{width:"100%",height:"100%",objectFit:"cover",transition:"transform .5s ease",transform:pressed?"scale(1.06)":"scale(1.01)"}} loading="lazy"/>
+        :<div style={{width:"100%",height:"100%",background:`radial-gradient(ellipse at 50% 30%,#3D2010,${C.surface})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:50,opacity:.7}}>☕</div>}
+        <div style={{position:"absolute",inset:0,background:`linear-gradient(to top,${C.surface} 0%,rgba(26,23,18,.55) 44%,transparent 68%)`}}/>
+        {item.tags?.includes("bestseller")&&<div style={{position:"absolute",top:9,left:9,background:GG,color:C.void,fontSize:8.5,fontWeight:800,padding:"2.5px 9px",borderRadius:99,letterSpacing:".06em",fontFamily:"'DM Sans',sans-serif",boxShadow:`0 2px 8px ${C.g40}`}}>⭐ BEST</div>}
+        {!item.isAvailable&&<div style={{position:"absolute",inset:0,background:"rgba(2,1,0,0.65)",display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:9,color:"rgba(255,255,255,.55)",fontFamily:"'DM Mono',monospace",letterSpacing:".1em",textTransform:"uppercase"}}>Sold Out</span></div>}
+        {qty>0&&<div style={{position:"absolute",top:8,right:38,width:21,height:21,borderRadius:"50%",background:GG,color:C.void,fontSize:9.5,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${C.surface}`,animation:"cartPop .45s ease",fontFamily:"'DM Mono',monospace"}}>{qty}</div>}
+        <button onClick={e=>{e.stopPropagation();onFav();}} style={{position:"absolute",top:8,right:8,width:29,height:29,borderRadius:"50%",background:"rgba(2,1,0,0.65)",backdropFilter:"blur(8px)",border:`1px solid ${isFav?"rgba(239,68,68,.55)":C.glBd}`,color:isFav?"#ef4444":C.inkSub,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,transition:`all .2s ${EASE}`}}>{isFav?"❤":"🤍"}</button>
+        <div style={{position:"absolute",bottom:9,left:10}}>
+          <span style={{fontSize:16,fontWeight:500,color:C.gold,fontFamily:"'DM Mono',monospace"}}>₹{item.price}</span>
+        </div>
+        {rp&&<div style={{position:"absolute",left:rp.x-18,top:rp.y-18,width:36,height:36,borderRadius:"50%",background:"rgba(200,146,42,.32)",animation:"ripOut .7s ease-out forwards",pointerEvents:"none"}}/>}
+      </div>
+      <div style={{padding:"9px 11px 11px"}}>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:600,color:C.ink,margin:"0 0 3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.name}</p>
+        {size!=="compact"&&<p style={{fontSize:10.5,color:C.inkDim,margin:"0 0 8px",lineHeight:1.45,fontFamily:"'DM Sans',sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.description||"Artisanal quality"}</p>}
+        <button onClick={e=>{e.stopPropagation();if(item.isAvailable)onTap();}} style={{width:"100%",padding:"8px 0",borderRadius:10,border:`1px solid ${qty>0?"rgba(200,146,42,.5)":C.glBd}`,background:qty>0?`linear-gradient(135deg,${C.g15},${C.g08})`:C.gl1,color:qty>0?C.goldL:C.inkDim,fontWeight:600,fontSize:11.5,cursor:item.isAvailable?"pointer":"not-allowed",fontFamily:"'DM Sans',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:4,transition:`all .22s ${EASE}`}}>
+          {qty>0?<><span>✓</span>Added ({qty})</>:<><span style={{fontSize:14,fontWeight:700}}>+</span>Add</>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CRow({title,eyebrow,items,cart,onTap,favs,onFav,featured=false}:{title:string;eyebrow?:string;items:MenuItem[];cart:ECI[];onTap:(i:MenuItem)=>void;favs:Set<string>;onFav:(id:string)=>void;featured?:boolean}) {
+  if(!items.length)return null;
+  return(
+    <section style={{marginBottom:38,position:"relative"}}>
+      <div style={{padding:"0 22px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+        <div>{eyebrow&&<p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 4px"}}>{eyebrow}</p>}<h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:600,color:C.ink,margin:0}}>{title}</h3></div>
+        <button style={{fontSize:12,color:C.gold,background:"none",border:"none",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontWeight:500,opacity:.75,display:"flex",alignItems:"center",gap:4}}>See all<svg width={12} height={12} viewBox="0 0 12 12"><path d="M2 6h8M6 2l4 4-4 4" stroke={C.gold} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+      </div>
+      <div className="hs" style={{display:"flex",gap:12,overflowX:"auto",padding:"4px 22px 12px",scrollSnapType:"x mandatory"}}>
+        {items.map((item,idx)=>{const qty=cart.filter(c=>c.menuItemId===item._id).reduce((s,c)=>s+c.quantity,0);return(<div key={item._id} style={{flexShrink:0,scrollSnapAlign:"start"}}><CCard item={item} qty={qty} isFav={favs.has(item._id)} onFav={()=>onFav(item._id)} onTap={()=>onTap(item)} delay={idx*.055} size={featured&&idx===0?"large":idx>3?"compact":"normal"}/></div>);})}
+      </div>
+      <div style={{position:"absolute",right:0,top:"30%",width:52,height:"50%",pointerEvents:"none",background:`linear-gradient(to left,${C.deep},transparent)`}}/>
+    </section>
+  );
+}
+
+function CCompact({title,eyebrow,items,cart,onTap}:{title:string;eyebrow?:string;items:MenuItem[];cart:ECI[];onTap:(i:MenuItem)=>void}) {
+  if(!items.length)return null;
+  return(
+    <section style={{marginBottom:34,padding:"0 22px"}}>
+      <div style={{marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+        <div>{eyebrow&&<p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 4px"}}>{eyebrow}</p>}<h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:21,fontWeight:600,color:C.ink,margin:0}}>{title}</h3></div>
+        <button style={{fontSize:12,color:C.gold,background:"none",border:"none",cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>See all</button>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:9}}>
+        {items.slice(0,5).map((item,idx)=>{
+          const qty=cart.filter(c=>c.menuItemId===item._id).reduce((s,c)=>s+c.quantity,0);
+          return(
+            <div key={item._id} onClick={()=>item.isAvailable&&onTap(item)}
+              style={{display:"flex",gap:12,alignItems:"center",background:`linear-gradient(135deg,${C.surface},${C.raise})`,borderRadius:16,padding:"11px 13px",
+                border:`1px solid ${qty>0?"rgba(200,146,42,.38)":C.glBd}`,
+                boxShadow:qty>0?`0 0 0 1px ${C.g08},0 4px 16px rgba(0,0,0,.4)`:"0 2px 12px rgba(0,0,0,.35)",
+                cursor:item.isAvailable?"pointer":"not-allowed",opacity:item.isAvailable?1:.45,
+                animation:`stgIn 0.4s ${idx*.07}s ${EASE} both`,transition:`all .25s ${EASE}`}}>
+              <div style={{width:56,height:56,borderRadius:13,overflow:"hidden",flexShrink:0,background:`linear-gradient(135deg,#3D2010,${C.surface})`}}>
+                {item.imageUrl&&<img src={getThumbnailUrl(item.imageUrl)} alt={item.name} style={{width:"100%",height:"100%",objectFit:"cover"}} loading="lazy"/>}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:600,color:C.ink,margin:"0 0 2px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.name}</p>
+                <p style={{fontSize:10,color:C.inkDim,margin:"0 0 5px",fontFamily:"'DM Sans',sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.description||"Premium quality"}</p>
+                <span style={{fontSize:14,fontWeight:500,color:C.gold,fontFamily:"'DM Mono',monospace"}}>₹{item.price}</span>
+              </div>
+              <button onClick={e=>{e.stopPropagation();if(item.isAvailable)onTap(item);}} style={{width:32,height:32,borderRadius:"50%",border:`1.5px solid ${qty>0?"rgba(200,146,42,.7)":C.glBd}`,background:qty>0?`linear-gradient(135deg,rgba(200,146,42,.25),rgba(232,184,75,.12))`:"transparent",color:qty>0?C.goldL:C.inkDim,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700,transition:`all .22s ${SPR}`}}>{qty>0?"✓":"+"}</button>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function CPromo({onTap}:{onTap:()=>void}){return(
+  <div style={{margin:"0 22px 34px"}}>
+    <div onClick={onTap} style={{background:`radial-gradient(ellipse 100% 100% at 80% 50%,rgba(60,30,8,.9) 0%,rgba(30,14,4,.98) 60%,${C.surface} 100%)`,borderRadius:22,padding:"22px 20px",position:"relative",overflow:"hidden",border:`1px solid rgba(200,146,42,.28)`,boxShadow:`0 8px 36px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.04)`,cursor:"pointer"}}>
+      <div style={{position:"absolute",right:-24,top:"50%",transform:"translateY(-50%)",width:160,height:160,borderRadius:"50%",background:`radial-gradient(circle,${C.g15} 0%,transparent 70%)`,animation:"breathG 5s ease-in-out infinite"}}/>
+      {[0,1].map(i=><div key={i} style={{position:"absolute",right:40+i*14,bottom:"50%",width:4,height:20,borderRadius:99,background:`linear-gradient(to top,${C.g40},transparent)`,animation:`smokeUp 2s ${i*.7}s ease-out infinite`,filter:"blur(1px)",opacity:0}}/>)}
+      <div style={{position:"absolute",right:10,bottom:-8,fontSize:72,opacity:.08,pointerEvents:"none",userSelect:"none"}}>☕</div>
+      <p style={{fontSize:9.5,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".18em",textTransform:"uppercase",margin:"0 0 5px"}}>Special For You</p>
+      <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:34,fontWeight:700,color:C.goldL,margin:"0 0 5px",lineHeight:1}}>Flat 20% Off</h3>
+      <p style={{fontSize:12.5,color:C.inkSub,margin:"0 0 18px",fontFamily:"'DM Sans',sans-serif",maxWidth:200}}>On all beverages this evening</p>
+      <div style={{display:"flex",alignItems:"center",gap:8,background:`linear-gradient(135deg,${C.g15},${C.g08})`,backdropFilter:"blur(12px)",border:`1px solid rgba(200,146,42,.35)`,borderRadius:99,padding:"8px 16px",width:"fit-content",boxShadow:"inset 0 1px 0 rgba(255,255,255,.07)"}}>
+        <span style={{fontSize:12,color:C.goldL,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>Order Now</span>
+        <svg width={13} height={13} viewBox="0 0 13 13"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke={C.goldL} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg>
+      </div>
+    </div>
+  </div>
+);}
 
 function CDivider(){return(<div style={{position:"relative",height:1,margin:"6px 22px 30px",overflow:"visible"}}><div style={{height:1,background:`linear-gradient(90deg,transparent,${C.g15},${C.g40},${C.g15},transparent)`}}/><div style={{position:"absolute",left:"50%",top:"50%",transform:"translate(-50%,-50%)",width:6,height:6,borderRadius:"50%",background:C.gold,boxShadow:`0 0 12px ${C.g60},0 0 24px ${C.g15}`}}/></div>);}
 
 function CSkel(){return(<div><div className="sk" style={{width:"100%",height:"60vh",maxHeight:500,minHeight:370}}/><div style={{display:"flex",gap:10,padding:"18px 22px",overflow:"hidden"}}>{[80,100,90,110,85].map((w,i)=><div key={i} className="sk" style={{flexShrink:0,width:w,height:38,borderRadius:99}}/>)}</div>{[0,1].map(r=><div key={r} style={{padding:"10px 22px 20px"}}><div className="sk" style={{width:140,height:15,borderRadius:7,marginBottom:11}}/><div style={{display:"flex",gap:12,overflow:"hidden"}}>{[170,170,148,148].map((w,i)=><div key={i} style={{flexShrink:0,width:w}}><div className="sk" style={{height:154,borderRadius:"18px 18px 0 0"}}/><div style={{background:C.surface,borderRadius:"0 0 18px 18px",padding:12}}><div className="sk" style={{height:13,borderRadius:5,marginBottom:7,width:"80%"}}/><div className="sk" style={{height:28,borderRadius:11}}/></div></div>)}</div></div>)}</div>);}
 
-// ── CINEMATIC HOME MAIN ──
 function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategorySelect,activeCategoryId,onViewCart,onExploreMenu,favs,onToggleFav}:{
-  menu:MenuCategory[];cart:ECI[];loading:boolean;customerData:{name:string;phone:string}|null;
-  table:{tableNumber:string}|null;onItemTap:(i:MenuItem)=>void;onCategorySelect:(id:string)=>void;
-  activeCategoryId:string;onViewCart:()=>void;onExploreMenu:()=>void;favs:Set<string>;onToggleFav:(id:string)=>void;
+  menu:MenuCategory[];cart:ECI[];loading:boolean;customerData:{name:string;phone:string}|null;table:{tableNumber:string}|null;
+  onItemTap:(i:MenuItem)=>void;onCategorySelect:(id:string)=>void;activeCategoryId:string;
+  onViewCart:()=>void;onExploreMenu:()=>void;favs:Set<string>;onToggleFav:(id:string)=>void;
 }) {
   const allItems=menu.flatMap(c=>c.items as MenuItem[]);
   const bestsellers=allItems.filter(i=>i.tags?.includes("bestseller")&&i.isAvailable);
@@ -267,26 +461,28 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
   const [scrolled,setScrolled]=useState(false);
   const scrollRef=useRef<HTMLDivElement>(null);
   useEffect(()=>{const el=scrollRef.current;if(!el)return;const fn=()=>setScrolled(el.scrollTop>72);el.addEventListener("scroll",fn);return()=>el.removeEventListener("scroll",fn);},[]);
+
   return(
     <div style={{position:"relative",minHeight:"100dvh",background:C.deep}}>
-      {/* Sticky transparent→solid header */}
-      <header style={{position:"sticky",top:0,zIndex:30,background:scrolled?"rgba(11,9,6,0.97)":"transparent",backdropFilter:scrolled?"blur(24px)":"none",padding:"13px 18px",borderBottom:scrolled?`1px solid ${C.glBd}`:"none",transition:`all 0.35s ${EASE}`,marginBottom:"-60px"}}>
+      {/* Sticky header */}
+      <header style={{position:"sticky",top:0,zIndex:30,background:scrolled?"rgba(11,9,6,0.97)":"transparent",backdropFilter:scrolled?"blur(24px)":"none",padding:"13px 18px",borderBottom:scrolled?`1px solid ${C.gl2}`:"none",transition:`all .35s ${EASE}`,marginBottom:"-60px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:11}}>
-            <div style={{width:40,height:40,borderRadius:13,overflow:"hidden",border:`1.5px solid rgba(200,146,42,${scrolled?.52:.28})`,boxShadow:`0 0 14px ${C.g15}`,transition:`all 0.3s ${EASE}`}}>
+            <div style={{width:40,height:40,borderRadius:13,overflow:"hidden",border:`1.5px solid rgba(200,146,42,${scrolled?.55:.3})`,boxShadow:`0 0 16px ${C.g15}`,transition:`all .3s ${EASE}`}}>
               <img src="/logo-small.png" alt="GB" style={{width:"100%",height:"100%",objectFit:"contain"}} onError={e=>{(e.target as HTMLImageElement).style.display="none";}}/>
             </div>
             <div>
-              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17.5,fontWeight:600,color:scrolled?C.ink:"rgba(245,237,216,.9)",margin:0,lineHeight:1.1,transition:`color 0.3s ${EASE}`}}>Golden Beans</p>
-              <p style={{fontSize:10,color:scrolled?C.inkDim:"rgba(245,237,216,.4)",margin:0,fontFamily:"'DM Sans',sans-serif",transition:`color 0.3s ${EASE}`}}>{table?`Table ${table.tableNumber} ✦ `:""}{customerData?customerData.name:"Cafe & Bistro"}</p>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17.5,fontWeight:600,color:scrolled?C.ink:"rgba(245,237,216,.9)",margin:0,lineHeight:1.1}}> Golden Beans</p>
+              <p style={{fontSize:10,color:scrolled?C.inkDim:"rgba(245,237,216,.42)",margin:0,fontFamily:"'DM Sans',sans-serif"}}>{table?`Table ${table.tableNumber} ✦ `:""}{customerData?customerData.name:"Cafe & Bistro"}</p>
             </div>
           </div>
           <div style={{display:"flex",gap:8}}>
-            {["🔍","🔔"].map((ic,i)=><button key={i} style={{width:38,height:38,borderRadius:12,background:`rgba(255,255,255,${scrolled?.06:.035})`,border:`1px solid ${C.glBd}`,backdropFilter:"blur(12px)",color:C.ink,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,transition:`all 0.3s ${EASE}`}}>{ic}</button>)}
+            {["🔍","🔔"].map((ic,i)=><button key={i} style={{width:38,height:38,borderRadius:12,background:`rgba(255,255,255,${scrolled?.06:.04})`,border:`1px solid ${C.glBd}`,backdropFilter:"blur(12px)",color:C.ink,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>{ic}</button>)}
           </div>
         </div>
       </header>
-      {/* Scroll container */}
+
+      {/* Scrollable */}
       <div ref={scrollRef} style={{overflowY:"auto",overflowX:"hidden",paddingBottom:cart.length>0?160:96}}>
         {loading?<CSkel/>:(
           <>
@@ -310,236 +506,32 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
           </>
         )}
       </div>
-      {/* Inline floating cart for home */}
-      {cart.length>0&&(()=>{const total=cart.reduce((s,i)=>s+(i.price+(i.totalPriceModifier||0))*i.quantity,0);const items=cart.reduce((s,i)=>s+i.quantity,0);return(
-        <div style={{position:"fixed",bottom:76,left:12,right:12,zIndex:50}}>
-          <button onClick={onViewCart} style={{width:"100%",background:"linear-gradient(135deg,rgba(18,16,12,0.97),rgba(26,23,16,0.97))",backdropFilter:"blur(30px)",borderRadius:20,padding:"11px 13px",border:`1px solid rgba(200,146,42,0.44)`,boxShadow:`0 8px 40px rgba(0,0,0,0.75),0 0 28px ${C.g15}`,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}}>
-            <div style={{display:"flex",alignItems:"center",gap:11}}>
-              <div style={{position:"relative"}}>
-                <div style={{width:44,height:44,borderRadius:14,background:`linear-gradient(135deg,${C.g15},${C.g08})`,border:`1.5px solid rgba(200,146,42,.44)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🛒</div>
-                <div style={{position:"absolute",top:-6,right:-6,width:20,height:20,borderRadius:"50%",background:GG,color:C.void,fontSize:9.5,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${C.dark}`,fontFamily:"'DM Mono',monospace"}}>{items}</div>
+
+      {/* Floating cart */}
+      {cart.length>0&&(()=>{
+        const total=cart.reduce((s,i)=>s+(i.price+(i.totalPriceModifier||0))*i.quantity,0);
+        const items=cart.reduce((s,i)=>s+i.quantity,0);
+        return(
+          <div style={{position:"fixed",bottom:76,left:14,right:14,zIndex:50}}>
+            <button onClick={onViewCart} style={{width:"100%",background:"linear-gradient(135deg,rgba(18,16,12,.97),rgba(26,23,16,.97))",backdropFilter:"blur(28px)",borderRadius:20,padding:"12px 14px",border:"1px solid rgba(200,146,42,.42)",boxShadow:`0 8px 40px rgba(0,0,0,.75),0 0 0 1px ${C.g08},0 0 28px ${C.g15}`,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{position:"relative"}}>
+                  <div style={{width:44,height:44,borderRadius:14,background:`linear-gradient(135deg,${C.g25},${C.g15})`,border:`1.5px solid rgba(200,146,42,.45)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🛒</div>
+                  <div style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",background:GG,color:C.void,fontSize:9.5,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${C.dark}`,fontFamily:"'DM Mono',monospace",boxShadow:`0 2px 8px ${C.g40}`}}>{items}</div>
+                </div>
+                <p style={{fontFamily:"'DM Mono',monospace",fontWeight:500,fontSize:17,color:C.ink,margin:0}}>₹{(total*1.05).toFixed(0)}</p>
               </div>
-              <p style={{fontFamily:"'DM Mono',monospace",fontWeight:500,fontSize:18,color:C.ink,margin:0}}>₹{(total*1.05).toFixed(0)}</p>
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:7,background:GG,borderRadius:13,padding:"10px 18px",boxShadow:`0 4px 20px ${C.g40}`}}>
-              <span style={{fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:14,color:C.void}}>View Cart</span>
-              <svg width={14} height={14} viewBox="0 0 14 14"><path d="M2 7h10M8 3l4 4-4 4" stroke={C.void} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </div>
-          </button>
-        </div>
-      );})()} 
+              <div style={{display:"flex",alignItems:"center",gap:7,background:GG,borderRadius:13,padding:"10px 18px",boxShadow:`0 4px 20px ${C.g40}`}}>
+                <span style={{fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:13.5,color:C.void}}>View Cart</span>
+                <svg width={14} height={14} viewBox="0 0 14 14"><path d="M2 7h10M8 3l4 4-4 4" stroke={C.void} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </div>
+            </button>
+          </div>
+        );
+      })()}
     </div>
   );
 }
-// ═══════════════════════════════════════════════════
-// MAIN PAGE COMPONENT
-// ═══════════════════════════════════════════════════
-export default function CustomerOrderPage() {
-  const params = useParams(); const router = useRouter();
-  const tableId = params.tableId as string;
-
-  const [secStatus, setSecStatus] = useState<"checking"|"passed"|"failed">("checking");
-  const [secResult, setSecResult] = useState<SecRes|null>(null);
-  const [menu,          setMenu         ] = useState<MenuCategory[]>([]);
-  const [table,         setTable        ] = useState<Table|null>(null);
-  const [existingOrder, setExistingOrder] = useState<Order|null>(null);
-  const [allOrders,     setAllOrders    ] = useState<Order[]>([]);
-  const [loading,       setLoading      ] = useState(true);
-  const [cart,       setCart      ] = useState<ECI[]>([]);
-  const [discount,   setDiscount  ] = useState<Disc|null>(null);
-  const [isPlacing,  setIsPlacing ] = useState(false);
-  const [placedOrder,setPlacedOrder]=useState<Order|null>(null);
-  const [screen,      setScreen    ] = useState<Screen>("security");
-  const [activeTab,   setActiveTab ] = useState<Tab>("home");
-  const [selectedItem,setSelectedItem]=useState<MenuItem|null>(null);
-  const [activeCat,   setActiveCat ] = useState("");
-  const [customer,    setCustomer  ] = useState<{name:string;phone:string}|null>(null);
-  const [favs,        setFavs      ] = useState<Set<string>>(new Set());
-  const prevStatus = useRef<string|null>(null);
-
-  const onPassed  = useCallback(()=>{ setSecStatus("passed"); setScreen("home"); },[]);
-  const onFailed  = useCallback((r:SecRes)=>{ setSecResult(r); setSecStatus("failed"); },[]);
-  const onRetry   = useCallback(()=> setSecStatus("checking"),[]);
-
-  useEffect(()=>{
-    if (secStatus!=="passed") return;
-    const saved = localStorage.getItem("gb_customer");
-    if (saved) { try { const d=JSON.parse(saved); setCustomer({name:d.name,phone:d.phone}); } catch {} }
-    const onSt = ()=>{ const u=localStorage.getItem("gb_customer"); if(u){try{const d=JSON.parse(u);setCustomer({name:d.name,phone:d.phone});}catch{}} };
-    window.addEventListener("storage",onSt);
-    const iv=setInterval(()=>{ const u=localStorage.getItem("gb_customer"); if(u){try{const d=JSON.parse(u);setCustomer(p=>p?.name===JSON.parse(u).name?p:{name:d.name,phone:d.phone});}catch{}} },2000);
-    return ()=>{ window.removeEventListener("storage",onSt); clearInterval(iv); };
-  },[secStatus]);
-
-  useEffect(()=>{
-    if (secStatus!=="passed") return;
-    async function load() {
-      try {
-        setLoading(true);
-        const [mR,tR] = await Promise.all([menuApi.getMenu(), tableApi.getTable(tableId)]);
-        setMenu(mR.data.data); setTable(tR.data.data);
-        if (mR.data.data.length>0) setActiveCat(mR.data.data[0]._id);
-        const oR = await orderApi.getOrderByTable(tableId);
-        if (oR.data.data) {
-          const o:Order=oR.data.data;
-          if (["settled","cancelled"].includes(o.status)) { localStorage.removeItem("gb_active_order"); setExistingOrder(null); }
-          else { setExistingOrder(o); prevStatus.current=o.status; localStorage.setItem("gb_active_order",o._id); }
-        }
-      } catch {} finally { setLoading(false); }
-    }
-    load();
-  },[tableId,secStatus]);
-
-  useEffect(()=>{
-    if (secStatus!=="passed") return;
-    let alive = true;
-    const check = async () => {
-      if (!alive) return;
-      try {
-        if (existingOrder) {
-          const r = await orderApi.getOrder(existingOrder._id);
-          const o:Order|null = r.data?.data;
-          if (o) {
-            if (o.status==="settled") { localStorage.removeItem("gb_active_order"); localStorage.removeItem("gb_customer"); setPlacedOrder(existingOrder); setScreen("ready"); return; }
-            if (o.status==="cancelled") { localStorage.removeItem("gb_active_order"); setExistingOrder(null); return; }
-            setExistingOrder(o);
-          }
-        }
-        const [oR,aR] = await Promise.all([orderApi.getOrderByTable(tableId), orderApi.getKdsOrders()]);
-        if (!alive) return;
-        if (aR.data.data) setAllOrders(aR.data.data);
-        const nO:Order|null = oR.data.data;
-        if (!nO) return;
-        prevStatus.current=nO.status; setExistingOrder(nO);
-      } catch {}
-    };
-    const pollTimer = setInterval(check, 5000);
-    const onVis = ()=>{ if(document.visibilityState==="visible") check(); };
-    document.addEventListener("visibilitychange",onVis); window.addEventListener("focus",check);
-    check();
-    return ()=>{ alive=false; clearInterval(pollTimer); document.removeEventListener("visibilitychange",onVis); window.removeEventListener("focus",check); };
-  },[secStatus,tableId,existingOrder]);
-
-  const queuePos = existingOrder
-    ? allOrders.filter(o=>["kotSent","open"].includes(o.status)&&o._id!==existingOrder._id&&new Date(o.createdAt).getTime()<new Date(existingOrder.createdAt).getTime()).length
-    : undefined;
-
-  const addToCart = (item:MenuItem, qty:number, variants:{groupName:string;selected:string[]}[], mod:number) => {
-    const key = item._id+JSON.stringify(variants);
-    setCart(prev=>{
-      const ex=prev.find(c=>(c.menuItemId+JSON.stringify(c.variants))===key);
-      if (ex) return prev.map(c=>(c.menuItemId+JSON.stringify(c.variants))===key?{...c,quantity:c.quantity+qty}:c);
-      return [...prev,{menuItemId:item._id,name:item.name,price:item.price,quantity:qty,notes:"",isVeg:true,variants,totalPriceModifier:mod,imageUrl:item.imageUrl}];
-    });
-    setSelectedItem(null);
-  };
-
-  const updateQty = (key:string, d:number) => setCart(prev=>{
-    const ex=prev.find(c=>(c.menuItemId+JSON.stringify(c.variants))===key);
-    if (!ex) return prev;
-    if (ex.quantity+d<=0) return prev.filter(c=>(c.menuItemId+JSON.stringify(c.variants))!==key);
-    return prev.map(c=>(c.menuItemId+JSON.stringify(c.variants))===key?{...c,quantity:c.quantity+d}:c);
-  });
-
-  const handlePay = async (method:string, tip:number, note:string) => {
-    if (!cart.length) return;
-    try {
-      const API=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
-      const pm=(await fetch(`${API}/settings/payment_mode`).then(r=>r.json())).data||"counter";
-      if ((pm==="online"||pm==="both")&&method!=="cash") { await initiateRazorpay(tip,note); }
-      else { await placeOrder(tip,note); }
-    } catch { await placeOrder(tip,note); }
-  };
-
-  const initiateRazorpay = async (tip:number, note:string) => {
-    const sub=cart.reduce((s,i)=>s+(i.price+(i.totalPriceModifier||0))*i.quantity,0);
-    const disc=discount?.discount||0;
-    const total=Math.round(Math.max(0,sub-disc)*1.05)+tip;
-    const API=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
-    setIsPlacing(true);
-    try {
-      const orderData=await fetch(`${API}/payment/create-order`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount:total,tableNumber:table?.tableNumber})}).then(r=>r.json());
-      if (!orderData.success) throw new Error(orderData.message);
-      await new Promise<void>((resolve,reject)=>{ if((window as any).Razorpay){resolve();return;} const s=document.createElement("script");s.src="https://checkout.razorpay.com/v1/checkout.js";s.onload=()=>resolve();s.onerror=()=>reject();document.body.appendChild(s); });
-      await new Promise<void>((resolve,reject)=>{ new (window as any).Razorpay({key:orderData.data?.keyId,amount:total*100,currency:"INR",name:"Golden Beans Café",order_id:orderData.data?.orderId,prefill:{name:customer?.name||"",contact:customer?.phone||""},theme:{color:C.gold},handler:async(r:any)=>{try{const v=await fetch(`${API}/payment/verify`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(r)}).then(r=>r.json());if(v.success){await placeOrder(tip,note,r.razorpay_payment_id);resolve();}else reject();}catch(e){reject(e);}},modal:{ondismiss:()=>reject(new Error("cancelled"))}}).open(); });
-    } catch(e:any){ if(e?.message!=="cancelled") alert(e?.message||"Payment failed"); }
-    finally { setIsPlacing(false); }
-  };
-
-  const placeOrder = async (tip=0, note="", paymentId?:string) => {
-    if (!cart.length) return;
-    setIsPlacing(true);
-    try {
-      const res=await orderApi.createOrder({tableId,items:cart.map(c=>({menuItemId:c.menuItemId,name:c.name,price:c.price+(c.totalPriceModifier||0),quantity:c.quantity,notes:c.variants?.flatMap(v=>v.selected).join(", ")||note,isVeg:c.isVeg})),createdBy:"customer",customerName:customer?.name||"",customerPhone:customer?.phone||"",discount:discount?.discount||0,appliedPromoId:discount?.promotionId||null,appliedPromoCode:discount?.code||null,razorpayPaymentId:paymentId||null});
-      const nO:Order=res.data.data;
-      setCart([]); setDiscount(null); setExistingOrder(nO); prevStatus.current=nO.status;
-      localStorage.setItem("gb_active_order",nO._id);
-      setPlacedOrder(nO); setScreen("placed");
-    } catch(e:unknown){ alert(e instanceof Error?e.message:"Failed to place order"); }
-    finally { setIsPlacing(false); }
-  };
-
-  const allItems    = menu.flatMap(c=>c.items as MenuItem[]);
-  const catItems    = (menu.find(c=>c._id===activeCat)?.items||[]) as MenuItem[];
-  const cartCount   = cart.reduce((s,i)=>s+i.quantity,0);
-  const toggleFav = (id:string) => setFavs(p=>{ const n=new Set(p); n.has(id)?n.delete(id):n.add(id); return n; });
-
-  const handleTabChange = (tab:Tab) => {
-    if (tab==="cart") setScreen("cart");
-    else if (tab==="orders") { if(existingOrder) setScreen("tracking"); else setActiveTab("orders"); }
-    else { setScreen("home"); setActiveTab(tab); }
-  };
-
-  // ── SECURITY ──
-  if (screen==="security") {
-    if (secStatus==="checking") return <><style>{CSS}</style><SecurityCheckScreen onPassed={onPassed} onFailed={onFailed}/></>;
-    if (secStatus==="failed"&&secResult) return <><style>{CSS}</style><AwarenessScreen result={secResult} onRetry={onRetry}/></>;
-    return null;
-  }
-
-  // ── FULL-SCREEN FLOW ──
-  if (screen==="ready") return <div style={{minHeight:"100dvh",background:C.void}}><style>{CSS}</style><OrderReadyScreen order={placedOrder} onRestart={()=>{ setScreen("home"); setCart([]); setDiscount(null); setExistingOrder(null); setPlacedOrder(null); router.replace("/"); }}/></div>;
-
-  if (screen==="cart") return (
-    <div style={{minHeight:"100dvh",background:C.deep}}><style>{CSS}</style>
-      {existingOrder&&!["settled","cancelled"].includes(existingOrder.status)&&<TopCancelBar order={existingOrder} onCancelled={()=>{setExistingOrder(null);prevStatus.current=null;}}/>}
-      <CartScreen cart={cart} onUpdateQty={updateQty} onCheckout={()=>setScreen("checkout")} discount={discount} onDiscountChange={setDiscount} allItems={allItems} onAddMore={item=>setSelectedItem(item)}/>
-      <ProductModal item={selectedItem} open={!!selectedItem} onClose={()=>setSelectedItem(null)} onAdd={addToCart}/>
-    </div>
-  );
-
-  if (screen==="checkout") return (
-    <div style={{minHeight:"100dvh",background:C.deep}}><style>{CSS}</style>
-      <CheckoutScreen cart={cart} table={table} discount={discount} onBack={()=>setScreen("cart")} onPay={handlePay} isPlacing={isPlacing}/>
-    </div>
-  );
-
-  if (screen==="placed"&&placedOrder) return (
-    <div style={{minHeight:"100dvh",background:C.void}}><style>{CSS}</style>
-      <OrderPlacedScreen order={placedOrder} onTrack={()=>setScreen("tracking")} onHome={()=>setScreen("home")}/>
-    </div>
-  );
-
-  if (screen==="tracking"&&existingOrder) return (
-    <div style={{minHeight:"100dvh",background:C.void}}><style>{CSS}</style>
-      <TopCancelBar order={existingOrder} onCancelled={()=>{setExistingOrder(null);setScreen("home");}}/>
-      <OrderTrackingScreen order={existingOrder} onReady={()=>setScreen("ready")}/>
-    </div>
-  );
-
-  // ── MAIN TABBED SHELL ──
-  return (
-    <div style={{minHeight:"100dvh",background:C.deep,display:"flex",flexDirection:"column"}}>
-      <style>{CSS}</style>
-
-      <main style={{flex:1,paddingBottom:cart.length>0?148:78}}>
-
-        {activeTab==="home" && (
-          <CinematicHome
-            menu={menu} cart={cart} loading={loading}
-            customerData={customer} table={table}
-            onItemTap={item=>setSelectedItem(item)}
-            onCategorySelect={id=>{setActiveCat(id);setActiveTab("menu");}}
 // ═══════════════════════════════════════════════════
 // MENU TAB — Cinematic full grid
 // ═══════════════════════════════════════════════════
