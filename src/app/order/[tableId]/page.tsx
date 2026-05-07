@@ -127,33 +127,167 @@ type Tab    = "home"|"menu"|"orders"|"cart"|"profile";
 // SECURITY — Welcome + Check
 // ═══════════════════════════════════════════════════
 function WelcomeScreen({ onDone }: { onDone:()=>void }) {
-  const [n, setN] = useState(3);
-  useEffect(() => {
-    const iv = setInterval(()=>setN(p=>{if(p<=1){clearInterval(iv);onDone();return 0;}return p-1;}),1000);
-    return ()=>clearInterval(iv);
+  const [n,      setN     ] = useState(3);
+  const [phase,  setPhase ] = useState(0);
+  const [numKey, setNumKey] = useState(0);
+  const [exiting,setExiting] = useState(false);
+  const circumference = 2*Math.PI*52;
+  const filled = circumference*(1-(n-1)/3);
+
+  const BEANS=[
+    {x:8, y:12,r:-35,s:.7, d:0.3},{x:82,y:8, r:25, s:.65,d:0.6},
+    {x:6, y:38,r:15, s:.55,d:0.9},{x:88,y:28,r:-20,s:.6, d:0.4},
+    {x:15,y:65,r:40, s:.5, d:0.7},{x:78,y:62,r:-30,s:.58,d:0.2},
+    {x:72,y:18,r:50, s:.45,d:1.0},{x:22,y:22,r:-15,s:.52,d:0.5},
+    {x:90,y:52,r:20, s:.48,d:0.8},{x:5, y:78,r:-45,s:.4, d:1.1},
+  ];
+  const RPTS=Array.from({length:14},(_,i)=>({angle:(i/14)*360,r:52+i%3*4,size:2+i%3,delay:i*.07}));
+
+  useEffect(()=>{const t=setTimeout(()=>setPhase(1),80);return()=>clearTimeout(t);},[]);
+  useEffect(()=>{
+    const iv=setInterval(()=>setN(p=>{
+      if(p<=1){clearInterval(iv);setExiting(true);setTimeout(onDone,550);return 0;}
+      setNumKey(k=>k+1);return p-1;
+    }),1000);
+    return()=>clearInterval(iv);
   },[onDone]);
-  return (
-    <div style={{minHeight:"100dvh",background:C.void,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",position:"relative"}}>
-      <div style={{position:"absolute",inset:0,background:`radial-gradient(ellipse 72% 55% at 50% 42%, ${C.g15} 0%, transparent 68%)`,animation:"breathG 4s ease-in-out infinite"}}/>
-      {[0,1,2].map(i=><div key={i} style={{position:"absolute",top:"36%",left:`${45+i*5}%`,width:5,height:24,borderRadius:99,background:`linear-gradient(to top,${C.g40},transparent)`,animation:`smokeUp ${2.4+i*.6}s ${i*.7}s ease-out infinite`,filter:"blur(1.5px)",opacity:0}}/>)}
-      <div style={{textAlign:"center",position:"relative",zIndex:1}}>
-        <div style={{width:112,height:112,borderRadius:"50%",overflow:"hidden",margin:"0 auto 28px",border:`2px solid ${C.g60}`,boxShadow:`0 0 0 10px ${C.g08}, 0 0 60px ${C.g25}`,animation:"scaleIn 0.8s cubic-bezier(0.34,1.56,0.64,1), floatY 4s 1s ease-in-out infinite"}}>
-          <img src="/logo-large.png" alt="GB" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+
+  const WS=`
+    @keyframes ws-breathe {0%,100%{opacity:.35;transform:scale(1)}50%{opacity:.72;transform:scale(1.1)}}
+    @keyframes ws-breathe2{0%,100%{opacity:.2;transform:scale(1)}50%{opacity:.48;transform:scale(1.07)}}
+    @keyframes ws-float   {0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+    @keyframes ws-steam   {0%{opacity:0;transform:translateY(0) scaleX(1)}20%{opacity:.58}80%{opacity:.18}100%{opacity:0;transform:translateY(-68px) scaleX(2.6) rotate(5deg)}}
+    @keyframes ws-ring    {0%{box-shadow:0 0 0 0 rgba(200,146,42,.5),0 0 28px rgba(200,146,42,.25)}70%{box-shadow:0 0 0 13px rgba(200,146,42,0),0 0 28px rgba(200,146,42,.25)}100%{box-shadow:0 0 0 0 rgba(200,146,42,0),0 0 28px rgba(200,146,42,.25)}}
+    @keyframes ws-numPop  {0%{opacity:0;transform:scale(1.5)}100%{opacity:1;transform:scale(1)}}
+    @keyframes ws-shimmer {0%,100%{opacity:.05}50%{opacity:.18}}
+    @keyframes ws-iconIn  {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes ws-exit    {from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(1.06)}}
+  `;
+
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:999,background:"#030201",overflow:"hidden",
+      display:"flex",flexDirection:"column",alignItems:"center",
+      animation:exiting?`ws-exit 0.55s cubic-bezier(0.4,0,1,1) both`:undefined}}>
+      <style>{WS}</style>
+
+      {/* Layered bg */}
+      <div style={{position:"absolute",inset:0,pointerEvents:"none",background:`radial-gradient(ellipse 90% 70% at 50% 35%, #2A1A06 0%, #0F0A04 45%, #030201 100%)`}}/>
+      <div style={{position:"absolute",top:"-5%",left:"50%",transform:"translateX(-50%)",width:"60%",height:"45%",pointerEvents:"none",background:`radial-gradient(ellipse at 50% 0%, rgba(200,146,42,0.2) 0%, rgba(200,146,42,0.07) 40%, transparent 75%)`,animation:"ws-breathe 5s ease-in-out infinite"}}/>
+      <div style={{position:"absolute",bottom:"10%",left:"50%",transform:"translateX(-50%)",width:"80%",height:"40%",pointerEvents:"none",background:`radial-gradient(ellipse at 50% 100%, rgba(120,60,10,0.32) 0%, rgba(80,35,5,0.12) 50%, transparent 75%)`,animation:"ws-breathe2 6s 1s ease-in-out infinite"}}/>
+      <div style={{position:"absolute",inset:0,pointerEvents:"none",opacity:.022,backgroundImage:"repeating-linear-gradient(0deg,transparent,transparent 1px,rgba(255,255,255,.06) 1px,rgba(255,255,255,.06) 2px)",backgroundSize:"100% 4px"}}/>
+      <div style={{position:"absolute",inset:0,pointerEvents:"none",background:`radial-gradient(ellipse 110% 110% at 50% 50%, transparent 50%, rgba(2,1,0,0.65) 100%)`}}/>
+      {/* Gold frame */}
+      <div style={{position:"absolute",inset:8,borderRadius:20,pointerEvents:"none",border:"1px solid rgba(200,146,42,0.16)"}}/>
+      {[{top:8,left:8,borderTop:"2px solid",borderLeft:"2px solid",borderRadius:"20px 0 0 0"},
+        {top:8,right:8,borderTop:"2px solid",borderRight:"2px solid",borderRadius:"0 20px 0 0"},
+        {bottom:8,left:8,borderBottom:"2px solid",borderLeft:"2px solid",borderRadius:"0 0 0 20px"},
+        {bottom:8,right:8,borderBottom:"2px solid",borderRight:"2px solid",borderRadius:"0 0 20px 0"},
+      ].map((s,i)=><div key={i} style={{position:"absolute",width:28,height:28,pointerEvents:"none",borderColor:"rgba(200,146,42,0.5)",opacity:phase>=1?1:0,transition:`opacity 0.8s ${i*.15}s ease`,...s}}/>)}
+
+      {/* Coffee beans */}
+      {BEANS.map((b,i)=>(
+        <div key={i} style={{position:"absolute",left:`${b.x}%`,top:`${b.y}%`,
+          width:14*b.s,height:20*b.s,borderRadius:"50% 50% 50% 50% / 60% 60% 40% 40%",
+          background:`radial-gradient(ellipse at 35% 35%, #6B3A12, #2A1205)`,
+          transform:`rotate(${b.r}deg)`,opacity:phase>=1?0.52:0,
+          transition:`opacity 0.8s ${0.3+b.d}s ease`,
+          boxShadow:`0 2px 5px rgba(0,0,0,0.55)`,
+          animation:phase>=1?`ws-float ${3+b.d}s ${b.d}s ease-in-out infinite`:undefined}}>
+          <div style={{position:"absolute",top:"50%",left:"10%",right:"10%",height:1,background:"rgba(0,0,0,0.35)",borderRadius:1}}/>
         </div>
-        <p style={{fontSize:10,color:C.goldM,letterSpacing:".38em",textTransform:"uppercase",fontWeight:600,fontFamily:"'DM Mono',monospace",marginBottom:8,animation:"fadeRise 0.5s 0.3s ease both"}}>Welcome to</p>
-        <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:50,fontWeight:300,color:C.ink,lineHeight:1,marginBottom:6,letterSpacing:"-.01em",animation:"fadeRise 0.6s 0.4s ease both"}}>Golden Beans</h1>
-        <p style={{fontSize:13.5,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",marginBottom:46,fontWeight:300,letterSpacing:".05em",animation:"fadeRise 0.6s 0.5s ease both"}}>Cafe &amp; Bistro</p>
-        <div style={{width:60,height:60,margin:"0 auto",position:"relative",animation:"fadeRise 0.6s 0.6s ease both"}}>
-          <svg width={60} height={60} style={{transform:"rotate(-90deg)"}}>
-            <circle cx={30} cy={30} r={26} fill="none" stroke={`${C.gold}22`} strokeWidth={2.5}/>
-            <circle cx={30} cy={30} r={26} fill="none" stroke={C.gold} strokeWidth={2.5}
-              strokeDasharray={`${2*Math.PI*26}`} strokeDashoffset={`${2*Math.PI*26*(1-n/3)}`}
-              strokeLinecap="round" style={{transition:"stroke-dashoffset 0.9s linear"}}/>
-          </svg>
-          <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <span style={{fontSize:21,fontWeight:500,color:C.gold,fontFamily:"'DM Mono',monospace"}}>{n}</span>
+      ))}
+
+      {/* Content */}
+      <div style={{position:"relative",zIndex:10,width:"100%",maxWidth:420,flex:1,
+        display:"flex",flexDirection:"column",alignItems:"center",
+        padding:"0 28px",justifyContent:"space-between",
+        paddingTop:"8dvh",paddingBottom:"6dvh"}}>
+
+        {/* Logo */}
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",
+          opacity:phase>=1?1:0,transform:phase>=1?"translateY(0) scale(1)":"translateY(-20px) scale(0.88)",
+          transition:`all 0.9s cubic-bezier(0.34,1.56,0.64,1) 0.1s`}}>
+          <div style={{position:"relative",marginBottom:4}}>
+            <div style={{position:"absolute",inset:-10,borderRadius:"50%",background:`radial-gradient(circle, rgba(200,146,42,0.16) 0%, transparent 70%)`,animation:"ws-breathe 3.5s ease-in-out infinite"}}/>
+            <div style={{position:"absolute",inset:-4,borderRadius:"50%",border:"1px solid rgba(200,146,42,0.28)",animation:"ws-ring 2.5s ease-in-out infinite"}}/>
+            <div style={{width:108,height:108,borderRadius:"50%",overflow:"hidden",border:"2.5px solid rgba(200,146,42,0.55)",
+              boxShadow:`0 0 0 1px rgba(200,146,42,0.1), 0 8px 32px rgba(0,0,0,0.8), 0 0 40px rgba(200,146,42,0.12)`,
+              background:"#0D0904",animation:"ws-float 4s ease-in-out infinite"}}>
+              <img src="/logo-large.png" alt="GB" style={{width:"100%",height:"100%",objectFit:"cover"}}
+                onError={e=>{(e.target as HTMLImageElement).style.display="none";}}/>
+            </div>
           </div>
         </div>
+
+        {/* Headline */}
+        <div style={{textAlign:"center",width:"100%"}}>
+          <p style={{fontSize:11,letterSpacing:".36em",textTransform:"uppercase",color:"rgba(200,146,42,0.72)",fontFamily:"'DM Mono',monospace",fontWeight:400,margin:"0 0 9px",opacity:phase>=1?1:0,transform:phase>=1?"none":"translateY(12px)",transition:`all 0.7s ease 0.4s`}}>WELCOME TO</p>
+          <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(44px,12vw,66px)",fontWeight:600,color:"#F5EDD8",margin:"0 0 4px",lineHeight:.95,letterSpacing:"-.015em",textShadow:"0 4px 32px rgba(200,146,42,0.18)",opacity:phase>=1?1:0,transform:phase>=1?"none":"translateY(18px)",transition:`all 0.8s ease 0.5s`}}>Golden Beans</h1>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,margin:"8px 0 6px",opacity:phase>=1?1:0,transition:`opacity 0.7s 0.68s ease`}}>
+            <div style={{height:1,width:50,background:"linear-gradient(to right, transparent, rgba(200,146,42,0.55))"}}/>
+            <span style={{fontSize:13,color:"rgba(200,146,42,0.65)"}}>🍃☕🍃</span>
+            <div style={{height:1,width:50,background:"linear-gradient(to left, transparent, rgba(200,146,42,0.55))"}}/>
+          </div>
+          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:400,fontStyle:"italic",color:"rgba(200,146,42,0.78)",margin:0,letterSpacing:".06em",opacity:phase>=1?1:0,transform:phase>=1?"none":"translateY(10px)",transition:`all 0.7s ease 0.65s`}}>Cafe &amp; Bistro</p>
+        </div>
+
+        {/* Coffee cup */}
+        <div style={{position:"relative",width:"100%",maxWidth:260,
+          opacity:phase>=1?1:0,transform:phase>=1?"none":"scale(0.85) translateY(20px)",
+          transition:`all 1s cubic-bezier(0.34,1.56,0.64,1) 0.55s`,
+          animation:phase>=1?"ws-float 5s 1s ease-in-out infinite":undefined}}>
+          <div style={{position:"absolute",bottom:"-5%",left:"50%",transform:"translateX(-50%)",width:"80%",height:"40%",background:`radial-gradient(ellipse, rgba(150,75,10,0.38) 0%, transparent 70%)`,filter:"blur(12px)",animation:"ws-breathe2 4s ease-in-out infinite"}}/>
+          {[{l:"30%",d:0,w:5,h:30},{l:"43%",d:.5,w:6,h:38},{l:"54%",d:.9,w:4,h:26},{l:"64%",d:.3,w:5,h:34},{l:"73%",d:1.2,w:3,h:22}].map((s,i)=>(
+            <div key={i} style={{position:"absolute",bottom:"62%",left:s.l,width:s.w,height:s.h,borderRadius:99,background:`linear-gradient(to top, rgba(240,180,80,0.42), rgba(255,220,140,0.08), transparent)`,filter:"blur(2px)",opacity:0,animation:`ws-steam ${2.1+i*.4}s ${s.d}s ease-out infinite`}}/>
+          ))}
+          <img src="/coffee-cup.png" alt="Coffee"
+            style={{width:"100%",position:"relative",zIndex:2,filter:"drop-shadow(0 12px 32px rgba(0,0,0,0.8)) drop-shadow(0 0 40px rgba(120,60,10,0.38))"}}
+            onError={e=>{
+              const el=e.target as HTMLImageElement;el.style.display="none";
+              const p=el.parentElement!;
+              const fb=document.createElement("div");
+              fb.style.cssText=`width:180px;height:180px;margin:0 auto;border-radius:50%;background:radial-gradient(ellipse at 40% 30%,#5C2E0A,#1A0A03);display:flex;align-items:center;justify-content:center;font-size:82px;position:relative;z-index:2;border:2px solid rgba(200,146,42,0.3);box-shadow:0 0 40px rgba(120,60,10,0.35)`;
+              fb.textContent="☕";p.appendChild(fb);
+            }}/>
+        </div>
+
+        {/* Countdown ring */}
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:12,
+          opacity:phase>=1?1:0,transform:phase>=1?"none":"translateY(20px) scale(0.88)",
+          transition:`all 0.8s cubic-bezier(0.34,1.56,0.64,1) 0.75s`}}>
+          <div style={{position:"relative",width:118,height:118}}>
+            <div style={{position:"absolute",inset:-6,borderRadius:"50%",background:`radial-gradient(circle, rgba(200,146,42,0.14) 0%, transparent 70%)`,animation:"ws-breathe 2.5s ease-in-out infinite"}}/>
+            {RPTS.map((p,i)=>{
+              const rad=(p.angle-90)*Math.PI/180;
+              const px=59+p.r*Math.cos(rad),py=59+p.r*Math.sin(rad);
+              return<div key={i} style={{position:"absolute",left:px-p.size/2,top:py-p.size/2,width:p.size,height:p.size,borderRadius:"50%",background:`rgba(200,146,42,${.35+i*.03})`,boxShadow:`0 0 ${p.size*2}px rgba(200,146,42,0.55)`,animation:`ws-shimmer ${1.8+i*.1}s ${p.delay}s ease-in-out infinite`}}/>;
+            })}
+            <svg width={118} height={118} style={{position:"absolute",inset:0,transform:"rotate(-90deg)"}}>
+              <circle cx={59} cy={59} r={52} fill="none" stroke="rgba(200,146,42,0.11)" strokeWidth={3}/>
+              <circle cx={59} cy={59} r={52} fill="none" stroke="url(#wsGrad)" strokeWidth={3.5} strokeLinecap="round"
+                strokeDasharray={circumference} strokeDashoffset={circumference-filled}
+                style={{transition:"stroke-dashoffset 0.9s cubic-bezier(0.4,0,0.2,1)",filter:"drop-shadow(0 0 4px rgba(200,146,42,0.8))"}}/>
+              <defs><linearGradient id="wsGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#C8922A"/><stop offset="50%" stopColor="#F5CC6A"/><stop offset="100%" stopColor="#E8B84B"/></linearGradient></defs>
+            </svg>
+            <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+              <span key={numKey} style={{fontFamily:"'Cormorant Garamond',serif",fontSize:38,fontWeight:600,color:"#F5CC6A",lineHeight:1,textShadow:`0 0 20px rgba(200,146,42,0.8)`,animation:`ws-numPop 0.4s cubic-bezier(0.34,1.56,0.64,1)`}}>{n}</span>
+              <span style={{fontSize:7.5,color:"rgba(200,146,42,0.58)",fontFamily:"'DM Mono',monospace",letterSpacing:".1em",textTransform:"uppercase",marginTop:2,textAlign:"center",lineHeight:1.3}}>GETTING THINGS<br/>READY FOR YOU</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom icons */}
+        <div style={{display:"flex",justifyContent:"space-around",width:"100%",
+          opacity:phase>=1?1:0,transition:`opacity 0.8s 0.9s ease`}}>
+          {[{icon:"☕",label:"PREMIUM COFFEE"},{icon:"🌿",label:"QUALITY INGREDIENTS"},{icon:"❤️",label:"MADE WITH LOVE"}].map((item,i)=>(
+            <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,
+              animation:phase>=1?`ws-iconIn 0.6s ${0.9+i*.12}s ease both`:undefined,opacity:0}}>
+              <div style={{width:33,height:33,borderRadius:"50%",border:"1px solid rgba(200,146,42,0.28)",background:"rgba(200,146,42,0.05)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>{item.icon}</div>
+              <span style={{fontSize:7.5,color:"rgba(200,146,42,0.52)",fontFamily:"'DM Mono',monospace",letterSpacing:".08em",textTransform:"uppercase",textAlign:"center",lineHeight:1.3}}>{item.label}</span>
+            </div>
+          ))}
+        </div>
+
       </div>
     </div>
   );
