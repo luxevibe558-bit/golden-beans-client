@@ -1736,11 +1736,6 @@ export default function CustomerOrderPage() {
   const cartCount   = cart.reduce((s,i)=>s+i.quantity,0);
   const toggleFav   = (id:string)=>setFavs(p=>{const n=new Set(p);n.has(id)?n.delete(id):n.add(id);return n;});
 
-  const handleTabChange=(tab:Tab)=>{
-    if(tab==="cart")setScreen("cart");
-    else if(tab==="orders"){if(existingOrder)setScreen("tracking");else{setScreen("home");setActiveTab("orders");}}
-    else{setScreen("home");setActiveTab(tab);}
-  };
 
   // ── SECURITY GATE ──
   if(screen==="security"){
@@ -1756,86 +1751,98 @@ export default function CustomerOrderPage() {
     </div>
   );
 
-  if(screen==="cart")return(
-    <div style={{minHeight:"100dvh",background:C.void}}><style>{CSS}</style>
-      {existingOrder&&!["settled","cancelled"].includes(existingOrder.status)&&<TopCancelBar order={existingOrder} onCancelled={()=>{setExistingOrder(null);prevStatus.current=null;}}/>}
-      <CartScreen cart={cart} onUpdateQty={updateQty} onCheckout={()=>setScreen("checkout")} onBack={()=>{setScreen("home");setActiveTab("home");}} discount={discount} onDiscountChange={setDiscount} allItems={allItems} onAddMore={item=>setSelectedItem(item)}/>
-      <ProductModal item={selectedItem} open={!!selectedItem} onClose={()=>setSelectedItem(null)} onAdd={addToCart}/>
-    </div>
-  );
-
-  if(screen==="checkout")return(
-    <div style={{minHeight:"100dvh",background:C.void}}><style>{CSS}</style>
-      <CheckoutScreen cart={cart} table={table} discount={discount} onBack={()=>setScreen("cart")} onPay={handlePay} isPlacing={isPlacing}/>
-    </div>
-  );
-
-  if(screen==="placed"&&placedOrder)return(
-    <div style={{minHeight:"100dvh",background:C.void}}><style>{CSS}</style>
-      <OrderPlacedScreen order={placedOrder} onTrack={()=>setScreen("tracking")} onHome={()=>setScreen("home")}/>
-    </div>
-  );
-
-  if(screen==="tracking"&&existingOrder)return(
-    <div style={{minHeight:"100dvh",background:C.void}}><style>{CSS}</style>
-      {existingOrder&&!["settled","cancelled"].includes(existingOrder.status)&&<TopCancelBar order={existingOrder} onCancelled={()=>{setExistingOrder(null);prevStatus.current=null;setScreen("home");}}/>}
-      <OrderTrackingScreen order={existingOrder} onReady={()=>setScreen("ready")} onBack={()=>setScreen("home")}/>
-    </div>
-  );
-
-  // ── MAIN SHELL ──
+  // ── MAIN SHELL — all screens share nav + help ──
   return(
     <div style={{minHeight:"100dvh",background:C.void,display:"flex",flexDirection:"column"}}>
       <style>{CSS}</style>
 
-      {/* TOP CANCEL BAR — only on home tabs */}
-      {existingOrder&&!["settled","cancelled"].includes(existingOrder.status)&&(
-        <TopCancelBar order={existingOrder} onCancelled={()=>{setExistingOrder(null);prevStatus.current=null;}}/>
+      {/* TOP CANCEL BAR — always visible when order active */}
+      {existingOrder&&!["settled","cancelled"].includes(existingOrder.status)&&screen!=="ready"&&(
+        <TopCancelBar order={existingOrder} onCancelled={()=>{setExistingOrder(null);prevStatus.current=null;setScreen("home");}}/>
       )}
 
-      {/* MAIN CONTENT */}
-      <main style={{flex:1,paddingBottom:cart.length>0?148:78}}>
+      {/* MAIN CONTENT AREA */}
+      <main style={{flex:1,paddingBottom:screen==="home"&&cart.length>0?148:78,overflowX:"hidden"}}>
 
-        {/* HOME TAB */}
-        {activeTab==="home"&&(
-          <CinematicHome
-            menu={menu} cart={cart} loading={loading}
-            customerData={customer} table={table}
-            onItemTap={item=>setSelectedItem(item)}
-            onCategorySelect={id=>{setActiveCat(id);setActiveTab("menu");}}
-            activeCategoryId={activeCat}
-            onViewCart={()=>setScreen("cart")}
-            onExploreMenu={()=>setActiveTab("menu")}
-            favs={favs} onToggleFav={toggleFav}
-          />
+        {/* ── CART ── */}
+        {screen==="cart"&&(
+          <>
+            <CartScreen cart={cart} onUpdateQty={updateQty} onCheckout={()=>setScreen("checkout")} onBack={()=>{setScreen("home");setActiveTab("home");}} discount={discount} onDiscountChange={setDiscount} allItems={allItems} onAddMore={item=>setSelectedItem(item)}/>
+            <ProductModal item={selectedItem} open={!!selectedItem} onClose={()=>setSelectedItem(null)} onAdd={addToCart}/>
+          </>
         )}
 
-        {/* MENU TAB */}
-        {activeTab==="menu"&&(
-          <MenuTab
-            menu={menu} cart={cart} loading={loading}
-            activeCat={activeCat} onCatSelect={setActiveCat}
-            onItemTap={item=>setSelectedItem(item)}
-            favs={favs} onFav={toggleFav}
-            onBack={()=>setActiveTab("home")}
-          />
+        {/* ── CHECKOUT ── */}
+        {screen==="checkout"&&(
+          <CheckoutScreen cart={cart} table={table} discount={discount} onBack={()=>setScreen("cart")} onPay={handlePay} isPlacing={isPlacing}/>
         )}
 
-        {/* ORDERS TAB */}
-        {activeTab==="orders"&&<OrdersTab existingOrder={existingOrder} queuePos={queuePos}/>}
+        {/* ── ORDER PLACED ── */}
+        {screen==="placed"&&placedOrder&&(
+          <OrderPlacedScreen order={placedOrder} onTrack={()=>setScreen("tracking")} onHome={()=>setScreen("home")}/>
+        )}
 
-        {/* PROFILE TAB */}
-        {activeTab==="profile"&&<ProfileTab table={table} customer={customer}/>}
+        {/* ── ORDER TRACKING ── */}
+        {screen==="tracking"&&existingOrder&&(
+          <OrderTrackingScreen order={existingOrder} onReady={()=>setScreen("ready")} onBack={()=>setScreen("home")}/>
+        )}
+
+        {/* ── HOME TABS ── */}
+        {screen==="home"&&(
+          <>
+            {/* HOME TAB */}
+            {activeTab==="home"&&(
+              <CinematicHome
+                menu={menu} cart={cart} loading={loading}
+                customerData={customer} table={table}
+                onItemTap={item=>setSelectedItem(item)}
+                onCategorySelect={id=>{setActiveCat(id);setActiveTab("menu");}}
+                activeCategoryId={activeCat}
+                onViewCart={()=>setScreen("cart")}
+                onExploreMenu={()=>setActiveTab("menu")}
+                favs={favs} onToggleFav={toggleFav}
+              />
+            )}
+
+            {/* MENU TAB */}
+            {activeTab==="menu"&&(
+              <MenuTab
+                menu={menu} cart={cart} loading={loading}
+                activeCat={activeCat} onCatSelect={setActiveCat}
+                onItemTap={item=>setSelectedItem(item)}
+                favs={favs} onFav={toggleFav}
+                onBack={()=>setActiveTab("home")}
+              />
+            )}
+
+            {/* ORDERS TAB */}
+            {activeTab==="orders"&&<OrdersTab existingOrder={existingOrder} queuePos={queuePos}/>}
+
+            {/* PROFILE TAB */}
+            {activeTab==="profile"&&<ProfileTab table={table} customer={customer}/>}
+          </>
+        )}
 
         <CRMCaptureCard tableId={tableId}/>
-        <WaiterHelpSheet tableId={tableId} tableNumber={table?.tableNumber||tableId}/>
       </main>
 
-      {/* FLOATING CART */}
-      {cart.length>0&&<FloatingCartBar cart={cart} discount={discount} onView={()=>setScreen("cart")}/>}
+      {/* FLOATING CART — show on home tabs only */}
+      {screen==="home"&&cart.length>0&&<FloatingCartBar cart={cart} discount={discount} onView={()=>setScreen("cart")}/>}
 
-      {/* BOTTOM NAV */}
-      <BottomNav active={activeTab} onChange={handleTabChange} orderBadge={!!existingOrder} cartBadge={cartCount}/>
+      {/* BOTTOM NAV — always visible */}
+      <BottomNav
+        active={screen==="cart"?"cart":screen==="tracking"?"orders":screen==="placed"?"orders":activeTab}
+        onChange={tab=>{
+          if(tab==="cart")setScreen("cart");
+          else if(tab==="orders"){if(existingOrder)setScreen("tracking");else{setScreen("home");setActiveTab("orders");}}
+          else{setScreen("home");setActiveTab(tab);}
+        }}
+        orderBadge={!!existingOrder}
+        cartBadge={cartCount}
+      />
+
+      {/* WAITER HELP — always visible */}
+      <WaiterHelpSheet tableId={tableId} tableNumber={table?.tableNumber||tableId}/>
 
       {/* PRODUCT MODAL */}
       <ProductModal item={selectedItem} open={!!selectedItem} onClose={()=>setSelectedItem(null)} onAdd={addToCart}/>
