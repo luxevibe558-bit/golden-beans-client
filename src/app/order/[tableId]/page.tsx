@@ -1256,6 +1256,336 @@ function BottomNav({ active, onChange, orderBadge, cartBadge }:
   );
 }
 // ════════════════════════════════════════════════
+// CINEMATIC HOME PAGE — inline component
+// ════════════════════════════════════════════════
+
+const D = {
+  void:"#030201",deep:"#070604",dark:"#0D0B08",surface:"#13110D",raised:"#1A1710",
+  goldDeep:"#7A5010",gold:"#C8922A",goldMid:"#E8B84B",goldLt:"#F5CC6A",
+  glow0:"rgba(200,146,42,0)",glow10:"rgba(200,146,42,0.10)",glow20:"rgba(200,146,42,0.20)",
+  glow35:"rgba(200,146,42,0.35)",glow55:"rgba(200,146,42,0.55)",
+  ink:"#F5EDD8",inkDim:"#B8A888",inkMute:"#7A6B50",inkGhost:"#3D3428",
+  glassWk:"rgba(255,255,255,0.025)",glassMd:"rgba(255,255,255,0.05)",glassBd:"rgba(255,255,255,0.06)",
+};
+const DG  = `linear-gradient(135deg,${D.gold} 0%,${D.goldMid} 55%,${D.goldLt} 100%)`;
+const DGV = `linear-gradient(180deg,${D.gold} 0%,${D.goldMid} 100%)`;
+const DSP = "cubic-bezier(0.34,1.56,0.64,1)";
+const DEA = "cubic-bezier(0.25,0.46,0.45,0.94)";
+
+const CINEMA_CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=DM+Mono:wght@300;400;500&display=swap');
+@keyframes kBurns{from{transform:scale(1) translate(0%,0%)}to{transform:scale(1.09) translate(-1%,-0.5%)}}
+@keyframes breathGold{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:.72;transform:scale(1.07)}}
+@keyframes smokeUp{0%{opacity:0;transform:translateY(0) scaleX(1)}35%{opacity:.6}100%{opacity:0;transform:translateY(-54px) scaleX(2.2)}}
+@keyframes fadeRise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:translateY(0)}}
+@keyframes staggerIn{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes ripOut{from{transform:scale(.6);opacity:.8}to{transform:scale(2.6);opacity:0}}
+@keyframes lineSweep{from{transform:translateX(-100%)}to{transform:translateX(500%)}}
+@keyframes cartBump{0%{transform:scale(1)}30%{transform:scale(1.55)}65%{transform:scale(.88)}100%{transform:scale(1)}}
+@keyframes skGlow{0%{background-position:200% center}100%{background-position:-200% center}}
+.csk{background:linear-gradient(90deg,#13110D 25%,#1A1710 50%,#13110D 75%);background-size:200% 100%;animation:skGlow 2s ease-in-out infinite;}
+`;
+
+// ── Cinematic Hero ──
+function CHero({items,cart,onTap,onExplore,greeting,name}:{items:MenuItem[];cart:ECI[];onTap:(i:MenuItem)=>void;onExplore:()=>void;greeting:string;name?:string}) {
+  const [active,setActive]=useState(0);
+  const [drag,setDrag]=useState(0);
+  const [isDrag,setIsDrag]=useState(false);
+  const [shown,setShown]=useState(false);
+  const sx=useRef(0); const tmr=useRef<NodeJS.Timeout|null>(null);
+  const slides=items.filter(i=>i.isAvailable).slice(0,5);
+  const next=useCallback(()=>setActive(p=>(p+1)%slides.length),[slides.length]);
+  const prev=useCallback(()=>setActive(p=>(p-1+slides.length)%slides.length),[slides.length]);
+  useEffect(()=>{const t=setTimeout(()=>setShown(true),60);return()=>clearTimeout(t);},[]);
+  useEffect(()=>{if(isDrag||!slides.length)return;tmr.current=setInterval(next,5400);return()=>{if(tmr.current)clearInterval(tmr.current);};},[next,isDrag,active,slides.length]);
+  if(!slides.length)return null;
+  const s=slides[active];
+  const qty=cart.filter(c=>c.menuItemId===s._id).reduce((t,c)=>t+c.quantity,0);
+  return(
+    <div style={{position:"relative",width:"100%",height:"100svh",maxHeight:680,minHeight:460,overflow:"hidden",background:D.void,userSelect:"none"}}
+      onTouchStart={e=>{setIsDrag(true);sx.current=e.touches[0].clientX;if(tmr.current)clearInterval(tmr.current);}}
+      onTouchMove={e=>{if(isDrag)setDrag(e.touches[0].clientX-sx.current);}}
+      onTouchEnd={()=>{if(Math.abs(drag)>46)drag<0?next():prev();setIsDrag(false);setDrag(0);}}
+      onMouseDown={e=>{setIsDrag(true);sx.current=e.clientX;if(tmr.current)clearInterval(tmr.current);}}
+      onMouseMove={e=>{if(isDrag)setDrag(e.clientX-sx.current);}}
+      onMouseUp={()=>{if(Math.abs(drag)>46)drag<0?next():prev();setIsDrag(false);setDrag(0);}}>
+      {/* Images */}
+      {slides.map((sl,i)=>(
+        <div key={sl._id} style={{position:"absolute",inset:"-5%",transition:isDrag?"none":`all 0.75s ${DEA}`,opacity:i===active?1:0,transform:i===active?`translateX(${drag*.4}px) scale(1)`:i<active?`translateX(calc(-110% + ${drag*.4}px)) scale(.96)`:`translateX(calc(110% + ${drag*.4}px)) scale(.96)`,zIndex:i===active?1:0}}>
+          {sl.imageUrl?<img src={getHeroUrl(sl.imageUrl)} alt={sl.name} style={{width:"100%",height:"100%",objectFit:"cover",animation:i===active?"kBurns 10s ease-out forwards":"none"}}/>:<div style={{width:"100%",height:"100%",background:`radial-gradient(ellipse 80% 80% at 60% 40%,#3D2010 0%,#1A0E06 40%,${D.void} 100%)`}}/>}
+        </div>
+      ))}
+      {/* Vignettes */}
+      <div style={{position:"absolute",inset:0,zIndex:3,pointerEvents:"none",background:`linear-gradient(to top,${D.void} 0%,rgba(7,6,4,.9) 16%,rgba(7,6,4,.6) 34%,rgba(7,6,4,.22) 54%,transparent 72%)`}}/>
+      <div style={{position:"absolute",inset:0,zIndex:3,pointerEvents:"none",background:`linear-gradient(to right,rgba(7,6,4,.88) 0%,rgba(7,6,4,.5) 38%,transparent 68%)`}}/>
+      <div style={{position:"absolute",top:"-10%",right:"-5%",width:"55%",height:"60%",zIndex:2,pointerEvents:"none",background:`radial-gradient(ellipse at top right,${D.glow10} 0%,transparent 65%)`,animation:"breathGold 6s ease-in-out infinite"}}/>
+      {/* Steam */}
+      {[0,1,2,3].map(i=><div key={i} style={{position:"absolute",zIndex:4,pointerEvents:"none",bottom:"28%",left:`${36+i*6}%`,width:5+i*1.5,height:28+i*8,borderRadius:99,background:`linear-gradient(to top,rgba(245,204,106,.32),transparent)`,animation:`smokeUp ${2.4+i*.5}s ${i*.65}s ease-out infinite`,filter:"blur(2px)",opacity:0}}/>)}
+      {/* Scan lines */}
+      <div style={{position:"absolute",inset:0,zIndex:4,pointerEvents:"none",opacity:.018,backgroundImage:"repeating-linear-gradient(0deg,transparent,transparent 1px,rgba(255,255,255,.05) 1px,rgba(255,255,255,.05) 2px)",backgroundSize:"100% 4px"}}/>
+      {/* Content */}
+      <div style={{position:"absolute",inset:0,zIndex:5,display:"flex",flexDirection:"column",justifyContent:"flex-end",padding:"0 22px 38px"}}>
+        {shown&&<div style={{marginBottom:6,animation:`fadeRise 0.55s 0.08s ${DEA} both`}}><span style={{fontSize:11.5,color:D.goldMid,fontFamily:"'DM Sans',sans-serif",fontWeight:500,letterSpacing:".12em",textTransform:"uppercase"}}>{greeting}{name?`, ${name}`:""} ✦</span></div>}
+        {shown&&<div style={{marginBottom:15,animation:`fadeRise 0.65s 0.18s ${DEA} both`}}><h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(36px,11vw,56px)",fontWeight:300,color:D.ink,lineHeight:1.06,margin:0,letterSpacing:"-.01em"}}>Brewed to<br/><em style={{fontStyle:"italic",fontWeight:600,color:D.goldLt}}>perfection,</em><br/><span style={{fontWeight:300}}>just for you.</span></h1></div>}
+        {shown&&<div style={{marginBottom:22,animation:`fadeRise 0.65s 0.3s ${DEA} both`}}><p style={{fontSize:12.5,color:D.inkDim,fontFamily:"'DM Sans',sans-serif",fontWeight:400,margin:0,lineHeight:1.5,maxWidth:230}}>{s.description||"Handcrafted with rare single-origin beans."}</p></div>}
+        {shown&&<div style={{display:"flex",gap:12,alignItems:"center",animation:`fadeRise 0.65s 0.42s ${DEA} both`}}>
+          <button onClick={onExplore} style={{display:"flex",alignItems:"center",gap:8,background:"rgba(200,146,42,0.16)",backdropFilter:"blur(20px)",border:"1px solid rgba(200,146,42,0.38)",borderRadius:99,padding:"11px 22px",color:D.goldLt,fontSize:13,fontWeight:600,fontFamily:"'DM Sans',sans-serif",cursor:"pointer",boxShadow:"inset 0 1px 0 rgba(255,255,255,.07)"}}>Explore Menu <svg width={14} height={14} viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke={D.goldLt} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+          <button onClick={()=>onTap(s)} style={{position:"relative",width:46,height:46,borderRadius:"50%",background:qty>0?DG:"rgba(200,146,42,0.11)",border:`1.5px solid ${qty>0?D.goldMid:"rgba(200,146,42,0.42)"}`,color:qty>0?D.void:D.gold,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,fontWeight:800,backdropFilter:"blur(12px)",boxShadow:qty>0?`0 0 0 4px ${D.glow10},0 8px 24px ${D.glow35}`:"none",transition:`all 0.3s ${DSP}`}}>
+            {qty>0?"✓":"+"}
+            {qty>0&&<div style={{position:"absolute",top:-5,right:-5,width:18,height:18,borderRadius:"50%",background:DG,color:D.void,fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${D.void}`,animation:"cartBump .45s ease",fontFamily:"'DM Mono',monospace"}}>{qty}</div>}
+          </button>
+        </div>}
+      </div>
+      {/* Vertical dot nav */}
+      <div style={{position:"absolute",right:18,bottom:"50%",transform:"translateY(50%)",zIndex:6,display:"flex",flexDirection:"column",gap:6,alignItems:"center"}}>
+        <span style={{fontSize:10,color:D.gold,fontFamily:"'DM Mono',monospace",fontWeight:500,marginBottom:4}}>0{active+1}</span>
+        {slides.map((_,i)=><button key={i} onClick={()=>setActive(i)} style={{width:i===active?2.5:2,height:i===active?22:7,borderRadius:99,background:i===active?DGV:"rgba(200,146,42,.25)",border:"none",cursor:"pointer",padding:0,transition:`all 0.4s ${DSP}`,boxShadow:i===active?`0 0 8px ${D.glow35}`:"none"}}/>)}
+        <span style={{fontSize:10,color:D.inkGhost,fontFamily:"'DM Mono',monospace",marginTop:4}}>0{slides.length}</span>
+      </div>
+      {/* Item name tag */}
+      {shown&&<div style={{position:"absolute",right:22,bottom:88,zIndex:6,textAlign:"right",animation:`fadeRise 0.6s 0.5s ${DEA} both`}}>
+        <p style={{fontSize:10.5,color:D.gold,fontFamily:"'DM Mono',monospace",margin:"0 0 3px",letterSpacing:".1em",textTransform:"uppercase"}}>Featured</p>
+        <p style={{fontSize:15,color:D.ink,fontFamily:"'Cormorant Garamond',serif",fontWeight:600,margin:"0 0 1px"}}>{s.name}</p>
+        <p style={{fontSize:13,color:D.gold,fontFamily:"'DM Mono',monospace",fontWeight:400}}>₹{s.price}</p>
+      </div>}
+    </div>
+  );
+}
+
+// ── Glass Category Bar ──
+function CGlassBar({cats,active,onSelect}:{cats:MenuCategory[];active:string;onSelect:(id:string)=>void}) {
+  const ref=useRef<HTMLDivElement>(null);
+  useEffect(()=>{const el=ref.current?.querySelector('[data-active="true"]') as HTMLElement;el?.scrollIntoView({behavior:"smooth",block:"nearest",inline:"center"});},[active]);
+  return(
+    <div style={{padding:"22px 0 8px"}}>
+      <div style={{padding:"0 22px",marginBottom:12}}><span style={{fontSize:10,color:D.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".18em",textTransform:"uppercase"}}>✦ Explore</span></div>
+      <div ref={ref} className="hs" style={{display:"flex",gap:10,overflowX:"auto",padding:"4px 22px 8px"}}>
+        {cats.map((cat,idx)=>{const isA=cat._id===active;return(
+          <button key={cat._id} data-active={isA} onClick={()=>onSelect(cat._id)} style={{flexShrink:0,display:"flex",alignItems:"center",gap:8,background:isA?"linear-gradient(135deg,rgba(200,146,42,0.22),rgba(232,184,75,0.12))":D.glassWk,backdropFilter:"blur(24px)",border:`1px solid ${isA?"rgba(200,146,42,0.52)":D.glassBd}`,borderRadius:99,padding:"9px 18px 9px 12px",cursor:"pointer",boxShadow:isA?`0 0 24px ${D.glow20},inset 0 1px 0 rgba(255,255,255,.06),0 4px 16px rgba(0,0,0,.4)`:"inset 0 1px 0 rgba(255,255,255,.04),0 2px 8px rgba(0,0,0,.3)",transition:`all 0.32s ${DSP}`,animation:`staggerIn 0.45s ${idx*.06}s ${DEA} both`,position:"relative",overflow:"hidden"}}>
+            {isA&&<div style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"hidden",borderRadius:99}}><div style={{position:"absolute",top:0,left:0,width:"30%",height:"100%",background:"linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent)",animation:"lineSweep 2.5s ease-in-out infinite"}}/></div>}
+            <span style={{fontSize:20,lineHeight:1}}>{cat.icon}</span>
+            <span style={{fontSize:12.5,fontWeight:isA?700:500,color:isA?D.goldLt:D.inkDim,fontFamily:"'DM Sans',sans-serif",whiteSpace:"nowrap"}}>{cat.name}</span>
+            {isA&&<div style={{width:5,height:5,borderRadius:"50%",background:D.gold,boxShadow:`0 0 6px ${D.gold}`,marginLeft:2}}/>}
+          </button>
+        );})}
+      </div>
+    </div>
+  );
+}
+
+// ── Cinematic Card ──
+function CCard({item,qty,isFav,onFav,onTap,delay=0,size="normal"}:{item:MenuItem;qty:number;isFav:boolean;onFav:()=>void;onTap:()=>void;delay?:number;size?:"normal"|"large"|"compact"}) {
+  const [pressed,setPressed]=useState(false);
+  const [rp,setRp]=useState<{x:number;y:number}|null>(null);
+  const W=size==="large"?218:size==="compact"?148:170;
+  const H=size==="large"?178:size==="compact"?126:154;
+  const tap=(e:React.MouseEvent)=>{if(!item.isAvailable)return;const r=(e.currentTarget as HTMLElement).getBoundingClientRect();setRp({x:e.clientX-r.left,y:e.clientY-r.top});setTimeout(()=>setRp(null),700);onTap();};
+  return(
+    <div onClick={tap} onMouseDown={()=>setPressed(true)} onMouseUp={()=>setPressed(false)} onMouseLeave={()=>setPressed(false)} onTouchStart={()=>setPressed(true)} onTouchEnd={()=>setPressed(false)}
+      style={{flexShrink:0,width:W,borderRadius:20,overflow:"hidden",cursor:item.isAvailable?"pointer":"not-allowed",opacity:item.isAvailable?1:0.4,background:`linear-gradient(160deg,${D.raised} 0%,${D.surface} 100%)`,border:`1px solid ${qty>0?"rgba(200,146,42,0.45)":D.glassBd}`,boxShadow:qty>0?`0 0 0 1px ${D.glow20},0 8px 32px ${D.glow20},0 2px 8px rgba(0,0,0,.6)`:"0 4px 20px rgba(0,0,0,.5),0 1px 0 rgba(255,255,255,.04)",transform:pressed?"scale(0.955) translateY(2px)":"scale(1)",transition:`all 0.28s ${DSP}`,animation:`staggerIn 0.5s ${delay}s ${DEA} both`,position:"relative"}}>
+      <div style={{position:"relative",height:H,overflow:"hidden"}}>
+        {item.imageUrl?<img src={getThumbnailUrl(item.imageUrl)} alt={item.name} style={{width:"100%",height:"100%",objectFit:"cover",transition:"transform 0.5s ease",transform:pressed?"scale(1.06)":"scale(1.01)"}} loading="lazy"/>:<div style={{width:"100%",height:"100%",background:`radial-gradient(ellipse at 50% 30%,#3D2010 0%,#1A0E06 50%,${D.surface} 100%)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:50,opacity:.7}}>☕</div>}
+        <div style={{position:"absolute",inset:0,background:`linear-gradient(to top,${D.surface} 0%,rgba(19,17,13,.55) 44%,transparent 68%)`}}/>
+        {item.tags?.includes("bestseller")&&<div style={{position:"absolute",top:10,left:10,background:DG,color:D.void,fontSize:8.5,fontWeight:800,padding:"2.5px 9px",borderRadius:99,letterSpacing:".06em",fontFamily:"'DM Sans',sans-serif",boxShadow:`0 2px 8px ${D.glow35}`}}>⭐ BEST</div>}
+        {!item.isAvailable&&<div style={{position:"absolute",top:10,left:10,background:"rgba(229,57,53,.85)",color:"white",fontSize:8,fontWeight:800,padding:"2px 8px",borderRadius:99}}>SOLD OUT</div>}
+        {qty>0&&<div style={{position:"absolute",top:8,right:40,width:22,height:22,borderRadius:"50%",background:DG,color:D.void,fontSize:10,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${D.surface}`,animation:"cartBump .45s ease",fontFamily:"'DM Mono',monospace"}}>{qty}</div>}
+        <button onClick={e=>{e.stopPropagation();onFav();}} style={{position:"absolute",top:8,right:8,width:30,height:30,borderRadius:"50%",background:"rgba(7,6,4,.65)",backdropFilter:"blur(8px)",border:`1px solid ${isFav?"rgba(229,57,53,.6)":D.glassBd}`,color:isFav?"#ef4444":D.inkDim,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,transition:`all 0.2s ${DEA}`}}>{isFav?"❤":"🤍"}</button>
+        <div style={{position:"absolute",bottom:9,left:11,right:11,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+          <span style={{fontSize:16.5,fontWeight:500,color:D.gold,fontFamily:"'DM Mono',monospace"}}>₹{item.price}</span>
+          {item.rating&&<div style={{display:"flex",alignItems:"center",gap:3}}><span style={{color:D.gold,fontSize:10}}>★</span><span style={{fontSize:10,color:"rgba(245,237,216,.5)",fontFamily:"'DM Mono',monospace"}}>{item.rating.toFixed(1)}</span></div>}
+        </div>
+        {rp&&<div style={{position:"absolute",left:rp.x-18,top:rp.y-18,width:36,height:36,borderRadius:"50%",background:"rgba(200,146,42,.32)",animation:"ripOut .7s ease-out forwards",pointerEvents:"none"}}/>}
+      </div>
+      <div style={{padding:"10px 12px 12px"}}>
+        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:600,color:D.ink,margin:"0 0 3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.name}</p>
+        {size!=="compact"&&<p style={{fontSize:10.5,color:D.inkMute,margin:"0 0 10px",lineHeight:1.45,fontFamily:"'DM Sans',sans-serif",display:"-webkit-box",WebkitLineClamp:1,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{item.description||"Artisanal quality, crafted with care"}</p>}
+        <button onClick={e=>{e.stopPropagation();if(item.isAvailable)onTap();}} style={{width:"100%",padding:"9px 0",borderRadius:11,border:`1px solid ${qty>0?"rgba(200,146,42,0.55)":D.glassBd}`,background:qty>0?"linear-gradient(135deg,rgba(200,146,42,.22),rgba(232,184,75,.12))":D.glassWk,color:qty>0?D.goldLt:D.inkDim,fontWeight:600,fontSize:12,cursor:item.isAvailable?"pointer":"not-allowed",fontFamily:"'DM Sans',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:5,transition:`all 0.25s ${DEA}`,backdropFilter:"blur(8px)",boxShadow:qty>0?`0 4px 16px ${D.glow20}`:"none"}}>
+          {!item.isAvailable?<><span style={{opacity:.5}}>⛔</span>Unavailable</>:qty>0?<><span style={{fontSize:13}}>✓</span>Added ({qty})</>:<><span style={{fontSize:15,fontWeight:700}}>+</span>Add to Cart</>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Section Row ──
+function CRow({title,eyebrow,items,cart,onTap,favs,onFav,featured=false}:{title:string;eyebrow?:string;items:MenuItem[];cart:ECI[];onTap:(i:MenuItem)=>void;favs:Set<string>;onFav:(id:string)=>void;featured?:boolean}) {
+  if(!items.length)return null;
+  return(
+    <section style={{marginBottom:38,position:"relative"}}>
+      <div style={{padding:"0 22px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+        <div>{eyebrow&&<p style={{fontSize:10,color:D.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 4px"}}>{eyebrow}</p>}<h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:600,color:D.ink,margin:0,letterSpacing:"-.01em"}}>{title}</h3></div>
+        <button style={{fontSize:12,color:D.gold,background:"none",border:"none",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontWeight:500,opacity:.75,display:"flex",alignItems:"center",gap:4}}>See all<svg width={12} height={12} viewBox="0 0 12 12"><path d="M2 6h8M6 2l4 4-4 4" stroke={D.gold} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+      </div>
+      <div className="hs" style={{display:"flex",gap:12,overflowX:"auto",padding:"4px 22px 12px",scrollSnapType:"x mandatory"}}>
+        {items.map((item,idx)=>{const qty=cart.filter(c=>c.menuItemId===item._id).reduce((s,c)=>s+c.quantity,0);return(<div key={item._id} style={{flexShrink:0,scrollSnapAlign:"start"}}><CCard item={item} qty={qty} isFav={favs.has(item._id)} onFav={()=>onFav(item._id)} onTap={()=>onTap(item)} delay={idx*.055} size={featured&&idx===0?"large":idx>3?"compact":"normal"}/></div>);})}
+      </div>
+      <div style={{position:"absolute",right:0,top:"30%",width:56,height:"50%",pointerEvents:"none",background:`linear-gradient(to left,${D.deep},transparent)`}}/>
+    </section>
+  );
+}
+
+// ── Compact List Row ──
+function CCompact({title,eyebrow,items,cart,onTap}:{title:string;eyebrow?:string;items:MenuItem[];cart:ECI[];onTap:(i:MenuItem)=>void}) {
+  if(!items.length)return null;
+  return(
+    <section style={{marginBottom:34,padding:"0 22px"}}>
+      <div style={{marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"flex-end"}}>
+        <div>{eyebrow&&<p style={{fontSize:10,color:D.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 4px"}}>{eyebrow}</p>}<h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:21,fontWeight:600,color:D.ink,margin:0}}>{title}</h3></div>
+        <button style={{fontSize:12,color:D.gold,background:"none",border:"none",cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontWeight:500}}>See all</button>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {items.slice(0,5).map((item,idx)=>{
+          const qty=cart.filter(c=>c.menuItemId===item._id).reduce((s,c)=>s+c.quantity,0);
+          return(
+            <div key={item._id} onClick={()=>item.isAvailable&&onTap(item)} style={{display:"flex",gap:13,alignItems:"center",background:`linear-gradient(135deg,${D.surface} 0%,${D.raised} 100%)`,borderRadius:16,padding:"11px 13px",border:`1px solid ${qty>0?"rgba(200,146,42,.38)":D.glassBd}`,boxShadow:qty>0?`0 0 0 1px ${D.glow10},0 4px 16px rgba(0,0,0,.4)`:"0 2px 12px rgba(0,0,0,.35)",cursor:item.isAvailable?"pointer":"not-allowed",opacity:item.isAvailable?1:.45,animation:`staggerIn 0.4s ${idx*.07}s ${DEA} both`,transition:`all 0.25s ${DEA}`}}>
+              <div style={{width:56,height:56,borderRadius:13,overflow:"hidden",flexShrink:0,background:`linear-gradient(135deg,#3D2010,${D.surface})`}}>{item.imageUrl&&<img src={getThumbnailUrl(item.imageUrl)} alt={item.name} style={{width:"100%",height:"100%",objectFit:"cover"}} loading="lazy"/>}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:600,color:D.ink,margin:"0 0 2px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.name}</p>
+                <p style={{fontSize:10,color:D.inkMute,margin:"0 0 5px",fontFamily:"'DM Sans',sans-serif",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.description||"Premium quality"}</p>
+                <span style={{fontSize:14,fontWeight:500,color:D.gold,fontFamily:"'DM Mono',monospace"}}>₹{item.price}</span>
+              </div>
+              <button onClick={e=>{e.stopPropagation();if(item.isAvailable)onTap(item);}} style={{width:32,height:32,borderRadius:"50%",border:`1.5px solid ${qty>0?"rgba(200,146,42,.7)":D.glassBd}`,background:qty>0?"linear-gradient(135deg,rgba(200,146,42,.25),rgba(232,184,75,.12))":"transparent",color:qty>0?D.goldLt:D.inkDim,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700,transition:`all 0.22s ${DSP}`,boxShadow:qty>0?`0 0 12px ${D.glow20}`:"none"}}>{qty>0?"✓":"+"}</button>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ── Promo Card ──
+function CPromo({onTap}:{onTap:()=>void}) {
+  return(
+    <div style={{margin:"0 22px 36px"}}>
+      <div onClick={onTap} style={{background:`radial-gradient(ellipse 100% 100% at 80% 50%,rgba(60,30,8,.9) 0%,rgba(30,14,4,.98) 60%,${D.surface} 100%)`,borderRadius:22,padding:"22px 20px",position:"relative",overflow:"hidden",border:"1px solid rgba(200,146,42,.28)",boxShadow:`0 8px 36px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.04)`,cursor:"pointer"}}>
+        <div style={{position:"absolute",right:-24,top:"50%",transform:"translateY(-50%)",width:160,height:160,borderRadius:"50%",background:`radial-gradient(circle,${D.glow20} 0%,transparent 70%)`,animation:"breathGold 5s ease-in-out infinite"}}/>
+        {[0,1].map(i=><div key={i} style={{position:"absolute",right:40+i*14,bottom:"50%",width:4,height:20,borderRadius:99,background:`linear-gradient(to top,${D.glow35},transparent)`,animation:`smokeUp 2s ${i*.7}s ease-out infinite`,filter:"blur(1px)",opacity:0}}/>)}
+        <div style={{position:"absolute",right:10,bottom:-8,fontSize:72,opacity:.08,pointerEvents:"none",userSelect:"none"}}>☕</div>
+        <p style={{fontSize:9.5,color:D.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".18em",textTransform:"uppercase",margin:"0 0 5px"}}>Special For You</p>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:34,fontWeight:700,color:D.goldLt,margin:"0 0 5px",lineHeight:1}}>Flat 20% Off</h3>
+        <p style={{fontSize:12.5,color:D.inkDim,margin:"0 0 18px",fontFamily:"'DM Sans',sans-serif",maxWidth:200}}>On all beverages this evening</p>
+        <div style={{display:"flex",alignItems:"center",gap:8,background:"linear-gradient(135deg,rgba(200,146,42,.14),rgba(200,146,42,.06))",backdropFilter:"blur(12px)",border:"1px solid rgba(200,146,42,.35)",borderRadius:99,padding:"8px 16px",width:"fit-content",boxShadow:"inset 0 1px 0 rgba(255,255,255,.07)"}}>
+          <span style={{fontSize:12,color:D.goldLt,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>Order Now</span>
+          <svg width={13} height={13} viewBox="0 0 13 13"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke={D.goldLt} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Ambient Divider ──
+function CDivider() {
+  return(
+    <div style={{position:"relative",height:1,margin:"6px 22px 30px",overflow:"visible"}}>
+      <div style={{height:1,background:`linear-gradient(90deg,transparent,${D.glow20},${D.glow35},${D.glow20},transparent)`}}/>
+      <div style={{position:"absolute",left:"50%",top:"50%",transform:"translate(-50%,-50%)",width:6,height:6,borderRadius:"50%",background:D.gold,boxShadow:`0 0 12px ${D.glow55},0 0 24px ${D.glow20}`}}/>
+    </div>
+  );
+}
+
+// ── Skeleton ──
+function CSkeleton() {
+  return(
+    <div>
+      <div className="csk" style={{width:"100%",height:"60vh",maxHeight:520,minHeight:380}}/>
+      <div style={{display:"flex",gap:10,padding:"20px 22px",overflow:"hidden"}}>{[80,100,90,110,85].map((w,i)=><div key={i} className="csk" style={{flexShrink:0,width:w,height:38,borderRadius:99}}/>)}</div>
+      {[0,1].map(r=><div key={r} style={{padding:"10px 22px 20px"}}><div className="csk" style={{width:140,height:15,borderRadius:7,marginBottom:12}}/><div style={{display:"flex",gap:12,overflow:"hidden"}}>{[170,170,148,148].map((w,i)=><div key={i} style={{flexShrink:0,width:w}}><div className="csk" style={{height:154,borderRadius:"20px 20px 0 0"}}/><div style={{background:D.surface,borderRadius:"0 0 20px 20px",padding:12}}><div className="csk" style={{height:13,borderRadius:5,marginBottom:7,width:"80%"}}/><div className="csk" style={{height:29,borderRadius:11}}/></div></div>)}</div></div>)}
+    </div>
+  );
+}
+
+// ── MAIN CinematicHome component ──
+function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategorySelect,activeCategoryId,onViewCart,onExploreMenu,favs,onToggleFav}:{
+  menu:MenuCategory[];cart:ECI[];loading:boolean;
+  customerData:{name:string;phone:string}|null;table:{tableNumber:string}|null;
+  onItemTap:(i:MenuItem)=>void;onCategorySelect:(id:string)=>void;activeCategoryId:string;
+  onViewCart:()=>void;onExploreMenu:()=>void;favs:Set<string>;onToggleFav:(id:string)=>void;
+}) {
+  const allItems=menu.flatMap(c=>c.items as MenuItem[]);
+  const bestsellers=allItems.filter(i=>i.tags?.includes("bestseller")&&i.isAvailable);
+  const catItems=(menu.find(c=>c._id===activeCategoryId)?.items||[]) as MenuItem[];
+  const hour=new Date().getHours();
+  const greeting=hour<5?"Still Up Late?":hour<12?"Good Morning":hour<17?"Good Afternoon":hour<21?"Good Evening":"Good Night";
+  const [scrolled,setScrolled]=useState(false);
+  const scrollRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{const el=scrollRef.current;if(!el)return;const fn=()=>setScrolled(el.scrollTop>72);el.addEventListener("scroll",fn);return()=>el.removeEventListener("scroll",fn);},[]);
+
+  return(
+    <div style={{position:"relative",minHeight:"100dvh",background:D.deep}}>
+      <style>{CINEMA_CSS}</style>
+
+      {/* Sticky transparent→solid header */}
+      <header style={{position:"sticky",top:0,zIndex:30,background:scrolled?"rgba(7,6,4,0.97)":"transparent",backdropFilter:scrolled?"blur(24px)":"none",padding:"13px 18px",borderBottom:scrolled?`1px solid ${D.glassBd}`:"none",transition:`all 0.35s ${DEA}`,marginBottom:"-60px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:11}}>
+            <div style={{width:40,height:40,borderRadius:13,overflow:"hidden",border:`1.5px solid rgba(200,146,42,${scrolled?.55:.3})`,boxShadow:`0 0 16px ${D.glow20}`,transition:`all 0.3s ${DEA}`}}>
+              <img src="/logo-small.png" alt="GB" style={{width:"100%",height:"100%",objectFit:"contain"}} onError={e=>{(e.target as HTMLImageElement).style.display="none";}}/>
+            </div>
+            <div>
+              <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17.5,fontWeight:600,color:scrolled?D.ink:"rgba(245,237,216,.9)",margin:0,lineHeight:1.1,transition:`color 0.3s ${DEA}`}}>Golden Beans</p>
+              <p style={{fontSize:10,color:scrolled?D.inkMute:"rgba(245,237,216,.42)",margin:0,fontFamily:"'DM Sans',sans-serif",transition:`color 0.3s ${DEA}`}}>{table?`Table ${table.tableNumber} ✦ `:""}{customerData?customerData.name:"Cafe & Bistro"}</p>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            {["🔍","🔔"].map((ic,i)=><button key={i} style={{width:38,height:38,borderRadius:12,background:`rgba(255,255,255,${scrolled?.06:.04})`,border:`1px solid ${D.glassBd}`,backdropFilter:"blur(12px)",color:D.ink,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,transition:`all 0.3s ${DEA}`}}>{ic}</button>)}
+          </div>
+        </div>
+      </header>
+
+      {/* Scrollable content */}
+      <div ref={scrollRef} style={{overflowY:"auto",overflowX:"hidden",paddingBottom:cart.length>0?160:96}}>
+        {loading?<CSkeleton/>:(
+          <>
+            <CHero items={allItems} cart={cart} onTap={onItemTap} onExplore={onExploreMenu} greeting={greeting} name={customerData?.name}/>
+            <CGlassBar cats={menu} active={activeCategoryId} onSelect={onCategorySelect}/>
+            <CDivider/>
+            {bestsellers.length>0&&<CRow eyebrow="✦ Smart Pick" title={`Made For You${customerData?`, ${customerData.name.split(" ")[0]}`:""}`} items={bestsellers} cart={cart} onTap={onItemTap} favs={favs} onFav={onToggleFav} featured/>}
+            <CPromo onTap={onExploreMenu}/>
+            {catItems.length>0&&<CRow eyebrow="✦ From The Menu" title={`${menu.find(c=>c._id===activeCategoryId)?.icon||""} ${menu.find(c=>c._id===activeCategoryId)?.name||""}`} items={catItems.filter(i=>i.isAvailable)} cart={cart} onTap={onItemTap} favs={favs} onFav={onToggleFav}/>}
+            <CCompact eyebrow="✦ Quick Picks" title="Continue Your Favorites" items={allItems.filter(i=>i.isAvailable).slice(4,9)} cart={cart} onTap={onItemTap}/>
+            <CDivider/>
+            {menu.slice(0,4).map(cat=><CRow key={cat._id} eyebrow={`✦ ${cat.name}`} title={`${cat.icon} ${cat.name}`} items={(cat.items as MenuItem[]).filter(i=>i.isAvailable).slice(0,8)} cart={cart} onTap={onItemTap} favs={favs} onFav={onToggleFav}/>)}
+            <div style={{textAlign:"center",padding:"18px 22px 10px"}}>
+              <div style={{display:"inline-flex",alignItems:"center",gap:6}}>
+                <div style={{width:32,height:1,background:`linear-gradient(to right,transparent,${D.glow35})`}}/>
+                <span style={{fontSize:11,color:D.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".12em"}}>🌿 100% Pure Vegetarian</span>
+                <div style={{width:32,height:1,background:`linear-gradient(to left,transparent,${D.glow35})`}}/>
+              </div>
+              <p style={{fontSize:10,color:D.inkGhost,margin:"5px 0 0",fontFamily:"'DM Sans',sans-serif"}}>Crafted with passion · Served with love</p>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Floating Cart */}
+      {cart.length>0&&(()=>{
+        const total=cart.reduce((s,i)=>s+(i.price+(i.totalPriceModifier||0))*i.quantity,0);
+        const items=cart.reduce((s,i)=>s+i.quantity,0);
+        return(
+          <div style={{position:"fixed",bottom:76,left:14,right:14,zIndex:50,animation:`staggerIn 0.5s ${DSP}`}}>
+            <button onClick={onViewCart} style={{width:"100%",background:"linear-gradient(135deg,rgba(19,17,13,0.97),rgba(26,23,16,0.97))",backdropFilter:"blur(28px)",borderRadius:20,padding:"12px 14px",border:"1px solid rgba(200,146,42,0.42)",boxShadow:`0 8px 40px rgba(0,0,0,.75),0 0 0 1px ${D.glow10},0 0 28px ${D.glow20}`,display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{position:"relative"}}>
+                  <div style={{width:44,height:44,borderRadius:14,background:"linear-gradient(135deg,rgba(200,146,42,.2),rgba(232,184,75,.1))",border:"1.5px solid rgba(200,146,42,.45)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🛒</div>
+                  <div style={{position:"absolute",top:-7,right:-7,width:20,height:20,borderRadius:"50%",background:DG,color:D.void,fontSize:9.5,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${D.dark}`,fontFamily:"'DM Mono',monospace",boxShadow:`0 2px 8px ${D.glow35}`}}>{items}</div>
+                </div>
+                <div style={{textAlign:"left"}}>
+                  <p style={{fontFamily:"'DM Mono',monospace",fontWeight:500,fontSize:17,color:D.ink,margin:0,lineHeight:1}}>₹{(total*1.05).toFixed(0)}</p>
+                </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:7,background:DG,borderRadius:13,padding:"10px 18px",boxShadow:`0 4px 20px ${D.glow35}`}}>
+                <span style={{fontFamily:"'DM Sans',sans-serif",fontWeight:700,fontSize:13.5,color:D.void}}>View Cart</span>
+                <svg width={14} height={14} viewBox="0 0 14 14"><path d="M2 7h10M8 3l4 4-4 4" stroke={D.void} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </div>
+            </button>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
 // MAIN PAGE COMPONENT
 // ════════════════════════════════════════════════
 export default function CustomerOrderPage() {
@@ -1520,52 +1850,22 @@ export default function CustomerOrderPage() {
       {/* ── MAIN CONTENT ── */}
       <main style={{ flex:1, paddingBottom:cart.length>0?146:78 }}>
 
-        {/* ── HOME TAB ── */}
+        {/* ── HOME TAB — CINEMATIC ── */}
         {activeTab==="home" && (
-          <div>
-            {loading ? (
-              <div>
-                <div className="sk" style={{ height:270 }}/>
-                <div style={{ padding:"14px 14px 0",display:"flex",gap:9 }}>
-                  {[1,2,3,4].map(i=><div key={i} className="sk" style={{ flexShrink:0,width:70,height:86,borderRadius:16 }}/>)}
-                </div>
-                <div style={{ padding:"18px 14px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:10 }}>
-                  {[1,2,3,4].map(i=><SkCard key={i}/>)}
-                </div>
-              </div>
-            ) : (
-              <>
-                <HeroCarousel items={allItems} cart={cart} onTap={item=>setSelectedItem(item)} onExplore={()=>{setScreen("home");setActiveTab("menu");}}/>
-
-                {/* Greeting */}
-                <div style={{ padding:"14px 14px 4px" }}>
-                  <p style={{ fontSize:11,color:T.textS,margin:"0 0 2px",fontFamily:"Inter,sans-serif" }}>{greeting}</p>
-                  <h2 style={{ fontFamily:"'Playfair Display',serif",fontSize:25,fontWeight:800,color:T.text,margin:0 }}>
-                    {customer ? <><span className="gt">{customer.name}</span> 👋</> : "Welcome to Golden Beans"}
-                  </h2>
-                </div>
-
-                <div style={{ padding:"14px 0 0" }}>
-                  {/* Popular right now */}
-                  <ScrollRow title="🔥 Popular Right Now" subtitle="Crowd favourites" items={bestsellers.length>0?bestsellers:allItems.filter(i=>i.isAvailable).slice(0,7)} cart={cart} onTap={item=>setSelectedItem(item)} favs={favs} onFav={toggleFav}/>
-
-                  {/* Categories */}
-                  <CategoryRow cats={menu} active={activeCat} onSelect={id=>{setActiveCat(id);setActiveTab("menu");}}/>
-
-                  {/* Continue favorites */}
-                  <CompactRow title="Continue Your Favorites" items={catItems.filter(i=>i.isAvailable).slice(0,6)} cart={cart} onTap={item=>setSelectedItem(item)}/>
-
-                  {/* Promo */}
-                  <PromoBanner onTap={()=>setActiveTab("menu")}/>
-
-                  {/* Per-category rows */}
-                  {menu.slice(0,4).map(cat=>(
-                    <ScrollRow key={cat._id} title={`${cat.icon} ${cat.name}`} items={(cat.items as MenuItem[]).filter(i=>i.isAvailable).slice(0,7)} cart={cart} onTap={item=>setSelectedItem(item)} favs={favs} onFav={toggleFav}/>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          <CinematicHome
+            menu={menu}
+            cart={cart}
+            loading={loading}
+            customerData={customer}
+            table={table}
+            onItemTap={item=>setSelectedItem(item)}
+            onCategorySelect={id=>{setActiveCat(id);setActiveTab("menu");}}
+            activeCategoryId={activeCat}
+            onViewCart={()=>setScreen("cart")}
+            onExploreMenu={()=>setActiveTab("menu")}
+            favs={favs}
+            onToggleFav={toggleFav}
+          />
         )}
 
         {/* ── MENU TAB ── */}
