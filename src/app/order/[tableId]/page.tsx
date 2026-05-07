@@ -873,7 +873,7 @@ function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange,
         </div>
       </div>
 
-      <div className="hs" style={{flex:1,overflowY:"auto",padding:"16px 18px",paddingBottom:200}}>
+      <div className="hs" style={{flex:1,overflowY:"auto",padding:"16px 18px",paddingBottom:160}}>
         {/* Cart items */}
         {cart.map((ci,idx)=>{
           const key=ci.menuItemId+JSON.stringify(ci.variants);
@@ -953,7 +953,7 @@ function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange,
       </div>
 
       {/* CTA */}
-      <div style={{position:"fixed",bottom:0,left:0,right:0,padding:"14px 18px 28px",background:`linear-gradient(to top,${C.void} 60%,transparent)`,zIndex:20}}>
+      <div style={{position:"fixed",bottom:0,left:0,right:0,padding:"12px 18px 0",paddingBottom:"calc(68px + env(safe-area-inset-bottom))",background:`linear-gradient(to top,${C.void} 55%,transparent)`,zIndex:20}}>
         <button onClick={onCheckout} className="press"
           style={{width:"100%",padding:"17px",borderRadius:16,border:"none",background:GG,
             color:C.void,fontWeight:800,fontSize:16,fontFamily:"'DM Sans',sans-serif",
@@ -1087,7 +1087,7 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing }:{
       </div>
 
       {/* Pay CTA */}
-      <div style={{position:"fixed",bottom:0,left:0,right:0,padding:"14px 18px 28px",background:`linear-gradient(to top,${C.void} 60%,transparent)`,zIndex:20}}>
+      <div style={{position:"fixed",bottom:0,left:0,right:0,padding:"12px 18px 0",paddingBottom:"calc(68px + env(safe-area-inset-bottom))",background:`linear-gradient(to top,${C.void} 55%,transparent)`,zIndex:20}}>
         <button onClick={()=>onPay(method,tip,note)} disabled={isPlacing} className="press"
           style={{width:"100%",padding:"17px",borderRadius:16,border:"none",
             background:isPlacing?C.gl1:GG,
