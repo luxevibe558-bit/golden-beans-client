@@ -763,13 +763,13 @@ function ProductModal({ item, open, onClose, onAdd }: {
                     <button key={oi} onClick={()=>{
                       setVars(prev=>prev.map(v=>{
                         if(v.groupName!==vg.name)return v;
-                        if(vg.maxSelect===1)return{...v,selected:[opt.name]};
+                        if((vg as any).maxSelect===1)return{...v,selected:[opt.name]};
                         const s=v.selected.includes(opt.name)?v.selected.filter(x=>x!==opt.name):[...v.selected,opt.name];
                         return{...v,selected:s};
                       }));
                     }} style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:isSel?`linear-gradient(135deg,${C.g08},${C.g15})`:C.gl1,border:`1.5px solid ${isSel?C.gold:C.glBd}`,borderRadius:13,padding:"11px 14px",cursor:"pointer",boxShadow:isSel?`0 0 16px ${C.g15}`:"none",transition:`all 0.22s ${EASE}`}}>
                       <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <div style={{width:19,height:19,borderRadius:vg.maxSelect===1?"50%":5,border:`2px solid ${isSel?C.gold:C.glBd}`,background:isSel?GG:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:`all 0.2s ${EASE}`}}>
+                        <div style={{width:19,height:19,borderRadius:(vg as any).maxSelect===1?"50%":5,border:`2px solid ${isSel?C.gold:C.glBd}`,background:isSel?GG:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:`all 0.2s ${EASE}`}}>
                           {isSel&&<div style={{width:7,height:7,borderRadius:"50%",background:C.void}}/>}
                         </div>
                         <span style={{fontSize:13.5,color:isSel?C.goldL:C.inkSub,fontFamily:"'DM Sans',sans-serif",fontWeight:isSel?600:400}}>{opt.name}</span>
