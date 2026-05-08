@@ -1651,12 +1651,111 @@ function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange,
 
         {/* Points preview — earn on this order */}
         <div style={{background:C.g08,border:`1px solid ${C.g15}`,borderRadius:12,
-          padding:"10px 14px",display:"flex",alignItems:"center",gap:9,marginBottom:4}}>
+          padding:"10px 14px",display:"flex",alignItems:"center",gap:9,marginBottom:16}}>
           <span style={{fontSize:16}}>🫘</span>
           <p style={{fontSize:11.5,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",margin:0}}>
             You'll earn <span style={{color:C.gold,fontWeight:700}}>+{Math.floor(total/10)} points</span> on this order
           </p>
         </div>
+
+        {/* ── UPSELL — You might also like ── */}
+        {allItems.filter(i=>i.isAvailable&&!cart.find(c=>c.menuItemId===i._id)).length>0&&(
+          <div style={{marginBottom:8}}>
+            {/* Section header */}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+              <div>
+                <p style={{fontSize:9.5,color:C.gold,fontFamily:"'DM Mono',monospace",
+                  letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 2px"}}>
+                  ✦ Complete Your Order
+                </p>
+                <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:19,
+                  fontWeight:600,color:C.ink,margin:0}}>
+                  You might also like
+                </h3>
+              </div>
+            </div>
+
+            {/* Horizontal scroll cards */}
+            <div className="hs" style={{display:"flex",gap:10,overflowX:"auto",
+              paddingBottom:6,scrollSnapType:"x mandatory"}}>
+              {allItems
+                .filter(i=>i.isAvailable && !cart.find(c=>c.menuItemId===i._id))
+                .slice(0,8)
+                .map((item,idx)=>{
+                  const itemPrice = item.price;
+                  return(
+                    <div key={item._id}
+                      onClick={()=>onAddMore(item)}
+                      style={{
+                        flexShrink:0,width:140,borderRadius:16,
+                        overflow:"hidden",cursor:"pointer",
+                        background:`linear-gradient(160deg,${C.raise},${C.surface})`,
+                        border:`1px solid ${C.glBd}`,
+                        boxShadow:`0 3px 14px rgba(0,0,0,0.45)`,
+                        scrollSnapAlign:"start",
+                        animation:`stgIn 0.4s ${idx*.05}s ${EASE} both`,
+                        transition:`all 0.22s ${EASE}`,
+                      }}>
+                      {/* Image */}
+                      <div style={{height:90,position:"relative",overflow:"hidden",
+                        background:`linear-gradient(135deg,#3D2010,${C.surface})`}}>
+                        {item.imageUrl
+                          ? <img src={getThumbnailUrl(item.imageUrl)} alt={item.name}
+                              style={{width:"100%",height:"100%",objectFit:"cover"}}
+                              loading="lazy"/>
+                          : <div style={{width:"100%",height:"100%",display:"flex",
+                              alignItems:"center",justifyContent:"center",fontSize:32,opacity:.6}}>
+                              ☕
+                            </div>
+                        }
+                        <div style={{position:"absolute",inset:0,
+                          background:`linear-gradient(to top,${C.surface} 0%,transparent 55%)`}}/>
+                        {/* Bestseller badge */}
+                        {item.tags?.includes("bestseller")&&(
+                          <div style={{position:"absolute",top:6,left:6,
+                            background:GG,color:C.void,
+                            fontSize:7.5,fontWeight:800,padding:"2px 7px",
+                            borderRadius:99,fontFamily:"'DM Sans',sans-serif",
+                            boxShadow:`0 2px 6px ${C.g40}`}}>
+                            ⭐ BEST
+                          </div>
+                        )}
+                        {/* Price */}
+                        <div style={{position:"absolute",bottom:6,left:8}}>
+                          <span style={{fontSize:14,fontWeight:500,color:C.gold,
+                            fontFamily:"'DM Mono',monospace"}}>
+                            ₹{itemPrice}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Info + Add */}
+                      <div style={{padding:"8px 10px 10px"}}>
+                        <p style={{fontFamily:"'Cormorant Garamond',serif",
+                          fontSize:14,fontWeight:600,color:C.ink,
+                          margin:"0 0 7px",
+                          whiteSpace:"nowrap",overflow:"hidden",
+                          textOverflow:"ellipsis"}}>
+                          {item.name}
+                        </p>
+                        <button
+                          onClick={e=>{e.stopPropagation();onAddMore(item);}}
+                          style={{width:"100%",padding:"7px 0",borderRadius:9,
+                            border:`1px solid rgba(200,146,42,0.35)`,
+                            background:`linear-gradient(135deg,${C.g08},${C.g15})`,
+                            color:C.goldL,fontWeight:600,fontSize:11.5,cursor:"pointer",
+                            fontFamily:"'DM Sans',sans-serif",
+                            display:"flex",alignItems:"center",justifyContent:"center",gap:5,
+                            transition:`all 0.2s ${EASE}`}}>
+                          <span style={{fontSize:13,fontWeight:700}}>+</span> Add
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* CTA */}
