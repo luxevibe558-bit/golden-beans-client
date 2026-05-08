@@ -978,10 +978,11 @@ function CSearchOverlay({ open, onClose, allItems, cart, onTap, favs, onFav }: {
   );
 }
 
-function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategorySelect,activeCategoryId,onViewCart,onExploreMenu,favs,onToggleFav}:{
+function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategorySelect,activeCategoryId,onViewCart,onExploreMenu,favs,onToggleFav,existingOrder,onViewOrder}:{
   menu:MenuCategory[];cart:ECI[];loading:boolean;customerData:{name:string;phone:string}|null;table:{tableNumber:string}|null;
   onItemTap:(i:MenuItem)=>void;onCategorySelect:(id:string)=>void;activeCategoryId:string;
   onViewCart:()=>void;onExploreMenu:()=>void;favs:Set<string>;onToggleFav:(id:string)=>void;
+  existingOrder?:any;onViewOrder?:()=>void;
 }) {
   const allItems=menu.flatMap(c=>c.items as MenuItem[]);
   const bestsellers=allItems.filter(i=>i.tags?.includes("bestseller")&&i.isAvailable);
@@ -989,7 +990,9 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
   const hour=new Date().getHours();
   const greeting=hour<5?"Still Up Late?":hour<12?"Good Morning":hour<17?"Good Afternoon":hour<21?"Good Evening":"Good Night";
   const [scrolled,setScrolled]=useState(false);
-  const [searchOpen,setSearchOpen]=useState(false);
+  const [searchOpen,  setSearchOpen  ]=useState(false);
+  const [notifOpen,   setNotifOpen   ]=useState(false);
+  const [notifCount,  setNotifCount  ]=useState(0);
   const scrollRef=useRef<HTMLDivElement>(null);
 
   // ── Marketing Banners from Admin ──
@@ -1004,6 +1007,53 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
 
   useEffect(()=>{const el=scrollRef.current;if(!el)return;const fn=()=>setScrolled(el.scrollTop>72);el.addEventListener("scroll",fn);return()=>el.removeEventListener("scroll",fn);},[]);
 
+  // Build notifications from available data
+  const notifications = [
+    // Active order notification
+    ...(existingOrder&&!["settled","cancelled"].includes(existingOrder.status)?[{
+      id:"order",
+      icon: existingOrder.status==="kotSent"?"👨‍🍳":
+            existingOrder.status==="ready"?"✅":"📝",
+      title: existingOrder.status==="kotSent" ? "Being Prepared" :
+             existingOrder.status==="ready"   ? "Order Ready! 🎉" :
+             existingOrder.status==="delivered"? "Order Served!" : "Order Confirmed",
+      desc:  existingOrder.status==="kotSent" ? "Our chef is crafting your order" :
+             existingOrder.status==="ready"   ? "Your order is ready to be served!" :
+             existingOrder.status==="delivered"? "Enjoy your meal!" : "Kitchen has received your order",
+      time:  "Just now",
+      action: onViewOrder,
+      actionLabel: "Track Order",
+      highlight: existingOrder.status==="ready",
+    }]:[]),
+    // Loyalty points
+    ...( getSessionCustomer()?.totalPoints && getSessionCustomer()!.totalPoints >= 100 ? [{
+      id:"loyalty",
+      icon:"🫘",
+      title:`${getSessionCustomer()!.totalPoints} Points Available`,
+      desc: `Redeem for ₹${Math.floor(getSessionCustomer()!.totalPoints/10)} off your next order`,
+      time: "",
+      action: onViewCart,
+      actionLabel: "Use in Cart",
+      highlight: false,
+    }]:[]),
+    // Welcome notification
+    ...(!existingOrder&&cart.length===0?[{
+      id:"welcome",
+      icon:"☕",
+      title:"Welcome to Golden Beans!",
+      desc: "Browse our menu and order your favourite items",
+      time: "",
+      action: onExploreMenu,
+      actionLabel: "Explore Menu",
+      highlight: false,
+    }]:[]),
+  ];
+
+  // Update notif count
+  useEffect(()=>{
+    setNotifCount(notifications.filter(n=>n.highlight||n.id==="order").length);
+  },[existingOrder]);
+
   return(
     <div style={{position:"relative",minHeight:"100dvh",background:C.deep}}>
       {/* Cinematic Search Overlay */}
@@ -1016,6 +1066,105 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
         favs={favs}
         onFav={onToggleFav}
       />
+
+      {/* ── NOTIFICATION PANEL ── */}
+      {notifOpen&&(
+        <>
+          {/* Backdrop */}
+          <div onClick={()=>setNotifOpen(false)}
+            style={{position:"fixed",inset:0,zIndex:28,background:"rgba(2,1,0,0.5)",
+              backdropFilter:"blur(4px)"}}/>
+          {/* Panel */}
+          <div style={{position:"fixed",top:68,right:14,zIndex:29,
+            width:300,background:C.surface,
+            border:`1px solid rgba(200,146,42,0.28)`,borderRadius:18,
+            overflow:"hidden",
+            boxShadow:`0 16px 40px rgba(0,0,0,0.75), 0 0 0 1px ${C.g08}`,
+            animation:`stgIn 0.3s ${EASE}`}}>
+            {/* Panel header */}
+            <div style={{padding:"13px 16px 10px",borderBottom:`1px solid ${C.gl2}`,
+              display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <p style={{fontSize:13,fontWeight:700,color:C.ink,
+                fontFamily:"'DM Sans',sans-serif",margin:0}}>
+                Notifications {notifCount>0&&(
+                  <span style={{fontSize:10,background:GG,color:C.void,
+                    borderRadius:99,padding:"1px 7px",marginLeft:5,
+                    fontFamily:"'DM Mono',monospace"}}>
+                    {notifCount}
+                  </span>
+                )}
+              </p>
+              <button onClick={()=>setNotifOpen(false)}
+                style={{background:"none",border:"none",color:C.inkDim,
+                  cursor:"pointer",fontSize:16,padding:2}}>✕</button>
+            </div>
+
+            {/* Notification items */}
+            {notifications.length===0 ? (
+              <div style={{padding:"24px 16px",textAlign:"center"}}>
+                <div style={{fontSize:32,opacity:.3,marginBottom:8}}>🔔</div>
+                <p style={{fontSize:13,color:C.inkDim,fontFamily:"'DM Sans',sans-serif",margin:0}}>
+                  No notifications yet
+                </p>
+              </div>
+            ) : (
+              <div>
+                {notifications.map((n,i)=>(
+                  <div key={n.id}
+                    style={{padding:"12px 16px",
+                      borderBottom:i<notifications.length-1?`1px solid ${C.gl1}`:"none",
+                      background:n.highlight?`linear-gradient(135deg,rgba(46,125,82,0.1),rgba(46,125,82,0.05))`:"transparent",
+                      animation:`stgIn 0.35s ${i*.08}s ${EASE} both`}}>
+                    <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                      {/* Icon */}
+                      <div style={{width:36,height:36,borderRadius:10,flexShrink:0,
+                        background:n.highlight?`rgba(46,125,82,0.15)`:C.g08,
+                        border:`1px solid ${n.highlight?"rgba(46,125,82,0.3)":C.g15}`,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontSize:17}}>
+                        {n.icon}
+                      </div>
+                      {/* Text */}
+                      <div style={{flex:1,minWidth:0}}>
+                        <p style={{fontSize:13,fontWeight:700,
+                          color:n.highlight?"#4ADE80":C.ink,
+                          fontFamily:"'DM Sans',sans-serif",margin:"0 0 2px"}}>
+                          {n.title}
+                        </p>
+                        <p style={{fontSize:11.5,color:C.inkDim,
+                          fontFamily:"'DM Sans',sans-serif",margin:"0 0 7px",
+                          lineHeight:1.4}}>
+                          {n.desc}
+                        </p>
+                        {n.action&&(
+                          <button onClick={()=>{n.action?.();setNotifOpen(false);}}
+                            style={{fontSize:11.5,fontWeight:700,
+                              color:n.highlight?"#4ADE80":C.gold,
+                              background:"none",border:"none",cursor:"pointer",
+                              padding:0,fontFamily:"'DM Sans',sans-serif",
+                              display:"flex",alignItems:"center",gap:4}}>
+                            {n.actionLabel}
+                            <svg width={11} height={11} viewBox="0 0 11 11">
+                              <path d="M2 5.5h7M5 2l3 3.5-3 3.5" stroke="currentColor"
+                                strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                      {n.time&&(
+                        <span style={{fontSize:10,color:C.inkGh,
+                          fontFamily:"'DM Mono',monospace",flexShrink:0}}>
+                          {n.time}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
       {/* Sticky header */}
       <header style={{position:"sticky",top:0,zIndex:30,background:scrolled?"rgba(11,9,6,0.97)":"transparent",backdropFilter:scrolled?"blur(24px)":"none",padding:"13px 18px",borderBottom:scrolled?`1px solid ${C.gl2}`:"none",transition:`all .35s ${EASE}`,marginBottom:"-60px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -1030,7 +1179,27 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
           </div>
           <div style={{display:"flex",gap:8}}>
             <button onClick={()=>setSearchOpen(true)} style={{width:38,height:38,borderRadius:12,background:`rgba(255,255,255,${scrolled?.06:.04})`,border:`1px solid ${C.glBd}`,backdropFilter:"blur(12px)",color:C.ink,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>🔍</button>
-            <button style={{width:38,height:38,borderRadius:12,background:`rgba(255,255,255,${scrolled?.06:.04})`,border:`1px solid ${C.glBd}`,backdropFilter:"blur(12px)",color:C.ink,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>🔔</button>
+            {/* Bell with badge */}
+            <button onClick={()=>setNotifOpen(o=>!o)}
+              style={{width:38,height:38,borderRadius:12,
+                background:notifOpen?C.g15:`rgba(255,255,255,${scrolled?.06:.04})`,
+                border:`1px solid ${notifOpen?"rgba(200,146,42,0.45)":C.glBd}`,
+                backdropFilter:"blur(12px)",color:C.ink,cursor:"pointer",
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:16,position:"relative",
+                transition:`all 0.2s ${EASE}`}}>
+              🔔
+              {notifCount>0&&(
+                <div style={{position:"absolute",top:-4,right:-4,
+                  width:16,height:16,borderRadius:"50%",
+                  background:GG,color:C.void,fontSize:9,fontWeight:900,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  border:`2px solid ${C.deep}`,fontFamily:"'DM Mono',monospace",
+                  animation:"cartPop .45s ease"}}>
+                  {notifCount}
+                </div>
+              )}
+            </button>
           </div>
         </div>
       </header>
@@ -3044,6 +3213,8 @@ export default function CustomerOrderPage() {
                 onViewCart={()=>setScreen("cart")}
                 onExploreMenu={()=>setActiveTab("menu")}
                 favs={favs} onToggleFav={toggleFav}
+                existingOrder={existingOrder}
+                onViewOrder={()=>existingOrder?setScreen("tracking"):setActiveTab("orders")}
               />
             )}
 
