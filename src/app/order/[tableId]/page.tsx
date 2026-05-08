@@ -585,7 +585,6 @@ function CPromo({onTap,mktBanners=[]}:{onTap:()=>void;mktBanners?:any[]}){
   const title   = offerCard?.discount ? `Flat ${offerCard.discount} Off` : "Flat 20% Off";
   const subtitle= offerCard?.title    ? `${offerCard.title} — today only!` : "On all beverages this evening";
   const btnText = "Order Now";
-  const bgColor = offerCard?.color    ? offerCard.color.replace(/rgba?\([^)]+\)/,c=>c) : undefined;
   const imageUrl= offerCard?.imageUrl;
 
   return(
