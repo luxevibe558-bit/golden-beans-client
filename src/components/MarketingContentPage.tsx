@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 // ═══════════════════════════════════════════════════
 // DESIGN TOKENS
@@ -19,6 +19,8 @@ const A = {
 const GG=`linear-gradient(135deg,${A.gold} 0%,${A.goldM} 52%,${A.goldL} 100%)`;
 const EA="cubic-bezier(0.25,0.46,0.45,0.94)";
 
+const API = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+
 // ═══════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════
@@ -27,9 +29,15 @@ interface Banner {
   status:"active"|"inactive"; views:string; clicks:string;
   schedule:string; bg:string; tag:string; emoji:string; opacity:number;
   action:string; startDate:string; endDate:string;
+  imageUrl?: string; // Cloudinary URL
 }
 interface OfferCard {
-  id:number; title:string; discount:string; status:"active"|"inactive"; views:string; clicks:string; color:string;
+  id:number; title:string; discount:string; status:"active"|"inactive";
+  views:string; clicks:string; color:string;
+  imageUrl?: string; // Cloudinary URL
+}
+interface MediaItem {
+  url: string; name: string; type: string; size: string; dim: string; uploadedAt: string;
 }
 interface Popup {
   id:number; title:string; type:string; status:"active"|"inactive"; trigger:string; views:string; clicks:string; delay:number;
@@ -67,13 +75,13 @@ const INIT_THEMES:Theme[] = [
   {id:5,name:"IPL Season",icon:"🏏",colors:["#1A237E","#F57F17","#FF6F00"],active:false},
   {id:6,name:"Default Theme",icon:"☕",colors:["#C8922A","#1A1712","#F5CC6A"],active:true},
 ];
-const MEDIA=[
-  {name:"banner-coffee.jpg",type:"JPG",size:"2.4MB",dim:"1920×1080",emoji:"☕"},
-  {name:"summer-promo.jpg",type:"JPG",size:"1.8MB",dim:"1920×1080",emoji:"🥤"},
-  {name:"happy-hours.gif",type:"GIF",size:"3.2MB",dim:"800×600",emoji:"⏰"},
-  {name:"dessert-new.jpg",type:"JPG",size:"1.6MB",dim:"1920×1080",emoji:"🍰"},
-  {name:"logo-anim.json",type:"JSON",size:"48KB",dim:"400×400",emoji:"✨"},
-  {name:"promo-video.mp4",type:"MP4",size:"18MB",dim:"1920×1080",emoji:"🎬"},
+const INIT_MEDIA: MediaItem[] = [
+  {url:"https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=400",name:"banner-coffee.jpg",type:"JPG",size:"2.4MB",dim:"1920×1080",uploadedAt:"2025-05-01"},
+  {url:"https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400",name:"summer-coolers.jpg",type:"JPG",size:"1.8MB",dim:"1920×1080",uploadedAt:"2025-05-05"},
+  {url:"https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400",name:"happy-hours.jpg",type:"JPG",size:"1.6MB",dim:"800×600",uploadedAt:"2025-05-08"},
+  {url:"https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=400",name:"dessert-new.jpg",type:"JPG",size:"2.1MB",dim:"1920×1080",uploadedAt:"2025-05-10"},
+  {url:"https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=400",name:"coffee-beans.jpg",type:"JPG",size:"1.4MB",dim:"1920×1080",uploadedAt:"2025-05-12"},
+  {url:"https://images.unsplash.com/photo-1572119865084-43c285814d63?w=400",name:"latte-art.jpg",type:"JPG",size:"1.9MB",dim:"1920×1080",uploadedAt:"2025-05-14"},
 ];
 
 const CSS=`
@@ -88,7 +96,197 @@ const CSS=`
 .hs{scrollbar-width:none;-ms-overflow-style:none;}
 .hs::-webkit-scrollbar{display:none;}
 @keyframes mc-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
 `;
+
+// ═══════════════════════════════════════════════════
+// MEDIA PICKER MODAL
+// Full-screen image picker with upload support
+// ═══════════════════════════════════════════════════
+function MediaPickerModal({ open, onClose, onSelect, mediaItems, onUpload, uploading }: {
+  open: boolean;
+  onClose: () => void;
+  onSelect: (url: string, name: string) => void;
+  mediaItems: MediaItem[];
+  onUpload: (file: File) => void;
+  uploading: boolean;
+}) {
+  const [filter, setFilter] = useState("All");
+  const [dragOver, setDragOver] = useState(false);
+  const [hoveredUrl, setHoveredUrl] = useState<string|null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const TYPES = ["All", "JPG", "PNG", "GIF", "MP4"];
+  const filtered = filter === "All" ? mediaItems : mediaItems.filter(m => m.type === filter);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) onUpload(file);
+  };
+
+  if (!open) return null;
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:200,
+      background:"rgba(2,1,0,0.88)", backdropFilter:"blur(18px)",
+      display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}
+      onClick={onClose}>
+      <div style={{ width:"100%", maxWidth:820, maxHeight:"88vh",
+        background:A.bg1, borderRadius:20, overflow:"hidden",
+        border:`1px solid rgba(200,146,42,0.28)`,
+        boxShadow:`0 32px 80px rgba(0,0,0,0.9)`,
+        display:"flex", flexDirection:"column",
+        animation:"mc-in 0.3s ease" }}
+        onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ padding:"16px 20px", borderBottom:`1px solid ${A.gl2}`,
+          display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+          <div>
+            <h3 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20,
+              fontWeight:600, color:A.ink, margin:"0 0 2px" }}>Media Library</h3>
+            <p style={{ fontSize:11.5, color:A.inkD, fontFamily:"'DM Sans',sans-serif", margin:0 }}>
+              {mediaItems.length} files · Click to select or upload new
+            </p>
+          </div>
+          <div style={{ display:"flex", gap:9, alignItems:"center" }}>
+            {/* Upload button */}
+            <button className="mc-btn"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              style={{ display:"flex", alignItems:"center", gap:7,
+                padding:"8px 16px", borderRadius:9, border:"none",
+                background: uploading ? A.gl1 : GG,
+                color: uploading ? A.inkD : "#0A0804",
+                fontWeight:700, fontSize:12.5, fontFamily:"'DM Sans',sans-serif",
+                opacity: uploading ? 0.7 : 1,
+                boxShadow: uploading ? "none" : `0 4px 14px rgba(200,146,42,0.35)` }}>
+              {uploading
+                ? <><div style={{ width:14, height:14, borderRadius:"50%",
+                    border:`2px solid ${A.inkD}30`, borderTopColor:A.inkD,
+                    animation:"spin 0.75s linear infinite" }}/> Uploading...</>
+                : <><span>☁️</span> Upload New</>
+              }
+            </button>
+            <input ref={fileInputRef} type="file"
+              accept="image/*,video/mp4,image/gif"
+              style={{ display:"none" }}
+              onChange={e => { if(e.target.files?.[0]) onUpload(e.target.files[0]); }}/>
+            <button onClick={onClose}
+              style={{ width:34, height:34, borderRadius:9,
+                background:A.gl1, border:`1px solid ${A.glBd}`,
+                color:A.inkS, cursor:"pointer", fontSize:16,
+                display:"flex", alignItems:"center", justifyContent:"center" }}>✕</button>
+          </div>
+        </div>
+
+        {/* Filter pills */}
+        <div style={{ display:"flex", gap:7, padding:"12px 20px 10px", flexShrink:0 }}>
+          {TYPES.map(t => (
+            <button key={t} onClick={() => setFilter(t)} className="mc-btn"
+              style={{ padding:"5px 13px", borderRadius:99, fontSize:11.5, fontWeight:filter===t?700:500,
+                border:`1px solid ${filter===t?"rgba(200,146,42,0.45)":A.glBd}`,
+                background:filter===t?A.g15:A.gl1,
+                color:filter===t?A.goldL:A.inkS, fontFamily:"'DM Mono',monospace" }}>
+              {t}
+            </button>
+          ))}
+          <div style={{ marginLeft:"auto", fontSize:11.5, color:A.inkD,
+            fontFamily:"'DM Sans',sans-serif", display:"flex", alignItems:"center" }}>
+            {filtered.length} items
+          </div>
+        </div>
+
+        {/* Drag & Drop Upload Zone */}
+        <div
+          onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          style={{ margin:"0 20px 12px", padding:"14px",
+            borderRadius:12, border:`2px dashed ${dragOver?"rgba(200,146,42,0.7)":"rgba(200,146,42,0.2)"}`,
+            background:dragOver?A.g08:A.gl1,
+            display:"flex", alignItems:"center", justifyContent:"center", gap:12,
+            cursor:"pointer", transition:`all 0.2s ${EA}`, flexShrink:0 }}
+          onClick={() => fileInputRef.current?.click()}>
+          <span style={{ fontSize:24 }}>☁️</span>
+          <div>
+            <p style={{ fontSize:13, fontWeight:600, color:dragOver?A.goldL:A.inkS,
+              fontFamily:"'DM Sans',sans-serif", margin:"0 0 1px" }}>
+              {dragOver ? "Drop to upload!" : "Drag & drop or click to upload"}
+            </p>
+            <p style={{ fontSize:10.5, color:A.inkD, fontFamily:"'DM Sans',sans-serif", margin:0 }}>
+              JPG, PNG, GIF, MP4 supported
+            </p>
+          </div>
+        </div>
+
+        {/* Image grid */}
+        <div className="hs" style={{ flex:1, overflowY:"auto",
+          padding:"0 20px 20px",
+          display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10, alignContent:"start" }}>
+          {filtered.map((m, i) => (
+            <div key={i}
+              onMouseEnter={() => setHoveredUrl(m.url)}
+              onMouseLeave={() => setHoveredUrl(null)}
+              onClick={() => onSelect(m.url, m.name)}
+              style={{ borderRadius:11, overflow:"hidden",
+                border:`2px solid ${hoveredUrl===m.url?"rgba(200,146,42,0.7)":A.glBd}`,
+                cursor:"pointer", background:A.bg2,
+                transition:`all 0.18s ${EA}`,
+                transform:hoveredUrl===m.url?"scale(1.02)":"scale(1)",
+                boxShadow:hoveredUrl===m.url?`0 0 20px rgba(200,146,42,0.25)`:"none",
+                animation:`mc-in 0.3s ${i*0.04}s ease both` }}>
+              {/* Image */}
+              <div style={{ height:110, overflow:"hidden", position:"relative", background:A.bg3 }}>
+                <img src={m.url} alt={m.name}
+                  style={{ width:"100%", height:"100%", objectFit:"cover",
+                    transition:`transform 0.3s ${EA}`,
+                    transform:hoveredUrl===m.url?"scale(1.08)":"scale(1)" }}
+                  loading="lazy"/>
+                {/* Select overlay */}
+                {hoveredUrl===m.url && (
+                  <div style={{ position:"absolute", inset:0,
+                    background:"rgba(200,146,42,0.18)",
+                    display:"flex", alignItems:"center", justifyContent:"center" }}>
+                    <div style={{ width:36, height:36, borderRadius:"50%",
+                      background:GG, display:"flex",
+                      alignItems:"center", justifyContent:"center",
+                      fontSize:18, boxShadow:`0 4px 16px rgba(200,146,42,0.5)` }}>✓</div>
+                  </div>
+                )}
+                <span style={{ position:"absolute", top:6, right:6,
+                  fontSize:8.5, padding:"2px 6px", borderRadius:4,
+                  background:"rgba(0,0,0,0.65)", color:A.goldM,
+                  fontFamily:"'DM Mono',monospace", fontWeight:600 }}>{m.type}</span>
+              </div>
+              {/* Info */}
+              <div style={{ padding:"7px 9px" }}>
+                <p style={{ fontSize:10.5, fontWeight:600, color:A.ink,
+                  margin:"0 0 1px", fontFamily:"'DM Sans',sans-serif",
+                  whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{m.name}</p>
+                <p style={{ fontSize:9.5, color:A.inkD,
+                  fontFamily:"'DM Mono',monospace", margin:0 }}>{m.size}</p>
+              </div>
+            </div>
+          ))}
+
+          {/* Empty state */}
+          {filtered.length === 0 && (
+            <div style={{ gridColumn:"1/-1", textAlign:"center", padding:"40px 20px" }}>
+              <div style={{ fontSize:40, marginBottom:12, opacity:.35 }}>📁</div>
+              <p style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:18,
+                color:A.inkS, margin:"0 0 6px" }}>No {filter} files yet</p>
+              <p style={{ fontSize:12, color:A.inkD, fontFamily:"'DM Sans',sans-serif" }}>
+                Upload your first image to get started
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ═══════════════════════════════════════════════════
 // REUSABLE INPUT FIELD
@@ -232,9 +430,14 @@ function MobilePreview({banner}:{banner:Banner|null}) {
             </div>
             <div style={{display:"flex",gap:4,fontSize:10}}>🔍🔔</div>
           </div>
-          {/* HERO BANNER — live update */}
+          {/* HERO BANNER — live update with real image */}
           <div style={{height:95,background:banner?.bg||"linear-gradient(135deg,#3D1A06,#1A0A02)",
             position:"relative",overflow:"hidden",transition:`background 0.4s ${EA}`}}>
+            {banner?.imageUrl&&(
+              <img src={banner.imageUrl} alt="Banner"
+                style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover",
+                  opacity:`${(banner.opacity||60)/100}` as any}}/>
+            )}
             <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.7),transparent)"}}/>
             <div style={{position:"absolute",bottom:7,left:9,right:9}}>
               <p style={{fontSize:10.5,fontWeight:700,color:"#F5EDD8",fontFamily:"'Cormorant Garamond',serif",
@@ -308,11 +511,12 @@ function MobilePreview({banner}:{banner:Banner|null}) {
 // ═══════════════════════════════════════════════════
 // BANNER EDITOR — fully functional
 // ═══════════════════════════════════════════════════
-function BannerEditor({banner,onChange,onSave,onDelete}:{
+function BannerEditor({banner,onChange,onSave,onDelete,onOpenPicker}:{
   banner:Banner|null;
   onChange:(b:Banner)=>void;
   onSave:()=>void;
   onDelete:()=>void;
+  onOpenPicker:()=>void;
 }) {
   const [tab,setTab]=useState<"content"|"style">("content");
 
@@ -373,6 +577,46 @@ function BannerEditor({banner,onChange,onSave,onDelete}:{
                 style={{width:"100%",padding:"10px 13px",borderRadius:10,border:`1px solid ${A.glBd}`,background:A.bg3,color:A.ink,fontSize:13,fontFamily:"'DM Sans',sans-serif",cursor:"pointer"}}>
                 {["Go to Menu","Go to Category","External URL","Show Popup","Open Offer"].map(o=><option key={o} value={o}>{o}</option>)}
               </select>
+            </div>
+
+            {/* ── BACKGROUND IMAGE ── */}
+            <div style={{marginBottom:14}}>
+              <label style={{fontSize:10,fontWeight:700,color:A.inkD,letterSpacing:".1em",textTransform:"uppercase",display:"block",marginBottom:7,fontFamily:"'DM Mono',monospace"}}>
+                Background Image
+              </label>
+              {banner.imageUrl ? (
+                <div style={{borderRadius:11,overflow:"hidden",border:`1px solid rgba(200,146,42,0.35)`,position:"relative",marginBottom:8}}>
+                  <img src={banner.imageUrl} alt="Banner bg"
+                    style={{width:"100%",height:90,objectFit:"cover",display:"block"}}/>
+                  <div style={{position:"absolute",inset:0,background:"linear-gradient(to top,rgba(0,0,0,0.45),transparent)"}}/>
+                  <div style={{position:"absolute",bottom:6,left:8}}>
+                    <span style={{fontSize:9,color:"rgba(245,237,216,0.7)",fontFamily:"'DM Mono',monospace"}}>
+                      {banner.imageUrl.includes("unsplash")?"Stock photo":"Custom upload"}
+                    </span>
+                  </div>
+                  <button onClick={()=>upd("imageUrl",undefined)}
+                    style={{position:"absolute",top:6,right:6,width:24,height:24,borderRadius:"50%",
+                      background:"rgba(192,57,43,0.85)",backdropFilter:"blur(8px)",border:"none",
+                      color:"white",cursor:"pointer",fontSize:13,display:"flex",
+                      alignItems:"center",justifyContent:"center"}}>✕</button>
+                </div>
+              ) : (
+                <div style={{height:70,borderRadius:11,border:`2px dashed rgba(200,146,42,0.28)`,
+                  background:A.gl1,display:"flex",flexDirection:"column",alignItems:"center",
+                  justifyContent:"center",gap:4,marginBottom:8,cursor:"pointer"}}
+                  onClick={onOpenPicker}>
+                  <span style={{fontSize:20,opacity:.5}}>🖼️</span>
+                  <span style={{fontSize:11,color:A.inkD,fontFamily:"'DM Sans',sans-serif"}}>No image selected</span>
+                </div>
+              )}
+              <button className="mc-btn" onClick={onOpenPicker}
+                style={{width:"100%",padding:"9px",borderRadius:9,
+                  border:`1px solid rgba(200,146,42,0.38)`,background:A.g08,
+                  color:A.goldL,fontWeight:600,fontSize:12.5,
+                  fontFamily:"'DM Sans',sans-serif",
+                  display:"flex",alignItems:"center",justifyContent:"center",gap:7}}>
+                <span>🖼️</span> {banner.imageUrl?"Change Image":"Select from Media Library"}
+              </button>
             </div>
 
             {/* Overlay Opacity slider */}
@@ -726,21 +970,32 @@ function FestivalThemesTab() {
 // ═══════════════════════════════════════════════════
 // MEDIA LIBRARY TAB
 // ═══════════════════════════════════════════════════
-function MediaLibraryTab() {
-  const [media,setMedia]=useState(MEDIA);
+function MediaLibraryTab({mediaItems,onUpload,uploading,onOpenPicker}:{
+  mediaItems:MediaItem[];onUpload:(f:File)=>void;uploading:boolean;onOpenPicker:()=>void;
+}) {
   const [filter,setFilter]=useState("All");
-  const TYPES=["All","JPG","PNG","GIF","MP4","JSON"];
-  const filtered=filter==="All"?media:media.filter(m=>m.type===filter);
+  const fileInputRef=useRef<HTMLInputElement>(null);
+  const TYPES=["All","JPG","PNG","GIF","MP4"];
+  const filtered=filter==="All"?mediaItems:mediaItems.filter(m=>m.type===filter);
   return(
     <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",padding:"14px"}}>
+      <input ref={fileInputRef} type="file" accept="image/*,video/mp4,image/gif"
+        style={{display:"none"}} onChange={e=>{if(e.target.files?.[0])onUpload(e.target.files[0]);}}/>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexShrink:0}}>
         <div>
           <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:A.ink,margin:"0 0 2px"}}>Media Library</h3>
-          <p style={{fontSize:11,color:A.inkD,fontFamily:"'DM Sans',sans-serif",margin:0}}>{media.length} files · Upload images, GIFs, videos</p>
+          <p style={{fontSize:11,color:A.inkD,fontFamily:"'DM Sans',sans-serif",margin:0}}>
+            {mediaItems.length} files · Select image for banners & cards
+          </p>
         </div>
-        <button className="mc-btn"
-          style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:9,border:"none",background:GG,color:"#0A0804",fontWeight:700,fontSize:12,fontFamily:"'DM Sans',sans-serif",boxShadow:`0 4px 12px rgba(200,146,42,0.35)`}}>
-          ☁️ Upload Media
+        <button className="mc-btn" onClick={()=>fileInputRef.current?.click()} disabled={uploading}
+          style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:9,border:"none",
+            background:uploading?A.gl1:GG,color:uploading?A.inkD:"#0A0804",
+            fontWeight:700,fontSize:12,fontFamily:"'DM Sans',sans-serif",
+            boxShadow:uploading?"none":`0 4px 12px rgba(200,146,42,0.35)`}}>
+          {uploading
+            ?<><div style={{width:12,height:12,borderRadius:"50%",border:`2px solid ${A.inkD}30`,borderTopColor:A.inkD,animation:"spin .75s linear infinite"}}/>Uploading...</>
+            :<><span>☁️</span> Upload New</>}
         </button>
       </div>
       {/* Filter pills */}
@@ -755,27 +1010,52 @@ function MediaLibraryTab() {
           </button>
         ))}
       </div>
+      {/* Upload drop zone */}
+      <div style={{marginBottom:12,flexShrink:0,padding:"12px",borderRadius:11,
+        border:`2px dashed rgba(200,146,42,0.25)`,background:A.gl1,
+        display:"flex",alignItems:"center",gap:11,cursor:"pointer"}}
+        onClick={()=>fileInputRef.current?.click()}>
+        <span style={{fontSize:22,opacity:.6}}>☁️</span>
+        <div>
+          <p style={{fontSize:12.5,fontWeight:600,color:A.inkS,fontFamily:"'DM Sans',sans-serif",margin:"0 0 1px"}}>
+            Click or drag & drop to upload
+          </p>
+          <p style={{fontSize:10.5,color:A.inkD,fontFamily:"'DM Sans',sans-serif",margin:0}}>
+            JPG, PNG, GIF, MP4 supported · Used for banners & offer cards
+          </p>
+        </div>
+      </div>
       <div className="hs" style={{flex:1,overflowY:"auto",display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:9,alignContent:"start"}}>
         {filtered.map((m,i)=>(
           <div key={i} style={{background:A.bg2,borderRadius:11,overflow:"hidden",
             border:`1px solid ${A.glBd}`,cursor:"pointer",
             transition:`all 0.2s ${EA}`,animation:`mc-in 0.3s ${i*.04}s ease both`}}
-            className="mc-hover">
-            <div style={{height:62,background:"linear-gradient(135deg,#1A1208,#0A0804)",
-              display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,
-              borderBottom:`1px solid ${A.glBd}`,position:"relative"}}>
-              {m.emoji}
+            className="mc-hover"
+            onClick={onOpenPicker}>
+            <div style={{height:72,overflow:"hidden",position:"relative",background:A.bg3}}>
+              <img src={m.url} alt={m.name} style={{width:"100%",height:"100%",objectFit:"cover"}} loading="lazy"/>
               <span style={{position:"absolute",top:5,right:5,fontSize:7.5,padding:"1px 5px",
-                borderRadius:3,background:"rgba(200,146,42,0.2)",color:A.goldM,
+                borderRadius:3,background:"rgba(0,0,0,0.6)",color:A.goldM,
                 fontFamily:"'DM Mono',monospace",fontWeight:600}}>{m.type}</span>
+              <div style={{position:"absolute",inset:0,background:"transparent",
+                transition:`background 0.2s ease`}}
+                onMouseEnter={e=>(e.currentTarget.style.background="rgba(200,146,42,0.15)")}
+                onMouseLeave={e=>(e.currentTarget.style.background="transparent")}/>
             </div>
             <div style={{padding:"7px 9px"}}>
               <p style={{fontSize:10,fontWeight:600,color:A.ink,margin:"0 0 1px",fontFamily:"'DM Sans',sans-serif",
                 whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.name}</p>
-              <p style={{fontSize:9,color:A.inkD,fontFamily:"'DM Mono',monospace",margin:0}}>{m.size} · {m.dim}</p>
+              <p style={{fontSize:9,color:A.inkD,fontFamily:"'DM Mono',monospace",margin:0}}>{m.size}</p>
             </div>
           </div>
         ))}
+        {filtered.length===0&&(
+          <div style={{gridColumn:"1/-1",textAlign:"center",padding:"40px"}}>
+            <div style={{fontSize:36,opacity:.3,marginBottom:10}}>📁</div>
+            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,color:A.inkS,margin:"0 0 5px"}}>No files yet</p>
+            <p style={{fontSize:11.5,color:A.inkD,fontFamily:"'DM Sans',sans-serif"}}>Upload your first image above</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -822,6 +1102,11 @@ export default function MarketingContentPage() {
   const [banners,    setBanners    ] = useState<Banner[]>(INIT_BANNERS);
   const [selectedId, setSelectedId ] = useState<number|null>(1);
   const [saved,      setSaved      ] = useState(false);
+  const [mediaItems, setMediaItems ] = useState<MediaItem[]>(INIT_MEDIA);
+  const [pickerOpen, setPickerOpen ] = useState(false);
+  const [uploading,  setUploading  ] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<"banner"|"offer">("banner");
+  const [offerPickerId, setOfferPickerId] = useState<number|null>(null);
 
   // Live-edit state — synced with selected banner
   const [editBanner, setEditBanner ] = useState<Banner|null>(
@@ -857,6 +1142,40 @@ export default function MarketingContentPage() {
     const n={...src,id:Date.now(),title:src.title+" (Copy)",status:"inactive" as const};
     setBanners(bs=>[...bs,n]);
   };
+
+  // ── Upload to Cloudinary via server ──
+  const handleUpload = useCallback(async(file:File)=>{
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("folder", "marketing");
+      const res = await fetch(`${API}/upload`, { method:"POST", body:formData });
+      const data = await res.json();
+      if(data.success && data.url) {
+        const newItem: MediaItem = {
+          url: data.url,
+          name: file.name,
+          type: file.name.split(".").pop()?.toUpperCase()||"IMG",
+          size: `${(file.size/1024/1024).toFixed(1)}MB`,
+          dim: "—",
+          uploadedAt: new Date().toISOString().split("T")[0],
+        };
+        setMediaItems(prev=>[newItem,...prev]);
+      }
+    } catch(e) {
+      console.error("Upload failed",e);
+    }
+    setUploading(false);
+  },[]);
+
+  // ── On image selected from picker ──
+  const handlePickerSelect = useCallback((url:string, name:string)=>{
+    setPickerOpen(false);
+    if(pickerTarget==="banner" && editBanner) {
+      setEditBanner(prev=>prev?{...prev,imageUrl:url}:prev);
+    }
+  },[pickerTarget, editBanner]);
 
   const handleAddBanner=()=>{
     const n:Banner={
@@ -966,7 +1285,8 @@ export default function MarketingContentPage() {
                   banner={editBanner}
                   onChange={setEditBanner}
                   onSave={handleSave}
-                  onDelete={handleDelete}/>
+                  onDelete={handleDelete}
+                  onOpenPicker={()=>{setPickerTarget("banner");setPickerOpen(true);}}/>
               </div>
             </div>
             {/* Save success toast */}
@@ -1002,10 +1322,19 @@ export default function MarketingContentPage() {
         )}
         {activeTab==="media"&&(
           <div style={{flex:1,display:"flex",flexDirection:"column",background:A.bg1,borderRadius:14,border:`1px solid ${A.glBd}`,overflow:"hidden",marginTop:14}}>
-            <MediaLibraryTab/>
+            <MediaLibraryTab mediaItems={mediaItems} onUpload={handleUpload} uploading={uploading} onOpenPicker={()=>setPickerOpen(true)}/>
           </div>
         )}
       </div>
+
+      {/* ── GLOBAL MEDIA PICKER MODAL ── */}
+      <MediaPickerModal
+        open={pickerOpen}
+        onClose={()=>setPickerOpen(false)}
+        onSelect={handlePickerSelect}
+        mediaItems={mediaItems}
+        onUpload={handleUpload}
+        uploading={uploading}/>
     </div>
   );
 }
