@@ -2081,7 +2081,50 @@ export default function CustomerOrderPage() {
   const [selectedItem, setSelectedItem] = useState<MenuItem|null>(null);
   const [activeCat,    setActiveCat   ] = useState("");
   const [customer,     setCustomer    ] = useState<{name:string;phone:string}|null>(null);
-  const [favs,         setFavs        ] = useState<Set<string>>(new Set());
+  const [favs, setFavs] = useState<Set<string>>(new Set());
+  const favsLoaded = useRef(false);
+
+  // ── Load favorites on mount ──
+  // Priority: session customer → localStorage fallback
+  useEffect(()=>{
+    if(secStatus!=="passed" || favsLoaded.current) return;
+    favsLoaded.current = true;
+
+    // 1. Try server (if customer identified)
+    const session = getSessionCustomer();
+    if(session?._id) {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+      fetch(`${API_URL}/customers/${session._id}/favorites`)
+        .then(r=>r.json())
+        .then(d=>{ if(d.success && d.data?.length) setFavs(new Set(d.data)); })
+        .catch(()=>loadFavsFromStorage()); // fallback
+    } else {
+      loadFavsFromStorage();
+    }
+  },[secStatus]);
+
+  // Reload favs when customer identifies (CRM popup completes)
+  useEffect(()=>{
+    if(!customer) return;
+    const session = getSessionCustomer();
+    if(!session?._id) return;
+    const API_URL = process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+    fetch(`${API_URL}/customers/${session._id}/favorites`)
+      .then(r=>r.json())
+      .then(d=>{ if(d.success && d.data?.length) setFavs(new Set(d.data)); })
+      .catch(()=>{});
+  },[customer]);
+
+  const loadFavsFromStorage = ()=>{
+    try {
+      const saved = localStorage.getItem("gb_favs");
+      if(saved) setFavs(new Set(JSON.parse(saved)));
+    } catch {}
+  };
+
+  const saveFavsToStorage = (ids: string[])=>{
+    try { localStorage.setItem("gb_favs", JSON.stringify(ids)); } catch {}
+  };
 
   const prevStatus = useRef<string|null>(null);
   const pollTimer  = useRef<NodeJS.Timeout|null>(null);
@@ -2239,7 +2282,28 @@ export default function CustomerOrderPage() {
   const bestsellers = allItems.filter(i=>i.tags?.includes("bestseller")&&i.isAvailable);
   const catItems    = (menu.find(c=>c._id===activeCat)?.items||[]) as MenuItem[];
   const cartCount   = cart.reduce((s,i)=>s+i.quantity,0);
-  const toggleFav   = (id:string)=>setFavs(p=>{const n=new Set(p);n.has(id)?n.delete(id):n.add(id);return n;});
+  const toggleFav = useCallback((id:string)=>{
+    setFavs(prev=>{
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      const ids = Array.from(next);
+
+      // Always save to localStorage (guest fallback)
+      saveFavsToStorage(ids);
+
+      // Sync to server if customer identified
+      const session = getSessionCustomer();
+      if(session?._id) {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+        fetch(`${API_URL}/customers/${session._id}/favorites`, {
+          method:"PUT",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ favorites: ids }),
+        }).catch(()=>{}); // silent fail — localStorage already saved
+      }
+      return next;
+    });
+  },[]);
 
 
   // ── SECURITY GATE ──

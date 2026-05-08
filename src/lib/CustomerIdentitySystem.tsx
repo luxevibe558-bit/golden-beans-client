@@ -151,6 +151,28 @@ export async function getCustomerProfile(customerId: string) {
   } catch { return null; }
 }
 
+// ── Get favorites from server ──
+export async function getFavorites(customerId: string): Promise<string[]> {
+  try {
+    const res  = await fetch(`${API_URL}/customers/${customerId}/favorites`);
+    const data = await res.json();
+    return data.success ? data.data : [];
+  } catch { return []; }
+}
+
+// ── Save favorites to server ──
+export async function saveFavorites(customerId: string, favorites: string[]): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_URL}/customers/${customerId}/favorites`, {
+      method:  "PUT",
+      headers: { "Content-Type":"application/json" },
+      body:    JSON.stringify({ favorites }),
+    });
+    const data = await res.json();
+    return data.success;
+  } catch { return false; }
+}
+
 // ── Points display helpers ──
 export const pointsToRs = (p: number) => Math.floor(p / 10);
 export const rsToPoints = (r: number) => r * 10;
