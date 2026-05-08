@@ -2170,7 +2170,7 @@ function OrderPlacedScreen({ order, onTrack, onHome }:{order:Order;onTrack:()=>v
 // ═══════════════════════════════════════════════════
 // ORDER TRACKING — Cinematic live timeline
 // ═══════════════════════════════════════════════════
-function OrderTrackingScreen({ order, onReady, onBack }:{order:Order;onReady:()=>void;onBack:()=>void}) {
+function OrderTrackingScreen({ order, onReady, onBack, queuePos=0 }:{order:Order;onReady:()=>void;onBack:()=>void;queuePos?:number}) {
   const stages=[
     {id:"open",      icon:"📝",label:"Order Confirmed",  sub:"Kitchen has received your order"},
     {id:"kotSent",   icon:"👨‍🍳",label:"Being Prepared",   sub:"Our chef is crafting your items"},
@@ -2179,6 +2179,21 @@ function OrderTrackingScreen({ order, onReady, onBack }:{order:Order;onReady:()=
   ];
   const stageIdx = stages.findIndex(s=>s.id===order.status);
   const curIdx   = stageIdx>=0?stageIdx:0;
+
+  // ── Wait time calculation ──
+  // Avg 3-4 mins per item in queue + 2 mins base per order ahead
+  const itemsInOrder  = order.items?.length || 1;
+  const baseMinsPerOrder = 3;
+  const minsPerItem      = 2;
+  const queueWait = queuePos * baseMinsPerOrder;
+  const prepTime  = Math.max(2, itemsInOrder * minsPerItem);
+  const totalWait = queueWait + prepTime;
+
+  // Elapsed time since order placed
+  const elapsedMins = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000);
+  const remainingMins = Math.max(0, totalWait - elapsedMins);
+
+  const showWaitTime = ["open","kotSent"].includes(order.status);
 
   useEffect(()=>{if(order.status==="settled")onReady();},[order.status,onReady]);
 
@@ -2202,14 +2217,77 @@ function OrderTrackingScreen({ order, onReady, onBack }:{order:Order;onReady:()=
         <div style={{position:"absolute",bottom:0,inset:"auto 0 0 0",height:60,background:`linear-gradient(to top,${C.void},transparent)`}}/>
       </div>
 
+      {/* ── WAIT TIME CARD ── */}
+      {showWaitTime&&(
+        <div style={{margin:"16px 20px 0",
+          background:remainingMins<=2
+            ?`linear-gradient(135deg,rgba(46,125,82,0.15),rgba(46,125,82,0.08))`
+            :`linear-gradient(135deg,${C.g15},${C.g08})`,
+          border:`1px solid ${remainingMins<=2?"rgba(46,125,82,0.4)":"rgba(200,146,42,0.3)"}`,
+          borderRadius:16,padding:"14px 16px",
+          display:"flex",alignItems:"center",gap:14,
+          boxShadow:remainingMins<=2?`0 0 20px rgba(46,125,82,0.1)`:`0 0 20px ${C.g08}`}}>
+          {/* Clock icon */}
+          <div style={{width:48,height:48,borderRadius:14,flexShrink:0,
+            background:remainingMins<=2?"rgba(46,125,82,0.15)":C.g08,
+            border:`1px solid ${remainingMins<=2?"rgba(46,125,82,0.35)":C.g25}`,
+            display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>
+            {remainingMins<=2?"🎉":"⏱️"}
+          </div>
+          <div style={{flex:1}}>
+            {remainingMins<=2 ? (
+              <>
+                <p style={{fontSize:15,fontWeight:700,color:"#4ADE80",
+                  fontFamily:"'DM Sans',sans-serif",margin:"0 0 2px"}}>
+                  Almost ready!
+                </p>
+                <p style={{fontSize:12,color:C.inkSub,
+                  fontFamily:"'DM Sans',sans-serif",margin:0}}>
+                  Your order will be served very soon
+                </p>
+              </>
+            ) : (
+              <>
+                <p style={{fontSize:12,color:C.inkSub,
+                  fontFamily:"'DM Mono',monospace",margin:"0 0 3px",
+                  letterSpacing:".06em",textTransform:"uppercase"}}>
+                  Estimated Wait Time
+                </p>
+                <div style={{display:"flex",alignItems:"baseline",gap:5}}>
+                  <span style={{fontFamily:"'Cormorant Garamond',serif",
+                    fontSize:32,fontWeight:700,color:C.goldL,lineHeight:1}}>
+                    {remainingMins}
+                  </span>
+                  <span style={{fontSize:13,color:C.inkSub,
+                    fontFamily:"'DM Sans',sans-serif"}}>min</span>
+                </div>
+                {queuePos>0&&(
+                  <p style={{fontSize:11,color:C.inkDim,
+                    fontFamily:"'DM Mono',monospace",margin:"2px 0 0"}}>
+                    {queuePos} order{queuePos>1?"s":""} ahead · {itemsInOrder} item{itemsInOrder>1?"s":""} in your order
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+          {/* Live indicator */}
+          <div style={{display:"flex",alignItems:"center",gap:5,flexShrink:0}}>
+            <div style={{width:7,height:7,borderRadius:"50%",
+              background:remainingMins<=2?"#4ADE80":C.gold,
+              animation:"pulseRg 1.5s ease-in-out infinite"}}/>
+            <span style={{fontSize:9.5,color:remainingMins<=2?"#4ADE80":C.gold,
+              fontFamily:"'DM Mono',monospace",letterSpacing:".06em"}}>LIVE</span>
+          </div>
+        </div>
+      )}
+
       {/* Timeline */}
-      <div style={{padding:"24px 24px",flex:1}}>
-        <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 20px"}}>Order Progress</p>
+      <div style={{padding:"20px 24px",flex:1}}>
+        <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 18px"}}>Order Progress</p>
         {stages.map((stage,i)=>{
           const done=i<curIdx;const active=i===curIdx;const future=i>curIdx;
           return(
-            <div key={stage.id} style={{display:"flex",gap:14,marginBottom:i<stages.length-1?0:0}}>
-              {/* Line + dot */}
+            <div key={stage.id} style={{display:"flex",gap:14}}>
               <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:22,flexShrink:0}}>
                 <div style={{width:22,height:22,borderRadius:"50%",
                   background:done?GG:active?`linear-gradient(135deg,${C.g25},${C.g15})`:`${C.gl1}`,
@@ -2224,11 +2302,10 @@ function OrderTrackingScreen({ order, onReady, onBack }:{order:Order;onReady:()=
                 </div>
                 {i<stages.length-1&&<div style={{width:2,flex:1,minHeight:28,background:done?`linear-gradient(to bottom,${C.gold},${C.g40})`:`${C.gl2}`,margin:"3px 0",borderRadius:1,transition:`background 0.5s ${EASE}`}}/>}
               </div>
-              {/* Content */}
-              <div style={{paddingBottom:i<stages.length-1?20:0,flex:1,opacity:future?0.35:1,transition:`opacity 0.4s ${EASE}`}}>
+              <div style={{paddingBottom:i<stages.length-1?18:0,flex:1,opacity:future?0.35:1,transition:`opacity 0.4s ${EASE}`}}>
                 <p style={{fontSize:14.5,fontWeight:active?700:500,color:active?C.goldL:done?C.ink:C.inkDim,fontFamily:"'DM Sans',sans-serif",margin:"0 0 2px",transition:`color 0.3s ${EASE}`}}>{stage.label}</p>
                 <p style={{fontSize:11.5,color:active?C.inkSub:C.inkDim,fontFamily:"'DM Sans',sans-serif",margin:0}}>{stage.sub}</p>
-                {active&&<div style={{marginTop:8,display:"flex",alignItems:"center",gap:6}}>
+                {active&&<div style={{marginTop:7,display:"flex",alignItems:"center",gap:6}}>
                   <div style={{width:6,height:6,borderRadius:"50%",background:C.gold,animation:"pulseRg 1.5s ease-in-out infinite"}}/>
                   <span style={{fontSize:11,color:C.gold,fontFamily:"'DM Mono',monospace"}}>In progress...</span>
                 </div>}
@@ -2239,9 +2316,11 @@ function OrderTrackingScreen({ order, onReady, onBack }:{order:Order;onReady:()=
       </div>
 
       {/* Notification note */}
-      <div style={{margin:"0 20px 24px",padding:"14px 16px",background:C.gl1,border:`1px solid ${C.glBd}`,borderRadius:15,display:"flex",gap:11,alignItems:"center"}}>
-        <span style={{fontSize:20}}>🔔</span>
-        <p style={{fontSize:12,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,margin:0}}>We'll notify you when your order is ready to be served at your table.</p>
+      <div style={{margin:"0 20px 24px",padding:"13px 16px",background:C.gl1,border:`1px solid ${C.glBd}`,borderRadius:14,display:"flex",gap:11,alignItems:"center"}}>
+        <span style={{fontSize:18}}>🔔</span>
+        <p style={{fontSize:12,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,margin:0}}>
+          We'll notify you when your order is ready to be served at your table.
+        </p>
       </div>
     </div>
   );
@@ -3196,7 +3275,7 @@ export default function CustomerOrderPage() {
 
         {/* ── ORDER TRACKING ── */}
         {screen==="tracking"&&existingOrder&&(
-          <OrderTrackingScreen order={existingOrder} onReady={()=>setScreen("ready")} onBack={()=>setScreen("home")}/>
+          <OrderTrackingScreen order={existingOrder} onReady={()=>setScreen("ready")} onBack={()=>setScreen("home")} queuePos={queuePos||0}/>
         )}
 
         {/* ── HOME TABS ── */}
