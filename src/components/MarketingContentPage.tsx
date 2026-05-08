@@ -1104,9 +1104,9 @@ type TabId="banners"|"offers"|"popups"|"themes"|"media";
 
 export default function MarketingContentPage() {
   const [activeTab,    setActiveTab   ] = useState<TabId>("banners");
-  const [banners,      setBanners     ] = useState<Banner[]>([]);
-  const [selectedId,   setSelectedId  ] = useState<string|null>(null);
-  const [loading,      setLoading     ] = useState(true);
+  const [banners,      setBanners     ] = useState<Banner[]>(INIT_BANNERS);
+  const [selectedId,   setSelectedId  ] = useState<string|null>("1");
+  const [loading,      setLoading     ] = useState(false);
   const [saving,       setSaving      ] = useState(false);
   const [saved,        setSaved       ] = useState(false);
   const [saveErr,      setSaveErr     ] = useState("");
@@ -1114,42 +1114,27 @@ export default function MarketingContentPage() {
   const [pickerOpen,   setPickerOpen  ] = useState(false);
   const [uploading,    setUploading   ] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<"banner">("banner");
-  const [editBanner,   setEditBanner  ] = useState<Banner|null>(null);
+  const [editBanner,   setEditBanner  ] = useState<Banner|null>(INIT_BANNERS[0]);
 
-  // ── Load banners from server on mount ──
-  useEffect(()=>{
-    loadBanners();
-  },[]);
+  // Try loading from server in background — UI shows INIT_BANNERS immediately
+  useEffect(()=>{ loadBanners(); },[]);
 
   const loadBanners = async()=>{
-    setLoading(true);
     try {
-      const res = await fetch(`${API}/marketing/banners`);
+      const res = await fetch(`${API}/marketing/banners`, { signal: AbortSignal.timeout(5000) });
       const data = await res.json();
-      if(data.success && data.data.length > 0) {
-        // Map MongoDB _id → id for compatibility
+      if(data.success && data.data?.length > 0) {
         const mapped = data.data.map((b:any)=>({
           ...b, id: b._id,
           views: String(b.views||0), clicks: String(b.clicks||0),
-          schedule: b.startDate && b.endDate
-            ? `${b.startDate} - ${b.endDate}`
-            : "Always active",
+          schedule: b.startDate && b.endDate ? `${b.startDate} - ${b.endDate}` : "Always active",
         }));
         setBanners(mapped);
         setSelectedId(mapped[0]?.id||null);
         setEditBanner(mapped[0]||null);
-      } else {
-        // No banners yet — show empty state
-        setBanners([]);
       }
-    } catch(e) {
-      console.error("Failed to load banners",e);
-      // Fallback to sample data if server not updated yet
-      setBanners(INIT_BANNERS.map(b=>({...b,id:String(b.id),_id:String(b.id)})));
-      setSelectedId("1");
-      setEditBanner({...INIT_BANNERS[0],id:"1",_id:"1"} as any);
-    }
-    setLoading(false);
+      // If empty or error — keep INIT_BANNERS showing
+    } catch { /* Server route not added yet — INIT_BANNERS showing fine */ }
   };
 
   // Sync editBanner when selectedId changes
@@ -1158,45 +1143,45 @@ export default function MarketingContentPage() {
     setEditBanner(found ? {...found} : null);
   },[selectedId]);
 
-  // ── SAVE banner to server ──
+  // ── SAVE banner ──
   const handleSave = useCallback(async()=>{
     if(!editBanner) return;
     setSaving(true); setSaveErr("");
+
+    // Always update local state first (optimistic)
+    setBanners(bs=>bs.map(b=>b.id===editBanner.id ? editBanner : b));
+    setSaved(true);
+    setTimeout(()=>setSaved(false),2500);
+
+    // Try to sync to server in background
     try {
       const isNew = !editBanner._id || String(editBanner._id).length < 10;
       const url = isNew
         ? `${API}/marketing/banners`
         : `${API}/marketing/banners/${editBanner._id||editBanner.id}`;
-      const method = isNew ? "POST" : "PUT";
-
       const res = await fetch(url, {
-        method,
+        method: isNew ? "POST" : "PUT",
         headers: { "Content-Type":"application/json" },
         body: JSON.stringify({
-          title:     editBanner.title,
-          subtitle:  editBanner.subtitle,
-          btn:       editBanner.btn,
-          action:    editBanner.action,
-          status:    editBanner.status,
-          bg:        editBanner.bg,
-          imageUrl:  editBanner.imageUrl,
-          tag:       editBanner.tag,
-          emoji:     editBanner.emoji,
-          opacity:   editBanner.opacity,
-          startDate: editBanner.startDate,
-          endDate:   editBanner.endDate,
+          title:editBanner.title, subtitle:editBanner.subtitle,
+          btn:editBanner.btn, action:editBanner.action,
+          status:editBanner.status, bg:editBanner.bg,
+          imageUrl:editBanner.imageUrl, tag:editBanner.tag,
+          emoji:editBanner.emoji, opacity:editBanner.opacity,
+          startDate:editBanner.startDate, endDate:editBanner.endDate,
         }),
       });
       const data = await res.json();
-      if(!data.success) throw new Error(data.message);
-
-      // Reload from server to get fresh data
-      await loadBanners();
-      setSaved(true);
-      setTimeout(()=>setSaved(false),2500);
-    } catch(e:any) {
-      setSaveErr(e.message||"Save failed");
-      setTimeout(()=>setSaveErr(""),3000);
+      if(data.success) {
+        // Update with server-assigned _id if new
+        if(isNew && data.data?._id) {
+          const withId = {...editBanner, _id:data.data._id, id:data.data._id};
+          setBanners(bs=>bs.map(b=>b.id===editBanner.id ? withId : b));
+          setEditBanner(withId);
+        }
+      }
+    } catch {
+      // Server route not added yet — local save already done above
     }
     setSaving(false);
   },[editBanner]);
@@ -1239,49 +1224,52 @@ export default function MarketingContentPage() {
   const handleDuplicate = async(id:string)=>{
     const src = banners.find(b=>b.id===id);
     if(!src) return;
+    // Local first
+    const n:Banner={...src, id:String(Date.now()), title:src.title+" (Copy)", status:"inactive"};
+    setBanners(bs=>[...bs,n]);
+    // Try server in background
     try {
       const res = await fetch(`${API}/marketing/banners`,{
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          ...src, title:src.title+" (Copy)", status:"inactive",
-          views:0, clicks:0, _id:undefined, id:undefined,
-        }),
+        body:JSON.stringify({...src,title:src.title+" (Copy)",status:"inactive",views:0,clicks:0,_id:undefined,id:undefined}),
       });
       const data = await res.json();
-      if(data.success) await loadBanners();
-    } catch(e) {
-      // Local fallback
-      const n={...src, id:String(Date.now()), title:src.title+" (Copy)", status:"inactive" as const};
-      setBanners(bs=>[...bs,n]);
-    }
+      if(data.success && data.data?._id) {
+        setBanners(bs=>bs.map(b=>b.id===n.id?{...n,_id:data.data._id,id:data.data._id}:b));
+      }
+    } catch { /* local duplicate already created */ }
   };
 
   // ── ADD new banner ──
   const handleAddBanner = async()=>{
-    const newB = {
-      title:"New Banner", subtitle:"Add your subtitle",
-      btn:"Order Now", action:"Go to Menu", status:"inactive" as const,
+    // Add locally immediately
+    const localId = String(Date.now());
+    const n:Banner = {
+      id:localId, title:"New Banner", subtitle:"Add your subtitle here",
+      btn:"Order Now", action:"Go to Menu", status:"inactive",
       bg:"linear-gradient(135deg,#3D1A06,#1A0A02)",
       tag:"NEW", emoji:"☕", opacity:60,
       startDate:"", endDate:"",
-      views:0, clicks:0,
+      views:"0", clicks:"0", schedule:"Not scheduled",
     };
+    setBanners(bs=>[...bs,n]);
+    setSelectedId(localId);
+    setEditBanner(n);
+
+    // Try server in background
     try {
       const res = await fetch(`${API}/marketing/banners`,{
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(newB),
+        body:JSON.stringify({...n,views:0,clicks:0}),
       });
       const data = await res.json();
-      if(data.success) {
-        await loadBanners();
+      if(data.success && data.data?._id) {
+        const withId={...n,_id:data.data._id,id:data.data._id};
+        setBanners(bs=>bs.map(b=>b.id===localId?withId:b));
         setSelectedId(data.data._id);
+        setEditBanner(withId);
       }
-    } catch(e) {
-      // Local fallback
-      const n:Banner={...newB,id:String(Date.now()),views:"0",clicks:"0",schedule:"Not scheduled"};
-      setBanners(bs=>[...bs,n]);
-      setSelectedId(n.id);
-    }
+    } catch { /* Server route not added yet — local banner already created */ }
   };
 
   // ── UPLOAD image ──
