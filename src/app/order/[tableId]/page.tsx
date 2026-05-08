@@ -384,8 +384,8 @@ function CHero({items,cart,onTap,onExplore,greeting,name,mktBanners=[]}:{items:M
   const [shown,setShown]=useState(false);
   const sx=useRef(0);const tmr=useRef<NodeJS.Timeout|null>(null);
   // Use marketing banners if admin set them, else fall back to menu items
-  const mktSlides=mktBanners.map(b=>({_id:b._id,name:b.title,description:b.subtitle,price:0,isAvailable:true,imageUrl:b.imageUrl,_bg:b.bg,_btn:b.btn,_tag:b.tag,_opacity:b.opacity}));
-  const slides=mktSlides.length>0?mktSlides:items.filter(i=>i.isAvailable).slice(0,5);
+  const mktSlides=mktBanners.map(b=>({_id:b._id,name:b.title,description:b.subtitle,price:0,isAvailable:true,imageUrl:b.imageUrl,_bg:b.bg,_btn:b.btn,_tag:b.tag,_opacity:b.opacity,_isMkt:true}));
+  const slides:(MenuItem|any)[]= mktSlides.length>0?mktSlides:items.filter(i=>i.isAvailable).slice(0,5);
   const next=useCallback(()=>setActive(p=>(p+1)%slides.length),[slides.length]);
   const prev=useCallback(()=>setActive(p=>(p-1+slides.length)%slides.length),[slides.length]);
   useEffect(()=>{const t=setTimeout(()=>setShown(true),60);return()=>clearTimeout(t);},[]);
@@ -430,7 +430,7 @@ function CHero({items,cart,onTap,onExplore,greeting,name,mktBanners=[]}:{items:M
           <button onClick={onExplore} style={{display:"flex",alignItems:"center",gap:8,background:"rgba(200,146,42,0.16)",backdropFilter:"blur(20px)",border:"1px solid rgba(200,146,42,0.38)",borderRadius:99,padding:"11px 22px",color:C.goldL,fontSize:13,fontWeight:600,fontFamily:"'DM Sans',sans-serif",cursor:"pointer",boxShadow:"inset 0 1px 0 rgba(255,255,255,.07)"}}>
             Explore Menu <svg width={14} height={14} viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke={C.goldL} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
-          <button onClick={()=>onTap(s)} style={{position:"relative",width:46,height:46,borderRadius:"50%",background:qty>0?GG:"rgba(200,146,42,0.11)",border:`1.5px solid ${qty>0?C.goldM:"rgba(200,146,42,0.42)"}`,color:qty>0?C.void:C.gold,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,fontWeight:800,backdropFilter:"blur(12px)",transition:`all 0.3s ${SPR}`}}>
+          <button onClick={()=>{ if((s as any)._isMkt){ onExplore(); } else { onTap(s as MenuItem); } }} style={{position:"relative",width:46,height:46,borderRadius:"50%",background:qty>0?GG:"rgba(200,146,42,0.11)",border:`1.5px solid ${qty>0?C.goldM:"rgba(200,146,42,0.42)"}`,color:qty>0?C.void:C.gold,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19,fontWeight:800,backdropFilter:"blur(12px)",transition:`all 0.3s ${SPR}`}}>
             {qty>0?"✓":"+"}
             {qty>0&&<div style={{position:"absolute",top:-5,right:-5,width:18,height:18,borderRadius:"50%",background:GG,color:C.void,fontSize:9,fontWeight:900,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${C.void}`,animation:"cartPop .45s ease",fontFamily:"'DM Mono',monospace"}}>{qty}</div>}
           </button>
