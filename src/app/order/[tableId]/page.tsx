@@ -1316,18 +1316,27 @@ function ProductModal({ item, open, onClose, onAdd }: {
 // ═══════════════════════════════════════════════════
 // CART SCREEN — Cinematic
 // ═══════════════════════════════════════════════════
-function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange, allItems, onAddMore, onBack }:{
+function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange, allItems, onAddMore, onBack, customerPoints=0, onRedeemPoints, redeemedPoints=0 }:{
   cart:ECI[];onUpdateQty:(k:string,d:number)=>void;onCheckout:()=>void;onBack:()=>void;
   discount:Disc|null;onDiscountChange:(d:Disc|null)=>void;
   allItems:MenuItem[];onAddMore:(i:MenuItem)=>void;
+  customerPoints?:number; onRedeemPoints?:(pts:number)=>void; redeemedPoints?:number;
 }) {
   const [code,setCode]=useState("");
   const [applying,setApplying]=useState(false);
   const [codeErr,setCodeErr]=useState("");
-  const sub = cart.reduce((s,i)=>s+(i.price+(i.totalPriceModifier||0))*i.quantity,0);
+  const [showPointsPanel,setShowPointsPanel]=useState(false);
+  const [pointsInput,setPointsInput]=useState("");
+
+  const sub  = cart.reduce((s,i)=>s+(i.price+(i.totalPriceModifier||0))*i.quantity,0);
   const disc = discount?.discount||0;
-  const tax  = Math.round((sub-disc)*0.05);
-  const total= sub-disc+tax;
+  const ptsDisc = Math.floor(redeemedPoints/10); // 100pts = ₹10
+  const tax  = Math.round((sub-disc-ptsDisc)*0.05);
+  const total= sub-disc-ptsDisc+tax;
+
+  // Max redeemable — min of available pts value and 50% of subtotal
+  const maxPtsRedeemable = Math.min(customerPoints, Math.floor(sub*5)); // 50% of sub in pts
+  const minPtsToRedeem   = 100; // 100 pts minimum
 
   const applyCode = async () => {
     if(!code.trim())return;
@@ -1339,6 +1348,14 @@ function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange,
       else setCodeErr(r.message||"Invalid code");
     }catch{setCodeErr("Could not apply code");}
     setApplying(false);
+  };
+
+  const handleRedeemSubmit = ()=>{
+    const pts = Math.min(Number(pointsInput)||0, maxPtsRedeemable);
+    if(pts < minPtsToRedeem){ setCodeErr(`Minimum ${minPtsToRedeem} points required`); return; }
+    onRedeemPoints?.(pts);
+    setShowPointsPanel(false);
+    setPointsInput("");
   };
 
   if(!cart.length) return(
@@ -1360,6 +1377,13 @@ function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange,
           <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 1px"}}>✦ Your Order</p>
           <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:600,color:C.ink,margin:0}}>Cart</h2>
         </div>
+        {/* Points balance badge in header */}
+        {customerPoints>0&&(
+          <div style={{marginLeft:"auto",background:C.g08,border:`1px solid ${C.g25}`,borderRadius:99,padding:"5px 12px",display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:13}}>🫘</span>
+            <span style={{fontSize:12,fontWeight:700,color:C.goldM,fontFamily:"'DM Mono',monospace"}}>{customerPoints} pts</span>
+          </div>
+        )}
       </div>
 
       <div className="hs" style={{flex:1,overflowY:"auto",padding:"16px 18px",paddingBottom:160}}>
@@ -1371,21 +1395,16 @@ function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange,
             <div key={key} style={{display:"flex",gap:13,alignItems:"center",
               background:`linear-gradient(135deg,${C.surface},${C.raise})`,
               borderRadius:17,padding:"12px 14px",marginBottom:10,
-              border:`1px solid ${C.glBd}`,
-              boxShadow:`0 2px 14px rgba(0,0,0,.45)`,
-              animation:`stgIn 0.4s ${idx*.06}s ${EASE} both`,
-            }}>
-              {/* Thumb */}
+              border:`1px solid ${C.glBd}`,boxShadow:`0 2px 14px rgba(0,0,0,.45)`,
+              animation:`stgIn 0.4s ${idx*.06}s ${EASE} both`}}>
               <div style={{width:60,height:60,borderRadius:13,overflow:"hidden",flexShrink:0,background:`linear-gradient(135deg,#3D2010,${C.surface})`}}>
                 {ci.imageUrl&&<img src={getThumbnailUrl(ci.imageUrl)} alt={ci.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>}
               </div>
-              {/* Info */}
               <div style={{flex:1,minWidth:0}}>
                 <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:600,color:C.ink,margin:"0 0 1px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{ci.name}</p>
                 {ci.variants&&ci.variants.flatMap(v=>v.selected).length>0&&<p style={{fontSize:10,color:C.inkDim,margin:"0 0 5px",fontFamily:"'DM Sans',sans-serif"}}>{ci.variants.flatMap(v=>v.selected).join(", ")}</p>}
                 <span style={{fontSize:14,fontWeight:500,color:C.gold,fontFamily:"'DM Mono',monospace"}}>₹{linePrice}</span>
               </div>
-              {/* Stepper */}
               <div style={{display:"flex",alignItems:"center",gap:0,background:C.gl1,border:`1px solid ${C.glBd}`,borderRadius:11,overflow:"hidden",flexShrink:0}}>
                 <button onClick={()=>onUpdateQty(key,-1)} style={{width:34,height:34,background:"none",border:"none",color:C.inkSub,fontSize:18,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
                 <span style={{width:26,textAlign:"center",fontFamily:"'DM Mono',monospace",fontSize:14,fontWeight:600,color:C.ink}}>{ci.quantity}</span>
@@ -1395,8 +1414,132 @@ function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange,
           );
         })}
 
+        {/* ── LOYALTY POINTS REDEMPTION ── */}
+        {customerPoints >= minPtsToRedeem && (
+          <div style={{marginBottom:12,borderRadius:16,overflow:"hidden",
+            border:`1.5px solid ${redeemedPoints>0?"rgba(200,146,42,0.5)":"rgba(200,146,42,0.2)"}`,
+            background:redeemedPoints>0?`linear-gradient(135deg,${C.g15},${C.g08})`:C.gl1,
+            transition:`all 0.3s ${EASE}`}}>
+
+            {redeemedPoints > 0 ? (
+              /* Points applied */
+              <div style={{padding:"13px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:36,height:36,borderRadius:10,background:GG,
+                    display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,
+                    boxShadow:`0 4px 12px ${C.g40}`}}>🫘</div>
+                  <div>
+                    <p style={{fontSize:13,fontWeight:700,color:C.goldL,
+                      fontFamily:"'DM Sans',sans-serif",margin:"0 0 1px"}}>
+                      {redeemedPoints} points applied!
+                    </p>
+                    <p style={{fontSize:11,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",margin:0}}>
+                      Saving ₹{ptsDisc} · {customerPoints-redeemedPoints} pts remaining
+                    </p>
+                  </div>
+                </div>
+                <button onClick={()=>onRedeemPoints?.(0)}
+                  style={{fontSize:11,color:C.ruby,background:"none",border:"none",
+                    cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontWeight:600,flexShrink:0}}>
+                  Remove
+                </button>
+              </div>
+            ) : (
+              /* Points available — show option */
+              <div>
+                <button onClick={()=>setShowPointsPanel(p=>!p)}
+                  style={{width:"100%",padding:"13px 16px",background:"none",border:"none",
+                    cursor:"pointer",display:"flex",alignItems:"center",gap:10,textAlign:"left"}}>
+                  <div style={{width:36,height:36,borderRadius:10,
+                    background:`linear-gradient(135deg,${C.g15},${C.g08})`,
+                    border:`1px solid ${C.g25}`,
+                    display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>🫘</div>
+                  <div style={{flex:1}}>
+                    <p style={{fontSize:13,fontWeight:700,color:C.ink,
+                      fontFamily:"'DM Sans',sans-serif",margin:"0 0 1px"}}>
+                      Use Loyalty Points
+                    </p>
+                    <p style={{fontSize:11,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",margin:0}}>
+                      You have <span style={{color:C.gold,fontWeight:700}}>{customerPoints} pts</span>
+                      {" "}= ₹{Math.floor(customerPoints/10)} discount available
+                    </p>
+                  </div>
+                  <span style={{fontSize:16,color:C.gold,
+                    transform:showPointsPanel?"rotate(180deg)":"none",
+                    transition:`transform 0.2s ${EASE}`}}>⌄</span>
+                </button>
+
+                {/* Points input panel */}
+                {showPointsPanel&&(
+                  <div style={{padding:"0 16px 14px",borderTop:`1px solid ${C.gl2}`,
+                    animation:`stgIn 0.3s ${EASE}`}}>
+                    <p style={{fontSize:11,color:C.inkDim,fontFamily:"'DM Sans',sans-serif",
+                      margin:"10px 0 10px"}}>
+                      Min {minPtsToRedeem} pts · Max {maxPtsRedeemable} pts (50% of order)
+                    </p>
+
+                    {/* Quick select buttons */}
+                    <div style={{display:"flex",gap:8,marginBottom:10}}>
+                      {[100,200,500].filter(v=>v<=maxPtsRedeemable).map(pts=>(
+                        <button key={pts} onClick={()=>setPointsInput(String(pts))}
+                          style={{flex:1,padding:"8px 4px",borderRadius:9,
+                            border:`1px solid ${pointsInput===String(pts)?"rgba(200,146,42,0.55)":C.glBd}`,
+                            background:pointsInput===String(pts)?C.g15:C.gl1,
+                            color:pointsInput===String(pts)?C.goldL:C.inkSub,
+                            fontWeight:700,fontSize:12,cursor:"pointer",
+                            fontFamily:"'DM Mono',monospace",
+                            transition:`all 0.2s ${EASE}`}}>
+                          {pts}
+                          <span style={{display:"block",fontSize:9,fontWeight:400,
+                            color:pointsInput===String(pts)?C.goldM:C.inkDim}}>
+                            =₹{Math.floor(pts/10)}
+                          </span>
+                        </button>
+                      ))}
+                      <button onClick={()=>setPointsInput(String(maxPtsRedeemable))}
+                        style={{flex:1,padding:"8px 4px",borderRadius:9,
+                          border:`1px solid ${pointsInput===String(maxPtsRedeemable)?"rgba(200,146,42,0.55)":C.glBd}`,
+                          background:pointsInput===String(maxPtsRedeemable)?C.g15:C.gl1,
+                          color:pointsInput===String(maxPtsRedeemable)?C.goldL:C.inkSub,
+                          fontWeight:700,fontSize:11,cursor:"pointer",
+                          fontFamily:"'DM Mono',monospace",
+                          transition:`all 0.2s ${EASE}`}}>
+                        Max
+                        <span style={{display:"block",fontSize:9,fontWeight:400,
+                          color:pointsInput===String(maxPtsRedeemable)?C.goldM:C.inkDim}}>
+                          =₹{Math.floor(maxPtsRedeemable/10)}
+                        </span>
+                      </button>
+                    </div>
+
+                    <div style={{display:"flex",gap:9}}>
+                      <input type="number" value={pointsInput}
+                        onChange={e=>setPointsInput(e.target.value)}
+                        placeholder={`Enter points (${minPtsToRedeem}-${maxPtsRedeemable})`}
+                        style={{flex:1,padding:"10px 13px",borderRadius:10,
+                          border:`1px solid ${C.glBd}`,background:C.gl1,
+                          color:C.ink,fontSize:13,outline:"none",
+                          fontFamily:"'DM Mono',monospace"}}/>
+                      <button onClick={handleRedeemSubmit}
+                        disabled={!pointsInput||Number(pointsInput)<minPtsToRedeem}
+                        style={{padding:"10px 16px",borderRadius:10,border:"none",
+                          background:pointsInput&&Number(pointsInput)>=minPtsToRedeem?GG:C.gl1,
+                          color:pointsInput&&Number(pointsInput)>=minPtsToRedeem?C.void:C.inkDim,
+                          fontWeight:700,fontSize:13,cursor:"pointer",flexShrink:0,
+                          fontFamily:"'DM Sans',sans-serif",
+                          transition:`all 0.22s ${EASE}`}}>
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Promo code */}
-        <div style={{background:C.gl1,border:`1px solid ${C.glBd}`,borderRadius:16,padding:"14px 16px",marginBottom:14,marginTop:6}}>
+        <div style={{background:C.gl1,border:`1px solid ${C.glBd}`,borderRadius:16,padding:"14px 16px",marginBottom:14,marginTop:2}}>
           <p style={{fontSize:10.5,fontWeight:700,color:C.inkDim,letterSpacing:".08em",textTransform:"uppercase",margin:"0 0 10px",fontFamily:"'DM Sans',sans-serif"}}>Promo Code</p>
           {discount ? (
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -1426,7 +1569,8 @@ function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange,
           </div>
           {[
             {l:"Subtotal",v:`₹${sub}`},
-            ...(disc>0?[{l:`Discount (${discount?.code||""})`,v:`−₹${disc}`,green:true}]:[]),
+            ...(disc>0?[{l:`Promo (${discount?.code||""})`,v:`−₹${disc}`,green:true}]:[]),
+            ...(ptsDisc>0?[{l:`Points (${redeemedPoints} pts)`,v:`−₹${ptsDisc}`,green:true}]:[]),
             {l:"Taxes (5% GST)",v:`₹${tax}`},
           ].map(row=>(
             <div key={row.l} style={{display:"flex",justifyContent:"space-between",padding:"11px 16px",borderBottom:`1px solid ${C.gl1}`}}>
@@ -1438,6 +1582,15 @@ function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange,
             <span style={{fontSize:15,fontWeight:700,color:C.ink,fontFamily:"'DM Sans',sans-serif"}}>Total</span>
             <span style={{fontSize:19,fontWeight:500,color:C.gold,fontFamily:"'DM Mono',monospace"}}>₹{total}</span>
           </div>
+        </div>
+
+        {/* Points preview — earn on this order */}
+        <div style={{background:C.g08,border:`1px solid ${C.g15}`,borderRadius:12,
+          padding:"10px 14px",display:"flex",alignItems:"center",gap:9,marginBottom:4}}>
+          <span style={{fontSize:16}}>🫘</span>
+          <p style={{fontSize:11.5,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",margin:0}}>
+            You'll earn <span style={{color:C.gold,fontWeight:700}}>+{Math.floor(total/10)} points</span> on this order
+          </p>
         </div>
       </div>
 
@@ -2071,9 +2224,10 @@ export default function CustomerOrderPage() {
 
   // Cart & flow
   const [cart,        setCart       ] = useState<ECI[]>([]);
-  const [discount,    setDiscount   ] = useState<Disc|null>(null);
-  const [isPlacing,   setIsPlacing  ] = useState(false);
-  const [placedOrder, setPlacedOrder] = useState<Order|null>(null);
+  const [discount,       setDiscount      ] = useState<Disc|null>(null);
+  const [redeemedPoints, setRedeemedPoints] = useState(0);
+  const [isPlacing,      setIsPlacing     ] = useState(false);
+  const [placedOrder,    setPlacedOrder   ] = useState<Order|null>(null);
 
   // Navigation
   const [screen,       setScreen      ] = useState<Screen>("security");
@@ -2270,7 +2424,7 @@ export default function CustomerOrderPage() {
     try{
       const res=await orderApi.createOrder({tableId,items:cart.map(c=>({menuItemId:c.menuItemId,name:c.name,price:c.price+(c.totalPriceModifier||0),quantity:c.quantity,notes:c.variants?.flatMap(v=>v.selected).join(", ")||note,isVeg:c.isVeg})),createdBy:"customer",customerName:customer?.name||"",customerPhone:customer?.phone||"",discount:discount?.discount||0,appliedPromoId:discount?.promotionId||null,appliedPromoCode:discount?.code||null,razorpayPaymentId:paymentId||null});
       const nO:Order=res.data.data;
-      setCart([]);setDiscount(null);setExistingOrder(nO);prevStatus.current=nO.status;
+      setCart([]);setDiscount(null);setRedeemedPoints(0);setExistingOrder(nO);prevStatus.current=nO.status;
       localStorage.setItem("gb_active_order",nO._id);
       setPlacedOrder(nO);setScreen("placed");
     }catch(e:unknown){alert(e instanceof Error?e.message:"Failed to place order");}
@@ -2316,7 +2470,7 @@ export default function CustomerOrderPage() {
   // ── FULL SCREEN FLOWS ──
   if(screen==="ready")return(
     <div style={{minHeight:"100dvh",background:C.void}}><style>{CSS}</style>
-      <OrderReadyScreen order={placedOrder} onRestart={()=>{setScreen("home");setCart([]);setDiscount(null);setExistingOrder(null);setPlacedOrder(null);router.replace("/");}}/>
+      <OrderReadyScreen order={placedOrder} onRestart={()=>{setScreen("home");setCart([]);setDiscount(null);setRedeemedPoints(0);setExistingOrder(null);setPlacedOrder(null);router.replace("/");}}/>
     </div>
   );
 
@@ -2336,7 +2490,11 @@ export default function CustomerOrderPage() {
         {/* ── CART ── */}
         {screen==="cart"&&(
           <>
-            <CartScreen cart={cart} onUpdateQty={updateQty} onCheckout={()=>setScreen("checkout")} onBack={()=>{setScreen("home");setActiveTab("home");}} discount={discount} onDiscountChange={setDiscount} allItems={allItems} onAddMore={item=>setSelectedItem(item)}/>
+            <CartScreen cart={cart} onUpdateQty={updateQty} onCheckout={()=>setScreen("checkout")} onBack={()=>{setScreen("home");setActiveTab("home");}} discount={discount} onDiscountChange={setDiscount} allItems={allItems} onAddMore={item=>setSelectedItem(item)}
+              customerPoints={getSessionCustomer()?.totalPoints||0}
+              redeemedPoints={redeemedPoints}
+              onRedeemPoints={(pts)=>{setRedeemedPoints(pts);}}
+            />
             <ProductModal item={selectedItem} open={!!selectedItem} onClose={()=>setSelectedItem(null)} onAdd={addToCart}/>
           </>
         )}
