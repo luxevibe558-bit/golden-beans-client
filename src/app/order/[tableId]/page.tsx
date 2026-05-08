@@ -590,6 +590,330 @@ function CDivider(){return(<div style={{position:"relative",height:1,margin:"6px
 
 function CSkel(){return(<div><div className="sk" style={{width:"100%",height:"60vh",maxHeight:500,minHeight:370}}/><div style={{display:"flex",gap:10,padding:"18px 22px",overflow:"hidden"}}>{[80,100,90,110,85].map((w,i)=><div key={i} className="sk" style={{flexShrink:0,width:w,height:38,borderRadius:99}}/>)}</div>{[0,1].map(r=><div key={r} style={{padding:"10px 22px 20px"}}><div className="sk" style={{width:140,height:15,borderRadius:7,marginBottom:11}}/><div style={{display:"flex",gap:12,overflow:"hidden"}}>{[170,170,148,148].map((w,i)=><div key={i} style={{flexShrink:0,width:w}}><div className="sk" style={{height:154,borderRadius:"18px 18px 0 0"}}/><div style={{background:C.surface,borderRadius:"0 0 18px 18px",padding:12}}><div className="sk" style={{height:13,borderRadius:5,marginBottom:7,width:"80%"}}/><div className="sk" style={{height:28,borderRadius:11}}/></div></div>)}</div></div>)}</div>);}
 
+// ═══════════════════════════════════════════════════
+// CINEMATIC SEARCH OVERLAY
+// Full-screen premium search with live results
+// ═══════════════════════════════════════════════════
+function CSearchOverlay({ open, onClose, allItems, cart, onTap, favs, onFav }: {
+  open:boolean; onClose:()=>void;
+  allItems:MenuItem[]; cart:ECI[];
+  onTap:(i:MenuItem)=>void;
+  favs:Set<string>; onFav:(id:string)=>void;
+}) {
+  const [query,    setQuery   ] = useState("");
+  const [category, setCategory] = useState("All");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when opened
+  useEffect(()=>{
+    if(open) { setQuery(""); setTimeout(()=>inputRef.current?.focus(), 100); }
+  },[open]);
+
+  // Close on Escape
+  useEffect(()=>{
+    const fn=(e:KeyboardEvent)=>{ if(e.key==="Escape") onClose(); };
+    document.addEventListener("keydown",fn);
+    return()=>document.removeEventListener("keydown",fn);
+  },[onClose]);
+
+  // Get all unique categories from results
+  const q = query.trim().toLowerCase();
+  const filtered = !q ? [] : allItems.filter(i=>
+    i.name.toLowerCase().includes(q) ||
+    i.description?.toLowerCase().includes(q) ||
+    (i.category as string)?.toLowerCase().includes(q)
+  );
+
+  // Category filter on results
+  const catFiltered = category==="All"
+    ? filtered
+    : filtered.filter(i=>(i.category as string)===category);
+
+  // Unique categories from filtered
+  const cats = ["All", ...Array.from(new Set(filtered.map(i=>(i.category as string)).filter(Boolean)))];
+
+  // Popular searches
+  const POPULAR = ["Cappuccino","Cold Coffee","Sandwich","Brownie","Mojito","Latte"];
+
+  const EASE_S = "cubic-bezier(0.25,0.46,0.45,0.94)";
+  const SPR_S  = "cubic-bezier(0.34,1.56,0.64,1)";
+
+  return(
+    <div style={{
+      position:"fixed",inset:0,zIndex:80,
+      opacity: open?1:0,
+      pointerEvents: open?"all":"none",
+      transition:`opacity 0.28s ${EASE_S}`,
+    }}>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{
+        position:"absolute",inset:0,
+        background:"rgba(2,1,0,0.94)",
+        backdropFilter:"blur(22px)",
+        WebkitBackdropFilter:"blur(22px)",
+      }}/>
+
+      {/* Search panel */}
+      <div style={{
+        position:"relative",zIndex:1,
+        height:"100%",display:"flex",flexDirection:"column",
+        transform: open?"translateY(0)":"translateY(-18px)",
+        transition:`transform 0.35s ${SPR_S}`,
+      }}>
+
+        {/* ── Search bar ── */}
+        <div style={{
+          padding:"14px 18px",flexShrink:0,
+          borderBottom:`1px solid rgba(255,255,255,0.06)`,
+        }}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            {/* Search input */}
+            <div style={{flex:1,position:"relative"}}>
+              <div style={{position:"absolute",left:14,top:"50%",
+                transform:"translateY(-50%)",
+                color:query?C.gold:C.inkDim,fontSize:16,
+                transition:`color 0.2s ${EASE_S}`,
+                pointerEvents:"none"}}>
+                <svg width={18} height={18} viewBox="0 0 18 18" fill="none">
+                  <circle cx={8} cy={8} r={5.5} stroke="currentColor" strokeWidth={1.6}/>
+                  <path d="M12.5 12.5L16 16" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round"/>
+                </svg>
+              </div>
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={e=>setQuery(e.target.value)}
+                placeholder="Search menu — coffee, snacks, desserts..."
+                style={{
+                  width:"100%",padding:"13px 14px 13px 44px",
+                  borderRadius:14,
+                  border:`1.5px solid ${query?"rgba(200,146,42,0.55)":"rgba(255,255,255,0.1)"}`,
+                  background:"rgba(255,255,255,0.055)",
+                  color:C.ink,fontSize:15,
+                  fontFamily:"'DM Sans',sans-serif",
+                  outline:"none",boxSizing:"border-box",
+                  boxShadow: query?`0 0 0 3px rgba(200,146,42,0.12)`:"none",
+                  transition:`all 0.25s ${EASE_S}`,
+                }}
+              />
+              {query&&(
+                <button onClick={()=>setQuery("")} style={{
+                  position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",
+                  width:22,height:22,borderRadius:"50%",
+                  background:"rgba(255,255,255,0.1)",border:"none",
+                  color:C.inkDim,cursor:"pointer",
+                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,
+                }}>✕</button>
+              )}
+            </div>
+            {/* Cancel */}
+            <button onClick={onClose} style={{
+              flexShrink:0,padding:"9px 14px",borderRadius:11,
+              background:"none",border:"none",
+              color:C.gold,fontSize:13.5,fontWeight:600,
+              fontFamily:"'DM Sans',sans-serif",cursor:"pointer",
+            }}>Cancel</button>
+          </div>
+        </div>
+
+        {/* ── Results / Empty state ── */}
+        <div className="hs" style={{flex:1,overflowY:"auto",paddingBottom:100}}>
+
+          {!query ? (
+            /* No query — show popular + categories */
+            <div style={{padding:"22px 20px"}}>
+              <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",
+                letterSpacing:".16em",textTransform:"uppercase",margin:"0 0 14px"}}>
+                ✦ Popular Searches
+              </p>
+              <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:28}}>
+                {POPULAR.map((p,i)=>(
+                  <button key={p} onClick={()=>setQuery(p)}
+                    style={{
+                      padding:"8px 16px",borderRadius:99,
+                      border:`1px solid rgba(200,146,42,0.25)`,
+                      background:"rgba(200,146,42,0.07)",
+                      color:C.inkSub,fontSize:13,cursor:"pointer",
+                      fontFamily:"'DM Sans',sans-serif",fontWeight:500,
+                      animation:`stgIn 0.4s ${i*.05}s ease both`,
+                      transition:`all 0.2s ${EASE_S}`,
+                    }}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+
+              <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",
+                letterSpacing:".16em",textTransform:"uppercase",margin:"0 0 14px"}}>
+                ✦ Recently Loved
+              </p>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {allItems.filter(i=>i.isAvailable).slice(0,4).map((item,i)=>{
+                  const qty=cart.filter(c=>c.menuItemId===item._id).reduce((s,c)=>s+c.quantity,0);
+                  return(
+                    <button key={item._id} onClick={()=>{onTap(item);onClose();}}
+                      style={{
+                        display:"flex",alignItems:"center",gap:12,
+                        padding:"11px 14px",borderRadius:14,
+                        background:"rgba(255,255,255,0.03)",
+                        border:`1px solid rgba(255,255,255,0.06)`,
+                        cursor:"pointer",textAlign:"left",width:"100%",
+                        animation:`stgIn 0.4s ${i*.06}s ease both`,
+                        transition:`all 0.2s ${EASE_S}`,
+                      }}>
+                      <div style={{width:46,height:46,borderRadius:11,overflow:"hidden",
+                        background:`linear-gradient(135deg,#3D2010,${C.surface})`,flexShrink:0}}>
+                        {item.imageUrl&&<img src={getThumbnailUrl(item.imageUrl)} alt={item.name}
+                          style={{width:"100%",height:"100%",objectFit:"cover"}} loading="lazy"/>}
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,
+                          fontWeight:600,color:C.ink,margin:"0 0 2px",
+                          whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.name}</p>
+                        <span style={{fontSize:13,color:C.gold,fontFamily:"'DM Mono',monospace"}}>₹{item.price}</span>
+                      </div>
+                      {qty>0&&<div style={{width:22,height:22,borderRadius:"50%",
+                        background:GG,color:C.void,fontSize:10,fontWeight:900,
+                        display:"flex",alignItems:"center",justifyContent:"center",
+                        fontFamily:"'DM Mono',monospace",flexShrink:0}}>{qty}</div>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+          ) : catFiltered.length===0 ? (
+            /* No results */
+            <div style={{textAlign:"center",padding:"52px 24px",
+              animation:`stgIn 0.4s ease`}}>
+              <div style={{fontSize:52,marginBottom:14,opacity:.3,
+                animation:"floatY 3s ease-in-out infinite"}}>🔍</div>
+              <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,
+                fontWeight:500,color:C.inkSub,margin:"0 0 8px"}}>
+                No results for "{query}"
+              </h3>
+              <p style={{fontSize:13,color:C.inkDim,fontFamily:"'DM Sans',sans-serif",
+                lineHeight:1.6,margin:"0 0 20px"}}>
+                Try searching for coffee, snacks, or desserts
+              </p>
+              {/* Suggestions */}
+              <div style={{display:"flex",flexWrap:"wrap",gap:8,justifyContent:"center"}}>
+                {POPULAR.slice(0,4).map(p=>(
+                  <button key={p} onClick={()=>setQuery(p)}
+                    style={{padding:"7px 15px",borderRadius:99,
+                      border:`1px solid rgba(200,146,42,0.25)`,
+                      background:"rgba(200,146,42,0.07)",
+                      color:C.inkSub,fontSize:12.5,cursor:"pointer",
+                      fontFamily:"'DM Sans',sans-serif"}}>
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+          ) : (
+            /* Results */
+            <div>
+              {/* Result count + category filter */}
+              <div style={{padding:"14px 20px 10px"}}>
+                <div style={{display:"flex",alignItems:"center",
+                  justifyContent:"space-between",marginBottom:10}}>
+                  <p style={{fontSize:11.5,color:C.inkDim,
+                    fontFamily:"'DM Sans',sans-serif",margin:0}}>
+                    <span style={{color:C.gold,fontWeight:700}}>{catFiltered.length}</span>
+                    {" "}result{catFiltered.length!==1?"s":""} for "{query}"
+                  </p>
+                </div>
+                {/* Category pills */}
+                {cats.length>2&&(
+                  <div className="hs" style={{display:"flex",gap:8,overflowX:"auto",paddingBottom:4}}>
+                    {cats.map(cat=>(
+                      <button key={cat} onClick={()=>setCategory(cat)}
+                        style={{flexShrink:0,padding:"6px 14px",borderRadius:99,
+                          border:`1px solid ${category===cat?"rgba(200,146,42,0.5)":"rgba(255,255,255,0.08)"}`,
+                          background:category===cat?"rgba(200,146,42,0.14)":"transparent",
+                          color:category===cat?C.goldL:C.inkSub,
+                          fontSize:12,cursor:"pointer",
+                          fontFamily:"'DM Sans',sans-serif",fontWeight:category===cat?700:400,
+                          transition:`all 0.2s ${EASE_S}`}}>
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Result items */}
+              <div style={{padding:"0 18px",display:"flex",flexDirection:"column",gap:9}}>
+                {catFiltered.map((item,i)=>{
+                  const qty=cart.filter(c=>c.menuItemId===item._id).reduce((s,c)=>s+c.quantity,0);
+                  // Highlight matching text
+                  const highlightName=(text:string)=>{
+                    const idx=text.toLowerCase().indexOf(q);
+                    if(idx<0) return <span>{text}</span>;
+                    return<span>{text.slice(0,idx)}<span style={{color:C.gold,fontWeight:700}}>{text.slice(idx,idx+q.length)}</span>{text.slice(idx+q.length)}</span>;
+                  };
+                  return(
+                    <div key={item._id}
+                      onClick={()=>{ if(item.isAvailable){onTap(item);onClose();} }}
+                      style={{
+                        display:"flex",alignItems:"center",gap:13,
+                        background:`linear-gradient(135deg,${C.surface},${C.raise})`,
+                        borderRadius:16,padding:"12px 14px",
+                        border:`1px solid ${qty>0?"rgba(200,146,42,0.38)":"rgba(255,255,255,0.06)"}`,
+                        cursor:item.isAvailable?"pointer":"not-allowed",
+                        opacity:item.isAvailable?1:0.4,
+                        boxShadow:qty>0?`0 0 0 1px rgba(200,146,42,0.1),0 4px 16px rgba(200,146,42,0.12)`:"none",
+                        animation:`stgIn 0.4s ${i*.045}s ease both`,
+                        transition:`all 0.22s ${EASE_S}`,
+                      }}>
+                      {/* Image */}
+                      <div style={{width:60,height:60,borderRadius:13,overflow:"hidden",
+                        flexShrink:0,background:`linear-gradient(135deg,#3D2010,${C.surface})`}}>
+                        {item.imageUrl&&<img src={getThumbnailUrl(item.imageUrl)} alt={item.name}
+                          style={{width:"100%",height:"100%",objectFit:"cover"}} loading="lazy"/>}
+                      </div>
+                      {/* Info */}
+                      <div style={{flex:1,minWidth:0}}>
+                        <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:17,
+                          fontWeight:600,color:C.ink,margin:"0 0 2px",
+                          whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                          {highlightName(item.name)}
+                        </p>
+                        <p style={{fontSize:11,color:C.inkDim,margin:"0 0 5px",
+                          fontFamily:"'DM Sans',sans-serif",
+                          whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                          {item.description||"Premium quality"}
+                        </p>
+                        <span style={{fontSize:14.5,fontWeight:500,color:C.gold,
+                          fontFamily:"'DM Mono',monospace"}}>₹{item.price}</span>
+                      </div>
+                      {/* Add button */}
+                      <button
+                        onClick={e=>{e.stopPropagation();if(item.isAvailable)onTap(item);}}
+                        style={{width:36,height:36,borderRadius:"50%",flexShrink:0,
+                          border:`1.5px solid ${qty>0?"rgba(200,146,42,0.7)":"rgba(255,255,255,0.12)"}`,
+                          background:qty>0?`linear-gradient(135deg,rgba(200,146,42,0.25),rgba(232,184,75,0.12))`:"transparent",
+                          color:qty>0?C.goldL:C.inkSub,cursor:"pointer",
+                          display:"flex",alignItems:"center",justifyContent:"center",
+                          fontSize:18,fontWeight:700,
+                          transition:`all 0.22s ${SPR_S}`,
+                          boxShadow:qty>0?`0 0 12px rgba(200,146,42,0.2)`:"none",
+                        }}>
+                        {qty>0?"✓":"+"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategorySelect,activeCategoryId,onViewCart,onExploreMenu,favs,onToggleFav}:{
   menu:MenuCategory[];cart:ECI[];loading:boolean;customerData:{name:string;phone:string}|null;table:{tableNumber:string}|null;
   onItemTap:(i:MenuItem)=>void;onCategorySelect:(id:string)=>void;activeCategoryId:string;
@@ -601,6 +925,7 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
   const hour=new Date().getHours();
   const greeting=hour<5?"Still Up Late?":hour<12?"Good Morning":hour<17?"Good Afternoon":hour<21?"Good Evening":"Good Night";
   const [scrolled,setScrolled]=useState(false);
+  const [searchOpen,setSearchOpen]=useState(false);
   const scrollRef=useRef<HTMLDivElement>(null);
 
   // ── Marketing Banners from Admin ──
@@ -617,6 +942,16 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
 
   return(
     <div style={{position:"relative",minHeight:"100dvh",background:C.deep}}>
+      {/* Cinematic Search Overlay */}
+      <CSearchOverlay
+        open={searchOpen}
+        onClose={()=>setSearchOpen(false)}
+        allItems={allItems}
+        cart={cart}
+        onTap={(item)=>{ onItemTap(item); setSearchOpen(false); }}
+        favs={favs}
+        onFav={onToggleFav}
+      />
       {/* Sticky header */}
       <header style={{position:"sticky",top:0,zIndex:30,background:scrolled?"rgba(11,9,6,0.97)":"transparent",backdropFilter:scrolled?"blur(24px)":"none",padding:"13px 18px",borderBottom:scrolled?`1px solid ${C.gl2}`:"none",transition:`all .35s ${EASE}`,marginBottom:"-60px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -630,7 +965,8 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
             </div>
           </div>
           <div style={{display:"flex",gap:8}}>
-            {["🔍","🔔"].map((ic,i)=><button key={i} style={{width:38,height:38,borderRadius:12,background:`rgba(255,255,255,${scrolled?.06:.04})`,border:`1px solid ${C.glBd}`,backdropFilter:"blur(12px)",color:C.ink,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>{ic}</button>)}
+            <button onClick={()=>setSearchOpen(true)} style={{width:38,height:38,borderRadius:12,background:`rgba(255,255,255,${scrolled?.06:.04})`,border:`1px solid ${C.glBd}`,backdropFilter:"blur(12px)",color:C.ink,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>🔍</button>
+            <button style={{width:38,height:38,borderRadius:12,background:`rgba(255,255,255,${scrolled?.06:.04})`,border:`1px solid ${C.glBd}`,backdropFilter:"blur(12px)",color:C.ink,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>🔔</button>
           </div>
         </div>
       </header>
