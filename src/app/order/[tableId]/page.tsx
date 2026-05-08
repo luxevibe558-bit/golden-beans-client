@@ -2159,48 +2159,401 @@ function OrdersTab({ existingOrder, queuePos }:{existingOrder:Order|null;queuePo
 // PROFILE TAB
 // ═══════════════════════════════════════════════════
 function ProfileTab({ table, customer }:{table:Table|null;customer:{name:string;phone:string}|null}) {
-  return(
-    <div style={{padding:"20px 20px",paddingBottom:120}}>
-      <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 4px"}}>✦ Profile</p>
-      <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:600,color:C.ink,margin:"0 0 18px"}}>Your Profile</h2>
+  const [profile,  setProfile ] = useState<any>(null);
+  const [history,  setHistory ] = useState<any[]>([]);
+  const [loading,  setLoading ] = useState(false);
+  const [activeTab,setActiveTab] = useState<"overview"|"history"|"rewards">("overview");
 
-      {/* Cafe card */}
-      <div style={{background:`radial-gradient(ellipse 120% 120% at 80% 40%,rgba(60,30,8,0.9),rgba(18,16,12,0.98))`,borderRadius:20,padding:22,marginBottom:14,border:`1px solid ${C.g15}`,position:"relative",overflow:"hidden",boxShadow:`0 8px 32px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.04)`}}>
-        <div style={{position:"absolute",right:-20,top:"50%",transform:"translateY(-50%)",width:140,height:140,borderRadius:"50%",background:`radial-gradient(circle,${C.g15},transparent)`,animation:"breathG 5s ease-in-out infinite"}}/>
-        <div style={{position:"absolute",right:10,bottom:-6,fontSize:68,opacity:.08,pointerEvents:"none"}}>☕</div>
-        <div style={{display:"flex",alignItems:"center",gap:13,marginBottom:12}}>
-          <div style={{width:50,height:50,borderRadius:14,background:C.surface,border:`1px solid ${C.g25}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>☕</div>
-          <div>
-            <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:C.gold,margin:"0 0 1px"}}>Golden Beans</h3>
-            <p style={{fontSize:9.5,color:`rgba(200,146,42,0.55)`,margin:0,letterSpacing:".15em",fontFamily:"'DM Mono',monospace",textTransform:"uppercase"}}>Cafe &amp; Bistro</p>
+  const TIER_CFG: Record<string,{label:string;color:string;icon:string;next:number}> = {
+    bronze:   {label:"Bronze",  color:"#CD7F32",icon:"🥉",next:500},
+    silver:   {label:"Silver",  color:"#C0C0C0",icon:"🥈",next:1000},
+    gold:     {label:"Gold",    color:"#C8922A",icon:"🥇",next:2000},
+    platinum: {label:"Platinum",color:"#E5E4E2",icon:"💎",next:9999},
+  };
+
+  useEffect(()=>{
+    const session = getSessionCustomer();
+    if(!session?._id) return;
+    setLoading(true);
+    const API_URL = process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+    Promise.all([
+      fetch(`${API_URL}/customers/${session._id}/profile`).then(r=>r.json()),
+      fetch(`${API_URL}/customers/${session._id}/history`).then(r=>r.json()),
+    ]).then(([p,h])=>{
+      if(p.success) setProfile(p.data);
+      if(h.success) setHistory(h.data||[]);
+    }).catch(()=>{}).finally(()=>setLoading(false));
+  },[customer]);
+
+  const session = getSessionCustomer();
+  const tier    = profile?.customer?.tier||"bronze";
+  const tierCfg = TIER_CFG[tier];
+  const pts     = profile?.customer?.totalPoints||session?.totalPoints||0;
+  const nextPts = tierCfg.next;
+  const progress= tier==="platinum"?100:Math.min(100,(pts/nextPts)*100);
+
+  // Not registered
+  if(!customer && !session) return(
+    <div style={{minHeight:"60dvh",display:"flex",flexDirection:"column",
+      alignItems:"center",justifyContent:"center",padding:"28px 24px",textAlign:"center"}}>
+      <div style={{fontSize:52,marginBottom:16,animation:"floatY 3s ease-in-out infinite",opacity:.5}}>👤</div>
+      <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,
+        fontWeight:500,color:C.inkSub,margin:"0 0 8px"}}>Not Signed In</h2>
+      <p style={{fontSize:13,color:C.inkDim,fontFamily:"'DM Sans',sans-serif",
+        lineHeight:1.6,maxWidth:260,margin:"0 0 20px"}}>
+        Share your phone number to track loyalty points, order history and exclusive rewards.
+      </p>
+      <div style={{background:C.g08,border:`1px solid ${C.g15}`,borderRadius:14,
+        padding:"14px 18px",display:"flex",gap:10,alignItems:"flex-start",maxWidth:280}}>
+        <span style={{fontSize:18,flexShrink:0}}>💡</span>
+        <p style={{fontSize:12,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",
+          margin:0,lineHeight:1.6}}>
+          The popup will appear after 15 seconds. Enter your phone to join!
+        </p>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{minHeight:"100dvh",background:C.void,paddingBottom:120}}>
+
+      {/* ── HERO PROFILE CARD ── */}
+      <div style={{background:`radial-gradient(ellipse 140% 100% at 80% 0%,rgba(60,30,8,0.85),rgba(11,9,6,0.98))`,
+        padding:"22px 20px 20px",position:"relative",overflow:"hidden",
+        borderBottom:`1px solid ${C.gl2}`}}>
+        <div style={{position:"absolute",top:-30,right:-30,width:180,height:180,
+          borderRadius:"50%",background:`radial-gradient(circle,${C.g15},transparent)`,
+          pointerEvents:"none",animation:"breathG 5s ease-in-out infinite"}}/>
+
+        {/* Name + tier */}
+        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:18}}>
+          <div style={{width:60,height:60,borderRadius:18,
+            background:`linear-gradient(135deg,${C.g25},${C.g08})`,
+            border:`2px solid ${tierCfg.color}60`,
+            display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:26,flexShrink:0,
+            boxShadow:`0 0 20px ${tierCfg.color}30`}}>
+            {tierCfg.icon}
+          </div>
+          <div style={{flex:1,minWidth:0}}>
+            <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,
+              fontWeight:600,color:C.ink,margin:"0 0 3px",
+              whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+              {profile?.customer?.name||customer?.name||"Guest"}
+            </h2>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:10,fontWeight:700,padding:"2px 10px",borderRadius:99,
+                background:`${tierCfg.color}20`,color:tierCfg.color,
+                fontFamily:"'DM Mono',monospace",letterSpacing:".06em",
+                border:`1px solid ${tierCfg.color}40`}}>
+                {tierCfg.icon} {tierCfg.label} Member
+              </span>
+              {(profile?.customer?.visits||0) > 1 && (
+                <span style={{fontSize:10,color:C.inkDim,fontFamily:"'DM Mono',monospace"}}>
+                  {profile?.customer?.visits} visits
+                </span>
+              )}
+            </div>
           </div>
         </div>
-        <p style={{fontSize:12.5,color:"rgba(245,237,216,0.65)",margin:0,lineHeight:1.65,fontFamily:"'DM Sans',sans-serif"}}>Premium 100% pure vegetarian cafe. Handcrafted coffee &amp; fresh artisanal snacks.</p>
+
+        {/* Stats row */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:9,marginBottom:16}}>
+          {[
+            {l:"Points",  v:String(pts),        sub:`₹${Math.floor(pts/10)} value`, gold:true},
+            {l:"Orders",  v:String(profile?.customer?.totalOrders||0), sub:"lifetime"},
+            {l:"Spent",   v:`₹${profile?.customer?.totalSpent||0}`,    sub:"total"},
+          ].map(s=>(
+            <div key={s.l} style={{background:"rgba(255,255,255,0.04)",borderRadius:12,
+              padding:"11px 10px",textAlign:"center",
+              border:`1px solid ${s.gold?"rgba(200,146,42,0.3)":"rgba(255,255,255,0.07)"}`}}>
+              <p style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:500,
+                color:s.gold?C.goldL:C.ink,margin:"0 0 1px",lineHeight:1}}>{s.v}</p>
+              <p style={{fontSize:10,color:C.inkDim,margin:"2px 0 0",
+                fontFamily:"'DM Sans',sans-serif"}}>{s.l}</p>
+              <p style={{fontSize:9,color:s.gold?C.gold:C.inkGh,margin:"1px 0 0",
+                fontFamily:"'DM Mono',monospace"}}>{s.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Tier progress */}
+        {tier!=="platinum"&&(
+          <div>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
+              <span style={{fontSize:10.5,color:C.inkSub,fontFamily:"'DM Sans',sans-serif"}}>
+                {nextPts-pts} pts to {TIER_CFG[tier==="bronze"?"silver":tier==="silver"?"gold":"platinum"].icon} {TIER_CFG[tier==="bronze"?"silver":tier==="silver"?"gold":"platinum"].label}
+              </span>
+              <span style={{fontSize:10.5,color:C.gold,fontFamily:"'DM Mono',monospace"}}>
+                {pts}/{nextPts}
+              </span>
+            </div>
+            <div style={{height:5,borderRadius:3,background:"rgba(255,255,255,0.07)"}}>
+              <div style={{height:"100%",borderRadius:3,background:GG,
+                width:`${progress}%`,transition:"width 1.2s ease",
+                boxShadow:`0 0 8px rgba(200,146,42,0.5)`}}/>
+            </div>
+          </div>
+        )}
+        {tier==="platinum"&&(
+          <div style={{textAlign:"center",padding:"4px 0"}}>
+            <span style={{fontSize:11,color:"#E5E4E2",fontFamily:"'DM Mono',monospace",letterSpacing:".08em"}}>
+              💎 Maximum tier reached — enjoy VIP perks!
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Table */}
-      {table&&<div style={{background:`linear-gradient(135deg,${C.surface},${C.raise})`,borderRadius:15,padding:14,marginBottom:10,border:`1px solid ${C.glBd}`,display:"flex",alignItems:"center",gap:13}}>
-        <span style={{fontSize:28}}>🪑</span>
-        <div>
-          <p style={{fontSize:10,color:C.inkDim,fontFamily:"'DM Mono',monospace",letterSpacing:".08em",textTransform:"uppercase",margin:"0 0 1px"}}>Your Table</p>
-          <p style={{fontFamily:"'Cormorant Garamond',serif",fontWeight:600,fontSize:22,color:C.ink,margin:0}}>Table {table.tableNumber}</p>
-        </div>
-      </div>}
-
-      {/* Features grid */}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
-        {[
-          {i:"🌿",l:"100% Vegetarian",c:C.emerald},
-          {i:"☕",l:"Handcrafted Coffee",c:C.gold},
-          {i:"⚡",l:"Fast Service",c:"#4FC3F7"},
-          {i:"❤️",l:"Made with Love",c:C.ruby},
-        ].map(f=>(
-          <div key={f.l} style={{background:C.gl1,border:`1px solid ${C.glBd}`,borderRadius:14,padding:14,textAlign:"center"}}>
-            <p style={{fontSize:26,margin:"0 0 6px"}}>{f.i}</p>
-            <p style={{fontSize:11,fontWeight:700,color:f.c,margin:0,fontFamily:"'DM Sans',sans-serif"}}>{f.l}</p>
-          </div>
+      {/* ── SUB TABS ── */}
+      <div style={{display:"flex",gap:0,borderBottom:`1px solid ${C.gl2}`,
+        background:"rgba(11,9,6,0.98)",position:"sticky",top:0,zIndex:10}}>
+        {(["overview","history","rewards"] as const).map(t=>(
+          <button key={t} onClick={()=>setActiveTab(t)}
+            style={{flex:1,padding:"12px 0",background:"none",border:"none",
+              borderBottom:`2px solid ${activeTab===t?C.gold:"transparent"}`,
+              color:activeTab===t?C.gold:C.inkDim,
+              fontWeight:activeTab===t?700:400,
+              fontSize:12.5,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",
+              transition:`all 0.2s ${EASE}`,
+              textTransform:"capitalize"}}>
+            {t==="overview"?"Overview":t==="history"?"History":"Rewards"}
+          </button>
         ))}
       </div>
+
+      {/* ── OVERVIEW TAB ── */}
+      {activeTab==="overview"&&(
+        <div style={{padding:"16px 18px"}}>
+          {/* Phone */}
+          <div style={{background:`linear-gradient(135deg,${C.surface},${C.raise})`,
+            borderRadius:14,padding:"13px 16px",marginBottom:10,
+            border:`1px solid ${C.glBd}`,display:"flex",alignItems:"center",gap:12}}>
+            <span style={{fontSize:22}}>📱</span>
+            <div>
+              <p style={{fontSize:10,color:C.inkDim,fontFamily:"'DM Mono',monospace",
+                letterSpacing:".08em",textTransform:"uppercase",margin:"0 0 1px"}}>Phone</p>
+              <p style={{fontFamily:"'DM Mono',monospace",fontSize:16,
+                fontWeight:500,color:C.ink,margin:0,letterSpacing:".05em"}}>
+                {customer?.phone||profile?.customer?.phone||"—"}
+              </p>
+            </div>
+          </div>
+
+          {/* Table */}
+          {table&&(
+            <div style={{background:`linear-gradient(135deg,${C.surface},${C.raise})`,
+              borderRadius:14,padding:"13px 16px",marginBottom:10,
+              border:`1px solid ${C.glBd}`,display:"flex",alignItems:"center",gap:12}}>
+              <span style={{fontSize:22}}>🪑</span>
+              <div>
+                <p style={{fontSize:10,color:C.inkDim,fontFamily:"'DM Mono',monospace",
+                  letterSpacing:".08em",textTransform:"uppercase",margin:"0 0 1px"}}>Current Table</p>
+                <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,
+                  fontWeight:600,color:C.ink,margin:0}}>Table {table.tableNumber}</p>
+              </div>
+            </div>
+          )}
+
+          {/* First visit */}
+          {profile?.customer?.firstVisit&&(
+            <div style={{background:`linear-gradient(135deg,${C.surface},${C.raise})`,
+              borderRadius:14,padding:"13px 16px",marginBottom:10,
+              border:`1px solid ${C.glBd}`,display:"flex",alignItems:"center",gap:12}}>
+              <span style={{fontSize:22}}>📅</span>
+              <div>
+                <p style={{fontSize:10,color:C.inkDim,fontFamily:"'DM Mono',monospace",
+                  letterSpacing:".08em",textTransform:"uppercase",margin:"0 0 1px"}}>Member Since</p>
+                <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:15,
+                  fontWeight:500,color:C.ink,margin:0}}>
+                  {new Date(profile.customer.firstVisit).toLocaleDateString("en-IN",{day:"numeric",month:"long",year:"numeric"})}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Cafe card */}
+          <div style={{background:`radial-gradient(ellipse 120% 120% at 80% 40%,rgba(60,30,8,0.9),rgba(18,16,12,0.98))`,
+            borderRadius:16,padding:18,marginTop:6,border:`1px solid ${C.g15}`,
+            position:"relative",overflow:"hidden"}}>
+            <div style={{position:"absolute",right:-16,top:"50%",transform:"translateY(-50%)",
+              width:100,height:100,borderRadius:"50%",
+              background:`radial-gradient(circle,${C.g15},transparent)`,
+              pointerEvents:"none"}}/>
+            <div style={{position:"absolute",right:8,bottom:-4,fontSize:52,opacity:.08}}>☕</div>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+              <div style={{width:38,height:38,borderRadius:11,background:C.surface,
+                border:`1px solid ${C.g25}`,display:"flex",alignItems:"center",
+                justifyContent:"center",fontSize:18}}>☕</div>
+              <div>
+                <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,
+                  color:C.gold,margin:0}}>Golden Beans</h3>
+                <p style={{fontSize:8.5,color:"rgba(200,146,42,0.5)",margin:0,
+                  letterSpacing:".15em",fontFamily:"'DM Mono',monospace",
+                  textTransform:"uppercase"}}>Cafe &amp; Bistro</p>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {["🌿 100% Veg","☕ Handcrafted","⚡ Fast Service","❤️ Made with Love"].map(f=>(
+                <span key={f} style={{fontSize:11,color:"rgba(245,237,216,0.55)",
+                  fontFamily:"'DM Sans',sans-serif",
+                  background:"rgba(255,255,255,0.04)",borderRadius:99,
+                  padding:"3px 10px",border:"1px solid rgba(255,255,255,0.06)"}}>
+                  {f}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── HISTORY TAB ── */}
+      {activeTab==="history"&&(
+        <div style={{padding:"16px 18px"}}>
+          {loading ? (
+            <div style={{display:"flex",flexDirection:"column",gap:9}}>
+              {[1,2,3,4].map(i=>(
+                <div key={i} className="sk" style={{height:64,borderRadius:14}}/>
+              ))}
+            </div>
+          ) : history.length===0 ? (
+            <div style={{textAlign:"center",padding:"44px 20px"}}>
+              <div style={{fontSize:44,marginBottom:12,opacity:.35,
+                animation:"floatY 3s ease-in-out infinite"}}>🫘</div>
+              <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,
+                fontWeight:500,color:C.inkSub,margin:"0 0 6px"}}>No history yet</h3>
+              <p style={{fontSize:12.5,color:C.inkDim,fontFamily:"'DM Sans',sans-serif"}}>
+                Place your first order to start earning points!
+              </p>
+            </div>
+          ) : (
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {history.map((tx:any,i:number)=>{
+                const isEarn = tx.points > 0;
+                const isBonus= tx.type==="bonus";
+                return(
+                  <div key={tx._id||i}
+                    style={{background:`linear-gradient(135deg,${C.surface},${C.raise})`,
+                      borderRadius:13,padding:"12px 14px",
+                      border:`1px solid ${C.glBd}`,
+                      display:"flex",alignItems:"center",gap:12,
+                      animation:`stgIn 0.4s ${i*.05}s ${EASE} both`}}>
+                    <div style={{width:40,height:40,borderRadius:11,flexShrink:0,
+                      background:isEarn?`rgba(46,125,82,0.15)`:"rgba(192,57,43,0.1)",
+                      border:`1px solid ${isEarn?"rgba(46,125,82,0.3)":"rgba(192,57,43,0.25)"}`,
+                      display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>
+                      {isBonus?"🎉":isEarn?"🫘":"🔓"}
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <p style={{fontSize:13,fontWeight:600,color:C.ink,
+                        fontFamily:"'DM Sans',sans-serif",margin:"0 0 2px",
+                        whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                        {tx.description}
+                      </p>
+                      <p style={{fontSize:10.5,color:C.inkDim,
+                        fontFamily:"'DM Mono',monospace",margin:0}}>
+                        {new Date(tx.createdAt).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}
+                        {" · "}Balance: {tx.balance} pts
+                      </p>
+                    </div>
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      <p style={{fontFamily:"'DM Mono',monospace",fontSize:16,fontWeight:600,
+                        color:isEarn?C.emerald:C.ruby,margin:0}}>
+                        {isEarn?"+":""}{tx.points}
+                      </p>
+                      <p style={{fontSize:9.5,color:C.inkDim,margin:"1px 0 0",
+                        fontFamily:"'DM Mono',monospace"}}>pts</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── REWARDS TAB ── */}
+      {activeTab==="rewards"&&(
+        <div style={{padding:"16px 18px"}}>
+          {/* Points value */}
+          <div style={{background:`linear-gradient(135deg,rgba(200,146,42,0.12),rgba(200,146,42,0.05))`,
+            border:`1.5px solid rgba(200,146,42,0.35)`,borderRadius:18,
+            padding:"18px 16px",marginBottom:14,textAlign:"center",
+            boxShadow:`0 8px 28px rgba(200,146,42,0.1)`}}>
+            <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",
+              letterSpacing:".16em",textTransform:"uppercase",margin:"0 0 6px"}}>
+              Your Points Value
+            </p>
+            <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:48,
+              fontWeight:700,color:C.goldL,margin:"0 0 4px",lineHeight:1}}>
+              ₹{Math.floor(pts/10)}
+            </p>
+            <p style={{fontSize:12,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",margin:0}}>
+              {pts} points · 100 pts = ₹10 discount
+            </p>
+          </div>
+
+          {/* Redeem info */}
+          <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",
+            letterSpacing:".14em",textTransform:"uppercase",margin:"0 0 10px"}}>
+            ✦ How to Redeem
+          </p>
+          {[
+            {icon:"🛒",title:"Add items to cart",desc:"Select your favourite items"},
+            {icon:"🫘",title:"Use points at cart",desc:"Tap 'Use Loyalty Points' in cart"},
+            {icon:"💰",title:"Get instant discount",desc:"Points deducted from your total"},
+            {icon:"🎉",title:"Earn more points",desc:"1 point per ₹10 spent"},
+          ].map((s,i)=>(
+            <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start",
+              marginBottom:10,padding:"12px 14px",
+              background:`linear-gradient(135deg,${C.surface},${C.raise})`,
+              borderRadius:13,border:`1px solid ${C.glBd}`,
+              animation:`stgIn 0.4s ${i*.07}s ${EASE} both`}}>
+              <div style={{width:38,height:38,borderRadius:11,
+                background:C.g08,border:`1px solid ${C.g15}`,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:18,flexShrink:0}}>{s.icon}</div>
+              <div>
+                <p style={{fontSize:13.5,fontWeight:600,color:C.ink,
+                  fontFamily:"'DM Sans',sans-serif",margin:"0 0 2px"}}>{s.title}</p>
+                <p style={{fontSize:11.5,color:C.inkDim,
+                  fontFamily:"'DM Sans',sans-serif",margin:0}}>{s.desc}</p>
+              </div>
+            </div>
+          ))}
+
+          {/* Tier benefits */}
+          <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",
+            letterSpacing:".14em",textTransform:"uppercase",margin:"14px 0 10px"}}>
+            ✦ Tier Benefits
+          </p>
+          {Object.entries(TIER_CFG).map(([key,t],i)=>(
+            <div key={key} style={{display:"flex",alignItems:"center",gap:12,
+              padding:"11px 14px",marginBottom:8,
+              background:key===tier?C.g08:`linear-gradient(135deg,${C.surface},${C.raise})`,
+              borderRadius:13,
+              border:`1px solid ${key===tier?"rgba(200,146,42,0.4)":C.glBd}`,
+              opacity:i>["bronze","silver","gold","platinum"].indexOf(tier)?0.45:1}}>
+              <span style={{fontSize:22,flexShrink:0}}>{t.icon}</span>
+              <div style={{flex:1}}>
+                <p style={{fontSize:13,fontWeight:700,
+                  color:key===tier?t.color:C.inkSub,
+                  fontFamily:"'DM Sans',sans-serif",margin:"0 0 1px"}}>{t.label}</p>
+                <p style={{fontSize:11,color:C.inkDim,
+                  fontFamily:"'DM Sans',sans-serif",margin:0}}>
+                  {key==="bronze"?"0 pts":key==="silver"?"500+ pts":key==="gold"?"1000+ pts":"2000+ pts"}
+                </p>
+              </div>
+              {key===tier&&(
+                <span style={{fontSize:10,color:t.color,background:`${t.color}18`,
+                  border:`1px solid ${t.color}40`,borderRadius:99,padding:"2px 10px",
+                  fontFamily:"'DM Mono',monospace",fontWeight:700,flexShrink:0}}>
+                  Current
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
