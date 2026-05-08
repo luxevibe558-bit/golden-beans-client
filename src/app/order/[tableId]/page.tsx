@@ -383,7 +383,7 @@ function AwarenessScreen({ result, onRetry }: { result:SecRes; onRetry:()=>void 
 // C-COMPONENTS: Hero, GlassBar, Card, Row, Compact
 // ═══════════════════════════════════════════════════
 
-function CHero({items,cart,onTap,onExplore,greeting,name,mktBanners=[]}:{items:MenuItem[];cart:ECI[];onTap:(i:MenuItem)=>void;onExplore:()=>void;greeting:string;name?:string;mktBanners?:any[]}) {
+function CHero({items,cart,onTap,onExplore,greeting,name,mktBanners=[],ht}:{items:MenuItem[];cart:ECI[];onTap:(i:MenuItem)=>void;onExplore:()=>void;greeting:string;name?:string;mktBanners?:any[];ht?:any}) {
   const [active,setActive]=useState(0);
   const [drag,setDrag]=useState(0);
   const [isDrag,setIsDrag]=useState(false);
@@ -428,10 +428,10 @@ function CHero({items,cart,onTap,onExplore,greeting,name,mktBanners=[]}:{items:M
         {shown&&<div style={{marginBottom:6,animation:`fadeRise 0.55s .08s ${EASE} both`}}><span style={{fontSize:11.5,color:C.goldM,fontFamily:"'DM Sans',sans-serif",fontWeight:500,letterSpacing:".12em",textTransform:"uppercase"}}>{greeting}{name?`, ${name}`:""} ✦</span></div>}
         {shown&&<div style={{marginBottom:15,animation:`fadeRise 0.65s .18s ${EASE} both`}}>
           <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(36px,11vw,56px)",fontWeight:300,color:C.ink,lineHeight:1.06,margin:0,letterSpacing:"-.01em"}}>
-            {HT.heroLine1}<br/><em style={{fontStyle:"italic",fontWeight:600,color:C.goldL}}>{HT.heroLine2}</em><br/><span style={{fontWeight:300}}>{HT.heroLine3}</span>
+            {ht?.heroLine1||"Brewed to"}<br/><em style={{fontStyle:"italic",fontWeight:600,color:C.goldL}}>{ht?.heroLine2||"perfection,"}</em><br/><span style={{fontWeight:300}}>{ht?.heroLine3||"just for you."}</span>
           </h1>
         </div>}
-        {shown&&<div style={{marginBottom:22,animation:`fadeRise 0.65s .3s ${EASE} both`}}><p style={{fontSize:12.5,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",fontWeight:400,margin:0,lineHeight:1.5,maxWidth:230}}>{s.description||HT.heroSubtext}</p></div>}
+        {shown&&<div style={{marginBottom:22,animation:`fadeRise 0.65s .3s ${EASE} both`}}><p style={{fontSize:12.5,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",fontWeight:400,margin:0,lineHeight:1.5,maxWidth:230}}>{s.description||(ht?.heroSubtext||"Handcrafted with rare single-origin beans.")}</p></div>}
         {shown&&<div style={{display:"flex",gap:12,alignItems:"center",animation:`fadeRise 0.65s .42s ${EASE} both`}}>
           <button onClick={onExplore} style={{display:"flex",alignItems:"center",gap:8,background:"rgba(200,146,42,0.16)",backdropFilter:"blur(20px)",border:"1px solid rgba(200,146,42,0.38)",borderRadius:99,padding:"11px 22px",color:C.goldL,fontSize:13,fontWeight:600,fontFamily:"'DM Sans',sans-serif",cursor:"pointer",boxShadow:"inset 0 1px 0 rgba(255,255,255,.07)"}}>
             Explore Menu <svg width={14} height={14} viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke={C.goldL} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -1224,7 +1224,7 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
       <div ref={scrollRef} style={{overflowY:"auto",overflowX:"hidden",paddingBottom:cart.length>0?160:96}}>
         {loading?<CSkel/>:(
           <>
-            <CHero items={allItems} cart={cart} onTap={onItemTap} onExplore={onExploreMenu} greeting={greeting} name={customerData?.name} mktBanners={mktBanners}/>
+            <CHero items={allItems} cart={cart} onTap={onItemTap} onExplore={onExploreMenu} greeting={greeting} name={customerData?.name} mktBanners={mktBanners} ht={HT}/>
             <CGlassBar cats={menu} active={activeCategoryId} onSelect={onCategorySelect}/>
             <CDivider/>
             {bestsellers.length>0&&<CRow eyebrow={HT.sectionBestsellerEyebrow} title={`${HT.sectionBestseller}${customerData?`, ${customerData.name.split(" ")[0]}`:""}`} items={bestsellers} cart={cart} onTap={onItemTap} favs={favs} onFav={onToggleFav} featured/>}
