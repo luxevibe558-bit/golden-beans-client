@@ -7,6 +7,12 @@ import WaiterHelpSheet from "@/components/WaiterHelpSheet";
 import { menuApi, orderApi, tableApi } from "@/lib/api";
 import { getThumbnailUrl, getHeroUrl } from "@/lib/cloudinary";
 import LiveOrderTracker from "@/components/LiveOrderTracker";
+import {
+  getSessionCustomer,
+  clearSessionCustomer,
+  earnPoints,
+  type CustomerProfile,
+} from "@/lib/CustomerIdentitySystem";
 import type { MenuCategory, MenuItem, CartItem, Table, Order, VariantGroup } from "@/types";
 
 // ═══════════════════════════════════════════════════
@@ -1748,15 +1754,25 @@ export default function CustomerOrderPage() {
   const onFailed = useCallback((r:SecRes)=>{ setSecResult(r); setSecStatus("failed"); },[]);
   const onRetry  = useCallback(()=>setSecStatus("checking"),[]);
 
-  // Customer from localStorage
+  // ── Customer Identity — session based (phone persistent across visits) ──
   useEffect(()=>{
-    if(secStatus!=="passed")return;
-    const saved=localStorage.getItem("gb_customer");
-    if(saved){try{const d=JSON.parse(saved);setCustomer({name:d.name,phone:d.phone});}catch{}}
-    const onSt=()=>{const u=localStorage.getItem("gb_customer");if(u){try{const d=JSON.parse(u);setCustomer({name:d.name,phone:d.phone});}catch{}}};
-    window.addEventListener("storage",onSt);
-    const iv=setInterval(()=>{const u=localStorage.getItem("gb_customer");if(u){try{const d=JSON.parse(u);setCustomer(p=>p?.name===JSON.parse(u).name?p:{name:d.name,phone:d.phone});}catch{}}},2000);
-    return()=>{window.removeEventListener("storage",onSt);clearInterval(iv);};
+    if(secStatus!=="passed") return;
+    // Check current session
+    const session = getSessionCustomer();
+    if(session) setCustomer({ name:session.name, phone:session.phone });
+
+    // Listen for session updates (when CRM popup completes)
+    const onSession = ()=>{
+      const s = getSessionCustomer();
+      if(s) setCustomer({ name:s.name, phone:s.phone });
+    };
+    window.addEventListener("gb_customer_updated", onSession);
+    // Poll every 2s in case CRM popup just completed
+    const iv = setInterval(()=>{
+      const s = getSessionCustomer();
+      if(s) setCustomer(p => p?.phone===s.phone ? p : { name:s.name, phone:s.phone });
+    }, 2000);
+    return()=>{ window.removeEventListener("gb_customer_updated", onSession); clearInterval(iv); };
   },[secStatus]);
 
   // Load menu + table + orders
@@ -1791,10 +1807,16 @@ export default function CustomerOrderPage() {
           const o:Order|null=r.data?.data;
           if(o){
             if(o.status==="settled"){
-              localStorage.setItem("gb_settled_order_id",existingOrder._id);
-              localStorage.setItem("gb_settled_table",existingOrder.tableNumber||tableId);
-              localStorage.removeItem("gb_active_order");localStorage.removeItem("gb_customer");
-              setPlacedOrder(existingOrder);setScreen("ready");return;
+              // Earn loyalty points for this order
+              const session = getSessionCustomer();
+              if(session?._id) {
+                earnPoints(session._id, existingOrder._id, existingOrder.totalAmount)
+                  .catch(()=>{}); // background — don't block UI
+              }
+              // Clear session — next customer starts fresh
+              clearSessionCustomer();
+              localStorage.removeItem("gb_active_order");
+              setPlacedOrder(existingOrder); setScreen("ready"); return;
             }
             if(o.status==="cancelled"){localStorage.removeItem("gb_active_order");setExistingOrder(null);return;}
             setExistingOrder(o);
@@ -1970,7 +1992,14 @@ export default function CustomerOrderPage() {
           </>
         )}
 
-        <CRMCaptureCard tableId={tableId}/>
+        <CRMCaptureCard
+          tableId={tableId}
+          onCustomerIdentified={(profile: CustomerProfile)=>{
+            setCustomer({ name:profile.name, phone:profile.phone });
+            // Dispatch event so polling also catches it
+            window.dispatchEvent(new Event("gb_customer_updated"));
+          }}
+        />
       </main>
 
       {/* FLOATING CART — show on home tabs only */}
