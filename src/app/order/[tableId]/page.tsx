@@ -1988,7 +1988,7 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing, redee
             padding:"8px 14px",borderRadius:99,
             border:`1px solid ${splitMode?"rgba(200,146,42,0.5)":C.glBd}`,
             background:splitMode?C.g15:C.gl1,
-            color:splitMode?C.goldL:C.inkS,
+            color:splitMode?C.goldL:C.inkSub,
             fontSize:12.5,fontWeight:splitMode?700:500,cursor:"pointer",
             fontFamily:"'DM Sans',sans-serif",transition:`all 0.2s ${EASE}`}}>
           <span>👥</span>{splitMode?"Splitting":"Split Bill"}
@@ -2047,7 +2047,7 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing, redee
                         display:"flex",flexDirection:"column",alignItems:"center",gap:4,
                         transition:`all 0.22s ${EASE}`}}>
                       <span style={{fontSize:22}}>{paid?"✅":"👤"}</span>
-                      <span style={{fontSize:11.5,fontWeight:700,color:paid?"#4ADE80":C.inkS,fontFamily:"'DM Sans',sans-serif"}}>Person {i+1}</span>
+                      <span style={{fontSize:11.5,fontWeight:700,color:paid?"#4ADE80":C.inkSub,fontFamily:"'DM Sans',sans-serif"}}>Person {i+1}</span>
                       <span style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:500,color:paid?"#4ADE80":C.gold}}>₹{perHead}</span>
                       <span style={{fontSize:10,color:paid?"#4ADE80":C.inkDim,fontFamily:"'DM Sans',sans-serif"}}>{paid?"Paid":"Tap to mark"}</span>
                     </button>
