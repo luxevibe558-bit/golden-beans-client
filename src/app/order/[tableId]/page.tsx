@@ -377,13 +377,15 @@ function AwarenessScreen({ result, onRetry }: { result:SecRes; onRetry:()=>void 
 // C-COMPONENTS: Hero, GlassBar, Card, Row, Compact
 // ═══════════════════════════════════════════════════
 
-function CHero({items,cart,onTap,onExplore,greeting,name}:{items:MenuItem[];cart:ECI[];onTap:(i:MenuItem)=>void;onExplore:()=>void;greeting:string;name?:string}) {
+function CHero({items,cart,onTap,onExplore,greeting,name,mktBanners=[]}:{items:MenuItem[];cart:ECI[];onTap:(i:MenuItem)=>void;onExplore:()=>void;greeting:string;name?:string;mktBanners?:any[]}) {
   const [active,setActive]=useState(0);
   const [drag,setDrag]=useState(0);
   const [isDrag,setIsDrag]=useState(false);
   const [shown,setShown]=useState(false);
   const sx=useRef(0);const tmr=useRef<NodeJS.Timeout|null>(null);
-  const slides=items.filter(i=>i.isAvailable).slice(0,5);
+  // Use marketing banners if admin set them, else fall back to menu items
+  const mktSlides=mktBanners.map(b=>({_id:b._id,name:b.title,description:b.subtitle,price:0,isAvailable:true,imageUrl:b.imageUrl,_bg:b.bg,_btn:b.btn,_tag:b.tag,_opacity:b.opacity}));
+  const slides=mktSlides.length>0?mktSlides:items.filter(i=>i.isAvailable).slice(0,5);
   const next=useCallback(()=>setActive(p=>(p+1)%slides.length),[slides.length]);
   const prev=useCallback(()=>setActive(p=>(p-1+slides.length)%slides.length),[slides.length]);
   useEffect(()=>{const t=setTimeout(()=>setShown(true),60);return()=>clearTimeout(t);},[]);
@@ -561,7 +563,7 @@ function CCompact({title,eyebrow,items,cart,onTap}:{title:string;eyebrow?:string
   );
 }
 
-function CPromo({onTap}:{onTap:()=>void}){return(
+function CPromo({onTap,mktBanners=[]}:{onTap:()=>void;mktBanners?:any[]}){const promoBanner=mktBanners.find((b:any)=>b.status==='active');return(
   <div style={{margin:"0 22px 34px"}}>
     <div onClick={onTap} style={{background:`radial-gradient(ellipse 100% 100% at 80% 50%,rgba(60,30,8,.9) 0%,rgba(30,14,4,.98) 60%,${C.surface} 100%)`,borderRadius:22,padding:"22px 20px",position:"relative",overflow:"hidden",border:`1px solid rgba(200,146,42,.28)`,boxShadow:`0 8px 36px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.04)`,cursor:"pointer"}}>
       <div style={{position:"absolute",right:-24,top:"50%",transform:"translateY(-50%)",width:160,height:160,borderRadius:"50%",background:`radial-gradient(circle,${C.g15} 0%,transparent 70%)`,animation:"breathG 5s ease-in-out infinite"}}/>
@@ -594,6 +596,17 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
   const greeting=hour<5?"Still Up Late?":hour<12?"Good Morning":hour<17?"Good Afternoon":hour<21?"Good Evening":"Good Night";
   const [scrolled,setScrolled]=useState(false);
   const scrollRef=useRef<HTMLDivElement>(null);
+
+  // ── Marketing Banners from Admin ──
+  const [mktBanners, setMktBanners] = useState<any[]>([]);
+  useEffect(()=>{
+    const API_URL=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+    fetch(`${API_URL}/marketing/banners?status=active`)
+      .then(r=>r.json())
+      .then(d=>{ if(d.success && d.data?.length) setMktBanners(d.data); })
+      .catch(()=>{}); // Silently fail — fallback to menu items
+  },[]);
+
   useEffect(()=>{const el=scrollRef.current;if(!el)return;const fn=()=>setScrolled(el.scrollTop>72);el.addEventListener("scroll",fn);return()=>el.removeEventListener("scroll",fn);},[]);
 
   return(
@@ -620,11 +633,11 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
       <div ref={scrollRef} style={{overflowY:"auto",overflowX:"hidden",paddingBottom:cart.length>0?160:96}}>
         {loading?<CSkel/>:(
           <>
-            <CHero items={allItems} cart={cart} onTap={onItemTap} onExplore={onExploreMenu} greeting={greeting} name={customerData?.name}/>
+            <CHero items={allItems} cart={cart} onTap={onItemTap} onExplore={onExploreMenu} greeting={greeting} name={customerData?.name} mktBanners={mktBanners}/>
             <CGlassBar cats={menu} active={activeCategoryId} onSelect={onCategorySelect}/>
             <CDivider/>
             {bestsellers.length>0&&<CRow eyebrow="✦ Smart Pick" title={`Made For You${customerData?`, ${customerData.name.split(" ")[0]}`:""}`} items={bestsellers} cart={cart} onTap={onItemTap} favs={favs} onFav={onToggleFav} featured/>}
-            <CPromo onTap={onExploreMenu}/>
+            <CPromo onTap={onExploreMenu} mktBanners={mktBanners}/>
             {catItems.length>0&&<CRow eyebrow="✦ From The Menu" title={`${menu.find(c=>c._id===activeCategoryId)?.icon||""} ${menu.find(c=>c._id===activeCategoryId)?.name||""}`} items={catItems.filter(i=>i.isAvailable)} cart={cart} onTap={onItemTap} favs={favs} onFav={onToggleFav}/>}
             <CCompact eyebrow="✦ Quick Picks" title="Continue Your Favorites" items={allItems.filter(i=>i.isAvailable).slice(4,9)} cart={cart} onTap={onItemTap}/>
             <CDivider/>

@@ -25,11 +25,12 @@ const API = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onre
 // TYPES
 // ═══════════════════════════════════════════════════
 interface Banner {
-  id:number; title:string; subtitle:string; btn:string;
+  id: string; _id?: string;
+  title:string; subtitle:string; btn:string;
   status:"active"|"inactive"; views:string; clicks:string;
   schedule:string; bg:string; tag:string; emoji:string; opacity:number;
   action:string; startDate:string; endDate:string;
-  imageUrl?: string; // Cloudinary URL
+  imageUrl?: string;
 }
 interface OfferCard {
   id:number; title:string; discount:string; status:"active"|"inactive";
@@ -716,8 +717,12 @@ function BannerEditor({banner,onChange,onSave,onDelete,onOpenPicker}:{
             background:GG,color:"#0A0804",cursor:"pointer",fontWeight:700,
             fontSize:13,fontFamily:"'DM Sans',sans-serif",
             boxShadow:`0 4px 16px rgba(200,146,42,0.35)`,
-            display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-          <span>💾</span> Save Changes
+            display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+            opacity:(banner as any)._saving?0.7:1}}>
+          {(banner as any)._saving
+            ?<><div style={{width:14,height:14,borderRadius:"50%",border:`2px solid rgba(0,0,0,0.2)`,borderTopColor:"rgba(0,0,0,0.6)",animation:"spin .75s linear infinite"}}/> Saving...</>
+            :<><span>💾</span> Save Changes</>
+          }
         </button>
       </div>
     </div>
@@ -1098,52 +1103,188 @@ function AnalyticsBar({banners}:{banners:Banner[]}) {
 type TabId="banners"|"offers"|"popups"|"themes"|"media";
 
 export default function MarketingContentPage() {
-  const [activeTab,  setActiveTab  ] = useState<TabId>("banners");
-  const [banners,    setBanners    ] = useState<Banner[]>(INIT_BANNERS);
-  const [selectedId, setSelectedId ] = useState<number|null>(1);
-  const [saved,      setSaved      ] = useState(false);
-  const [mediaItems, setMediaItems ] = useState<MediaItem[]>(INIT_MEDIA);
-  const [pickerOpen, setPickerOpen ] = useState(false);
-  const [uploading,  setUploading  ] = useState(false);
-  const [pickerTarget, setPickerTarget] = useState<"banner"|"offer">("banner");
-  const [offerPickerId, setOfferPickerId] = useState<number|null>(null);
+  const [activeTab,    setActiveTab   ] = useState<TabId>("banners");
+  const [banners,      setBanners     ] = useState<Banner[]>([]);
+  const [selectedId,   setSelectedId  ] = useState<string|null>(null);
+  const [loading,      setLoading     ] = useState(true);
+  const [saving,       setSaving      ] = useState(false);
+  const [saved,        setSaved       ] = useState(false);
+  const [saveErr,      setSaveErr     ] = useState("");
+  const [mediaItems,   setMediaItems  ] = useState<MediaItem[]>(INIT_MEDIA);
+  const [pickerOpen,   setPickerOpen  ] = useState(false);
+  const [uploading,    setUploading   ] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<"banner">("banner");
+  const [editBanner,   setEditBanner  ] = useState<Banner|null>(null);
 
-  // Live-edit state — synced with selected banner
-  const [editBanner, setEditBanner ] = useState<Banner|null>(
-    INIT_BANNERS.find(b=>b.id===1)||null
-  );
-
-  // When selectedId changes, update editBanner from banners list
+  // ── Load banners from server on mount ──
   useEffect(()=>{
-    const found=banners.find(b=>b.id===selectedId)||null;
-    setEditBanner(found);
-  },[selectedId, banners]);
+    loadBanners();
+  },[]);
 
-  const handleSave = useCallback(()=>{
-    if(!editBanner)return;
-    setBanners(bs=>bs.map(b=>b.id===editBanner.id?editBanner:b));
-    setSaved(true);
-    setTimeout(()=>setSaved(false),2000);
-  },[editBanner]);
-
-  const handleDelete = useCallback(()=>{
-    if(!editBanner)return;
-    if(!window.confirm(`Delete "${editBanner.title}"?`))return;
-    setBanners(bs=>bs.filter(b=>b.id!==editBanner.id));
-    setSelectedId(null);
-    setEditBanner(null);
-  },[editBanner]);
-
-  const handleToggle=(id:number)=>setBanners(bs=>bs.map(b=>b.id===id?{...b,status:b.status==="active"?"inactive":"active"}:b));
-
-  const handleDuplicate=(id:number)=>{
-    const src=banners.find(b=>b.id===id);
-    if(!src)return;
-    const n={...src,id:Date.now(),title:src.title+" (Copy)",status:"inactive" as const};
-    setBanners(bs=>[...bs,n]);
+  const loadBanners = async()=>{
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/marketing/banners`);
+      const data = await res.json();
+      if(data.success && data.data.length > 0) {
+        // Map MongoDB _id → id for compatibility
+        const mapped = data.data.map((b:any)=>({
+          ...b, id: b._id,
+          views: String(b.views||0), clicks: String(b.clicks||0),
+          schedule: b.startDate && b.endDate
+            ? `${b.startDate} - ${b.endDate}`
+            : "Always active",
+        }));
+        setBanners(mapped);
+        setSelectedId(mapped[0]?.id||null);
+        setEditBanner(mapped[0]||null);
+      } else {
+        // No banners yet — show empty state
+        setBanners([]);
+      }
+    } catch(e) {
+      console.error("Failed to load banners",e);
+      // Fallback to sample data if server not updated yet
+      setBanners(INIT_BANNERS.map(b=>({...b,id:String(b.id),_id:String(b.id)})));
+      setSelectedId("1");
+      setEditBanner({...INIT_BANNERS[0],id:"1",_id:"1"} as any);
+    }
+    setLoading(false);
   };
 
-  // ── Upload to Cloudinary via server ──
+  // Sync editBanner when selectedId changes
+  useEffect(()=>{
+    const found = banners.find(b=>b.id===selectedId)||null;
+    setEditBanner(found ? {...found} : null);
+  },[selectedId]);
+
+  // ── SAVE banner to server ──
+  const handleSave = useCallback(async()=>{
+    if(!editBanner) return;
+    setSaving(true); setSaveErr("");
+    try {
+      const isNew = !editBanner._id || String(editBanner._id).length < 10;
+      const url = isNew
+        ? `${API}/marketing/banners`
+        : `${API}/marketing/banners/${editBanner._id||editBanner.id}`;
+      const method = isNew ? "POST" : "PUT";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify({
+          title:     editBanner.title,
+          subtitle:  editBanner.subtitle,
+          btn:       editBanner.btn,
+          action:    editBanner.action,
+          status:    editBanner.status,
+          bg:        editBanner.bg,
+          imageUrl:  editBanner.imageUrl,
+          tag:       editBanner.tag,
+          emoji:     editBanner.emoji,
+          opacity:   editBanner.opacity,
+          startDate: editBanner.startDate,
+          endDate:   editBanner.endDate,
+        }),
+      });
+      const data = await res.json();
+      if(!data.success) throw new Error(data.message);
+
+      // Reload from server to get fresh data
+      await loadBanners();
+      setSaved(true);
+      setTimeout(()=>setSaved(false),2500);
+    } catch(e:any) {
+      setSaveErr(e.message||"Save failed");
+      setTimeout(()=>setSaveErr(""),3000);
+    }
+    setSaving(false);
+  },[editBanner]);
+
+  // ── DELETE banner ──
+  const handleDelete = useCallback(async()=>{
+    if(!editBanner) return;
+    if(!window.confirm(`Delete "${editBanner.title}"?`)) return;
+    try {
+      const id = editBanner._id || editBanner.id;
+      if(String(id).length > 10) { // Real MongoDB ID
+        await fetch(`${API}/marketing/banners/${id}`, { method:"DELETE" });
+      }
+      setBanners(bs=>bs.filter(b=>b.id!==editBanner.id));
+      setSelectedId(null);
+      setEditBanner(null);
+    } catch(e) { console.error(e); }
+  },[editBanner]);
+
+  // ── TOGGLE status ──
+  const handleToggle = async(id:string)=>{
+    const b = banners.find(x=>x.id===id);
+    if(!b) return;
+    const newStatus = b.status==="active"?"inactive":"active";
+    // Optimistic update
+    setBanners(bs=>bs.map(x=>x.id===id?{...x,status:newStatus}:x));
+    if(editBanner?.id===id) setEditBanner(prev=>prev?{...prev,status:newStatus}:prev);
+    try {
+      const mongoId = (b as any)._id || id;
+      if(String(mongoId).length > 10) {
+        await fetch(`${API}/marketing/banners/${mongoId}`,{
+          method:"PUT",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({status:newStatus}),
+        });
+      }
+    } catch(e) { console.error(e); }
+  };
+
+  // ── DUPLICATE ──
+  const handleDuplicate = async(id:string)=>{
+    const src = banners.find(b=>b.id===id);
+    if(!src) return;
+    try {
+      const res = await fetch(`${API}/marketing/banners`,{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          ...src, title:src.title+" (Copy)", status:"inactive",
+          views:0, clicks:0, _id:undefined, id:undefined,
+        }),
+      });
+      const data = await res.json();
+      if(data.success) await loadBanners();
+    } catch(e) {
+      // Local fallback
+      const n={...src, id:String(Date.now()), title:src.title+" (Copy)", status:"inactive" as const};
+      setBanners(bs=>[...bs,n]);
+    }
+  };
+
+  // ── ADD new banner ──
+  const handleAddBanner = async()=>{
+    const newB = {
+      title:"New Banner", subtitle:"Add your subtitle",
+      btn:"Order Now", action:"Go to Menu", status:"inactive" as const,
+      bg:"linear-gradient(135deg,#3D1A06,#1A0A02)",
+      tag:"NEW", emoji:"☕", opacity:60,
+      startDate:"", endDate:"",
+      views:0, clicks:0,
+    };
+    try {
+      const res = await fetch(`${API}/marketing/banners`,{
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(newB),
+      });
+      const data = await res.json();
+      if(data.success) {
+        await loadBanners();
+        setSelectedId(data.data._id);
+      }
+    } catch(e) {
+      // Local fallback
+      const n:Banner={...newB,id:String(Date.now()),views:"0",clicks:"0",schedule:"Not scheduled"};
+      setBanners(bs=>[...bs,n]);
+      setSelectedId(n.id);
+    }
+  };
+
+  // ── UPLOAD image ──
   const handleUpload = useCallback(async(file:File)=>{
     setUploading(true);
     try {
@@ -1153,48 +1294,30 @@ export default function MarketingContentPage() {
       const res = await fetch(`${API}/upload`, { method:"POST", body:formData });
       const data = await res.json();
       if(data.success && data.url) {
-        const newItem: MediaItem = {
-          url: data.url,
-          name: file.name,
+        setMediaItems(prev=>[{
+          url: data.url, name: file.name,
           type: file.name.split(".").pop()?.toUpperCase()||"IMG",
           size: `${(file.size/1024/1024).toFixed(1)}MB`,
-          dim: "—",
-          uploadedAt: new Date().toISOString().split("T")[0],
-        };
-        setMediaItems(prev=>[newItem,...prev]);
+          dim:"—", uploadedAt: new Date().toISOString().split("T")[0],
+        },...prev]);
       }
-    } catch(e) {
-      console.error("Upload failed",e);
-    }
+    } catch(e) { console.error("Upload failed",e); }
     setUploading(false);
   },[]);
 
-  // ── On image selected from picker ──
-  const handlePickerSelect = useCallback((url:string, name:string)=>{
+  // ── Image selected from picker ──
+  const handlePickerSelect = useCallback((url:string)=>{
     setPickerOpen(false);
-    if(pickerTarget==="banner" && editBanner) {
-      setEditBanner(prev=>prev?{...prev,imageUrl:url}:prev);
-    }
-  },[pickerTarget, editBanner]);
+    setEditBanner(prev=>prev?{...prev,imageUrl:url}:prev);
+  },[]);
 
-  const handleAddBanner=()=>{
-    const n:Banner={
-      id:Date.now(),title:"New Banner",subtitle:"Add your subtitle here",btn:"Order Now",
-      status:"inactive",views:"0",clicks:"0",schedule:"Not scheduled",
-      bg:"linear-gradient(135deg,#3D1A06,#1A0A02)",tag:"NEW",emoji:"☕",
-      opacity:60,action:"Go to Menu",startDate:"",endDate:"",
-    };
-    setBanners(bs=>[...bs,n]);
-    setSelectedId(n.id);
-  };
-
-  const TABS:[{id:TabId;icon:string;label:string}] = [
-    {id:"banners",icon:"🖼️",label:"Banners"},
-    {id:"offers", icon:"🏷️",label:"Offer Cards"},
-    {id:"popups", icon:"📣",label:"Popups"},
-    {id:"themes", icon:"🎨",label:"Themes"},
-    {id:"media",  icon:"📁",label:"Media Library"},
-  ] as any;
+  const TABS = [
+    {id:"banners" as TabId, icon:"🖼️", label:"Banners"},
+    {id:"offers"  as TabId, icon:"🏷️", label:"Offer Cards"},
+    {id:"popups"  as TabId, icon:"📣", label:"Popups"},
+    {id:"themes"  as TabId, icon:"🎨", label:"Themes"},
+    {id:"media"   as TabId, icon:"📁", label:"Media Library"},
+  ];
 
   return(
     <div style={{display:"flex",flexDirection:"column",height:"100%",background:A.bg0,color:A.ink,overflow:"hidden"}}>
