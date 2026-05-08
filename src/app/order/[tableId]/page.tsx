@@ -1944,17 +1944,27 @@ function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange,
 // ═══════════════════════════════════════════════════
 // CHECKOUT SCREEN — Cinematic 3-step
 // ═══════════════════════════════════════════════════
-function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing }:{
+function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing, redeemedPoints=0 }:{
   cart:ECI[];table:Table|null;discount:Disc|null;
-  onBack:()=>void;onPay:(method:string,tip:number,note:string)=>void;isPlacing:boolean;
+  onBack:()=>void;onPay:(method:string,tip:number,note:string)=>void;
+  isPlacing:boolean;redeemedPoints?:number;
 }) {
-  const [method,setMethod]=useState("upi");
-  const [tip,   setTip   ]=useState<number>(0);
-  const [note,  setNote  ]=useState("");
-  const sub  = cart.reduce((s,i)=>s+(i.price+(i.totalPriceModifier||0))*i.quantity,0);
-  const disc = discount?.discount||0;
-  const tax  = Math.round((sub-disc)*0.05);
-  const total= sub-disc+tax+tip;
+  const [method,    setMethod   ]=useState("upi");
+  const [tip,       setTip      ]=useState<number>(0);
+  const [note,      setNote     ]=useState("");
+  const [splitMode, setSplitMode]=useState(false);
+  const [splitCount,setSplitCount]=useState(2);
+  const [splitPaid, setSplitPaid]=useState<number[]>([]);
+
+  const sub     = cart.reduce((s,i)=>s+(i.price+(i.totalPriceModifier||0))*i.quantity,0);
+  const disc    = discount?.discount||0;
+  const ptsDisc = Math.floor(redeemedPoints/10);
+  const tax     = Math.round((sub-disc-ptsDisc)*0.05);
+  const total   = sub-disc-ptsDisc+tax+tip;
+  const perHead = Math.ceil(total/splitCount);
+  const paidCount  = splitPaid.length;
+  const paidAmount = paidCount*perHead;
+  const remaining  = total - paidAmount;
 
   const PAY_METHODS=[
     {id:"upi",   icon:"📱",label:"UPI / BHIM"},
@@ -1973,10 +1983,20 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing }:{
           <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 1px"}}>✦ Step 2 of 3</p>
           <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:600,color:C.ink,margin:0}}>Checkout</h2>
         </div>
+        <button onClick={()=>{setSplitMode(m=>!m);setSplitPaid([]);}}
+          style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:6,
+            padding:"8px 14px",borderRadius:99,
+            border:`1px solid ${splitMode?"rgba(200,146,42,0.5)":C.glBd}`,
+            background:splitMode?C.g15:C.gl1,
+            color:splitMode?C.goldL:C.inkS,
+            fontSize:12.5,fontWeight:splitMode?700:500,cursor:"pointer",
+            fontFamily:"'DM Sans',sans-serif",transition:`all 0.2s ${EASE}`}}>
+          <span>👥</span>{splitMode?"Splitting":"Split Bill"}
+        </button>
       </div>
 
       <div className="hs" style={{flex:1,overflowY:"auto",padding:"16px 20px",paddingBottom:160}}>
-        {/* Table info */}
+        {/* Table */}
         <div style={{background:`linear-gradient(135deg,${C.surface},${C.raise})`,borderRadius:16,padding:"14px 16px",marginBottom:14,border:`1px solid ${C.glBd}`,display:"flex",alignItems:"center",gap:12}}>
           <span style={{fontSize:28}}>🪑</span>
           <div>
@@ -1988,11 +2008,69 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing }:{
           </div>
         </div>
 
+        {/* BILL SPLIT */}
+        {splitMode&&(
+          <div style={{marginBottom:14,background:`linear-gradient(135deg,${C.surface},${C.raise})`,borderRadius:16,overflow:"hidden",border:`1.5px solid rgba(200,146,42,0.3)`}}>
+            <div style={{padding:"13px 16px",borderBottom:`1px solid ${C.gl2}`,background:C.g08,display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:20}}>👥</span>
+              <div style={{flex:1}}>
+                <p style={{fontSize:13.5,fontWeight:700,color:C.goldL,fontFamily:"'DM Sans',sans-serif",margin:"0 0 1px"}}>Split Bill</p>
+                <p style={{fontSize:11,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",margin:0}}>₹{total} total · ₹{perHead} per person</p>
+              </div>
+              {paidCount>0&&(
+                <div style={{background:remaining===0?"rgba(46,125,82,0.2)":C.g15,border:`1px solid ${remaining===0?"rgba(46,125,82,0.4)":C.g25}`,borderRadius:99,padding:"4px 12px"}}>
+                  <span style={{fontSize:11,fontWeight:700,color:remaining===0?"#4ADE80":C.gold,fontFamily:"'DM Mono',monospace"}}>{remaining===0?"✓ Fully Paid":`₹${remaining} left`}</span>
+                </div>
+              )}
+            </div>
+            <div style={{padding:"13px 16px",borderBottom:`1px solid ${C.gl2}`}}>
+              <p style={{fontSize:11,color:C.inkDim,fontFamily:"'DM Mono',monospace",letterSpacing:".08em",textTransform:"uppercase",margin:"0 0 10px"}}>Number of People</p>
+              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                <button onClick={()=>{setSplitCount(c=>Math.max(2,c-1));setSplitPaid([]);}} style={{width:36,height:36,borderRadius:10,background:C.gl1,border:`1px solid ${C.glBd}`,color:C.ink,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                <div style={{flex:1,textAlign:"center"}}>
+                  <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:700,color:C.ink}}>{splitCount}</span>
+                  <span style={{fontSize:13,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",marginLeft:6}}>people</span>
+                </div>
+                <button onClick={()=>{setSplitCount(c=>Math.min(10,c+1));setSplitPaid([]);}} style={{width:36,height:36,borderRadius:10,background:C.gl1,border:`1px solid ${C.glBd}`,color:C.gold,cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+              </div>
+            </div>
+            <div style={{padding:"13px 16px"}}>
+              <p style={{fontSize:11,color:C.inkDim,fontFamily:"'DM Mono',monospace",letterSpacing:".08em",textTransform:"uppercase",margin:"0 0 10px"}}>Mark as Paid</p>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                {Array.from({length:splitCount},(_,i)=>{
+                  const paid=splitPaid.includes(i);
+                  return(
+                    <button key={i} onClick={()=>setSplitPaid(prev=>prev.includes(i)?prev.filter(x=>x!==i):[...prev,i])}
+                      style={{padding:"12px 10px",borderRadius:12,cursor:"pointer",
+                        border:`1.5px solid ${paid?"rgba(46,125,82,0.5)":C.glBd}`,
+                        background:paid?"rgba(46,125,82,0.12)":C.gl1,
+                        display:"flex",flexDirection:"column",alignItems:"center",gap:4,
+                        transition:`all 0.22s ${EASE}`}}>
+                      <span style={{fontSize:22}}>{paid?"✅":"👤"}</span>
+                      <span style={{fontSize:11.5,fontWeight:700,color:paid?"#4ADE80":C.inkS,fontFamily:"'DM Sans',sans-serif"}}>Person {i+1}</span>
+                      <span style={{fontFamily:"'DM Mono',monospace",fontSize:13,fontWeight:500,color:paid?"#4ADE80":C.gold}}>₹{perHead}</span>
+                      <span style={{fontSize:10,color:paid?"#4ADE80":C.inkDim,fontFamily:"'DM Sans',sans-serif"}}>{paid?"Paid":"Tap to mark"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{marginTop:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
+                  <span style={{fontSize:11,color:C.inkDim,fontFamily:"'DM Sans',sans-serif"}}>{paidCount} of {splitCount} paid</span>
+                  <span style={{fontSize:11,color:C.gold,fontFamily:"'DM Mono',monospace"}}>₹{paidAmount} / ₹{total}</span>
+                </div>
+                <div style={{height:5,borderRadius:3,background:C.gl2}}>
+                  <div style={{height:"100%",borderRadius:3,background:remaining===0?"linear-gradient(90deg,#2E7D52,#4ADE80)":GG,width:`${(paidCount/splitCount)*100}%`,transition:`width 0.4s ${EASE}`}}/>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Special note */}
         <div style={{marginBottom:14}}>
           <p style={{fontSize:11,fontWeight:700,color:C.inkDim,letterSpacing:".08em",textTransform:"uppercase",margin:"0 0 9px",fontFamily:"'DM Sans',sans-serif"}}>Special Instructions</p>
-          <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Any special requests for the kitchen..."
-            rows={2} style={{width:"100%",padding:"12px 14px",borderRadius:13,border:`1px solid ${C.glBd}`,background:C.gl1,color:C.ink,fontSize:13,outline:"none",resize:"none",fontFamily:"'DM Sans',sans-serif",lineHeight:1.5}}/>
+          <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Any special requests..." rows={2} style={{width:"100%",padding:"12px 14px",borderRadius:13,border:`1px solid ${C.glBd}`,background:C.gl1,color:C.ink,fontSize:13,outline:"none",resize:"none",fontFamily:"'DM Sans',sans-serif",lineHeight:1.5}}/>
         </div>
 
         {/* Payment method */}
@@ -2003,13 +2081,7 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing }:{
               const isSel=method===pm.id;
               return(
                 <button key={pm.id} onClick={()=>setMethod(pm.id)}
-                  style={{display:"flex",alignItems:"center",gap:9,
-                    background:isSel?`linear-gradient(135deg,${C.g15},${C.g08})`:C.gl1,
-                    border:`1.5px solid ${isSel?"rgba(200,146,42,0.55)":C.glBd}`,
-                    borderRadius:14,padding:"12px 14px",cursor:"pointer",
-                    boxShadow:isSel?`0 0 18px ${C.g15},inset 0 1px 0 rgba(255,255,255,.05)`:"none",
-                    transition:`all 0.25s ${SPR}`,
-                  }}>
+                  style={{display:"flex",alignItems:"center",gap:9,background:isSel?`linear-gradient(135deg,${C.g15},${C.g08})`:C.gl1,border:`1.5px solid ${isSel?"rgba(200,146,42,0.55)":C.glBd}`,borderRadius:14,padding:"12px 14px",cursor:"pointer",transition:`all 0.25s ${SPR}`}}>
                   <span style={{fontSize:22}}>{pm.icon}</span>
                   <span style={{fontSize:13,fontWeight:isSel?700:500,color:isSel?C.goldL:C.inkSub,fontFamily:"'DM Sans',sans-serif"}}>{pm.label}</span>
                   {isSel&&<div style={{marginLeft:"auto",width:16,height:16,borderRadius:"50%",background:GG,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{width:6,height:6,borderRadius:"50%",background:C.void}}/></div>}
@@ -2024,33 +2096,27 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing }:{
           <p style={{fontSize:11,fontWeight:700,color:C.inkDim,letterSpacing:".08em",textTransform:"uppercase",margin:"0 0 10px",fontFamily:"'DM Sans',sans-serif"}}>Add a Tip <span style={{color:C.inkGh,fontWeight:400,fontSize:10}}>100% to our team 🙌</span></p>
           <div style={{display:"flex",gap:8}}>
             {TIPS.map(t=>(
-              <button key={t} onClick={()=>setTip(tip===t&&t!==0?0:t)}
-                style={{flex:1,padding:"10px 4px",borderRadius:11,
-                  border:`1.5px solid ${tip===t&&t!==0?"rgba(200,146,42,0.55)":C.glBd}`,
-                  background:tip===t&&t!==0?`linear-gradient(135deg,${C.g15},${C.g08})`:C.gl1,
-                  color:tip===t&&t!==0?C.goldL:C.inkSub,fontWeight:700,fontSize:13,cursor:"pointer",
-                  fontFamily:"'DM Mono',monospace",transition:`all 0.2s ${EASE}`,
-                }}>
-                {t===0?"None":`₹${t}`}
-              </button>
+              <button key={t} onClick={()=>setTip(tip===t&&t!==0?0:t)} style={{flex:1,padding:"10px 4px",borderRadius:11,border:`1.5px solid ${tip===t&&t!==0?"rgba(200,146,42,0.55)":C.glBd}`,background:tip===t&&t!==0?`linear-gradient(135deg,${C.g15},${C.g08})`:C.gl1,color:tip===t&&t!==0?C.goldL:C.inkSub,fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"'DM Mono',monospace",transition:`all 0.2s ${EASE}`}}>{t===0?"None":`₹${t}`}</button>
             ))}
           </div>
         </div>
 
-        {/* Bill */}
+        {/* Bill summary */}
         <div style={{background:`linear-gradient(135deg,${C.surface},${C.raise})`,border:`1px solid ${C.glBd}`,borderRadius:16,overflow:"hidden"}}>
           <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.gl2}`}}>
-            <p style={{fontSize:11,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".12em",textTransform:"uppercase",margin:0}}>Bill Summary</p>
+            <p style={{fontSize:11,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".12em",textTransform:"uppercase",margin:0}}>Bill Summary {splitMode&&<span style={{color:C.inkDim}}>· ÷{splitCount}</span>}</p>
           </div>
           {[
-            {l:"Subtotal",         v:`₹${sub}`},
-            ...(disc>0?[{l:`Discount`,v:`−₹${disc}`,g:true}]:[]),
-            {l:"GST (5%)",         v:`₹${tax}`},
-            ...(tip>0?[{l:"Tip",  v:`₹${tip}`}]:[]),
+            {l:"Subtotal",v:`₹${sub}`},
+            ...(disc>0?[{l:"Discount",v:`−₹${disc}`,g:true}]:[]),
+            ...(ptsDisc>0?[{l:"Points",v:`−₹${ptsDisc}`,g:true}]:[]),
+            {l:"GST (5%)",v:`₹${tax}`},
+            ...(tip>0?[{l:"Tip",v:`₹${tip}`}]:[]),
+            ...(splitMode?[{l:`Per Person (÷${splitCount})`,v:`₹${perHead}`,bold:true}]:[]),
           ].map(r=>(
             <div key={r.l} style={{display:"flex",justifyContent:"space-between",padding:"10px 16px",borderBottom:`1px solid ${C.gl1}`}}>
               <span style={{fontSize:13,color:C.inkSub,fontFamily:"'DM Sans',sans-serif"}}>{r.l}</span>
-              <span style={{fontSize:13,color:(r as any).g?C.emerald:C.inkSub,fontFamily:"'DM Mono',monospace"}}>{r.v}</span>
+              <span style={{fontSize:13,fontWeight:(r as any).bold?700:400,color:(r as any).g?C.emerald:(r as any).bold?C.goldL:C.inkSub,fontFamily:"'DM Mono',monospace"}}>{r.v}</span>
             </div>
           ))}
           <div style={{display:"flex",justifyContent:"space-between",padding:"14px 16px"}}>
@@ -2063,17 +2129,10 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing }:{
       {/* Pay CTA */}
       <div style={{position:"fixed",bottom:0,left:0,right:0,padding:"12px 18px 0",paddingBottom:"calc(68px + env(safe-area-inset-bottom))",background:`linear-gradient(to top,${C.void} 55%,transparent)`,zIndex:20}}>
         <button onClick={()=>onPay(method,tip,note)} disabled={isPlacing} className="press"
-          style={{width:"100%",padding:"17px",borderRadius:16,border:"none",
-            background:isPlacing?C.gl1:GG,
-            color:isPlacing?C.inkDim:C.void,fontWeight:800,fontSize:16,
-            fontFamily:"'DM Sans',sans-serif",
-            boxShadow:isPlacing?"none":`0 8px 32px ${C.g40}`,
-            cursor:isPlacing?"not-allowed":"pointer",
-            display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-          {isPlacing
-            ? <><div style={{width:18,height:18,borderRadius:"50%",border:`2.5px solid ${C.inkDim}30`,borderTopColor:C.inkDim,animation:"spin .75s linear infinite"}}/> Placing Order...</>
-            : <><span>🔒</span> Pay ₹{total} Securely</>
-          }
+          style={{width:"100%",padding:"17px",borderRadius:16,border:"none",background:isPlacing?C.gl1:GG,color:isPlacing?C.inkDim:C.void,fontWeight:800,fontSize:16,fontFamily:"'DM Sans',sans-serif",boxShadow:isPlacing?"none":`0 8px 32px ${C.g40}`,cursor:isPlacing?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          {isPlacing?<><div style={{width:18,height:18,borderRadius:"50%",border:`2.5px solid ${C.inkDim}30`,borderTopColor:C.inkDim,animation:"spin .75s linear infinite"}}/> Placing Order...</>
+          :splitMode?<><span>👥</span> Pay ₹{perHead} Each</>
+          :<><span>🔒</span> Pay ₹{total} Securely</>}
         </button>
       </div>
     </div>
@@ -3265,7 +3324,7 @@ export default function CustomerOrderPage() {
 
         {/* ── CHECKOUT ── */}
         {screen==="checkout"&&(
-          <CheckoutScreen cart={cart} table={table} discount={discount} onBack={()=>setScreen("cart")} onPay={handlePay} isPlacing={isPlacing}/>
+          <CheckoutScreen cart={cart} table={table} discount={discount} onBack={()=>setScreen("cart")} onPay={handlePay} isPlacing={isPlacing} redeemedPoints={redeemedPoints}/>
         )}
 
         {/* ── ORDER PLACED ── */}
