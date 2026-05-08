@@ -428,10 +428,10 @@ function CHero({items,cart,onTap,onExplore,greeting,name,mktBanners=[]}:{items:M
         {shown&&<div style={{marginBottom:6,animation:`fadeRise 0.55s .08s ${EASE} both`}}><span style={{fontSize:11.5,color:C.goldM,fontFamily:"'DM Sans',sans-serif",fontWeight:500,letterSpacing:".12em",textTransform:"uppercase"}}>{greeting}{name?`, ${name}`:""} ✦</span></div>}
         {shown&&<div style={{marginBottom:15,animation:`fadeRise 0.65s .18s ${EASE} both`}}>
           <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(36px,11vw,56px)",fontWeight:300,color:C.ink,lineHeight:1.06,margin:0,letterSpacing:"-.01em"}}>
-            Brewed to<br/><em style={{fontStyle:"italic",fontWeight:600,color:C.goldL}}>perfection,</em><br/><span style={{fontWeight:300}}>just for you.</span>
+            {HT.heroLine1}<br/><em style={{fontStyle:"italic",fontWeight:600,color:C.goldL}}>{HT.heroLine2}</em><br/><span style={{fontWeight:300}}>{HT.heroLine3}</span>
           </h1>
         </div>}
-        {shown&&<div style={{marginBottom:22,animation:`fadeRise 0.65s .3s ${EASE} both`}}><p style={{fontSize:12.5,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",fontWeight:400,margin:0,lineHeight:1.5,maxWidth:230}}>{s.description||"Handcrafted with rare single-origin beans."}</p></div>}
+        {shown&&<div style={{marginBottom:22,animation:`fadeRise 0.65s .3s ${EASE} both`}}><p style={{fontSize:12.5,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",fontWeight:400,margin:0,lineHeight:1.5,maxWidth:230}}>{s.description||HT.heroSubtext}</p></div>}
         {shown&&<div style={{display:"flex",gap:12,alignItems:"center",animation:`fadeRise 0.65s .42s ${EASE} both`}}>
           <button onClick={onExplore} style={{display:"flex",alignItems:"center",gap:8,background:"rgba(200,146,42,0.16)",backdropFilter:"blur(20px)",border:"1px solid rgba(200,146,42,0.38)",borderRadius:99,padding:"11px 22px",color:C.goldL,fontSize:13,fontWeight:600,fontFamily:"'DM Sans',sans-serif",cursor:"pointer",boxShadow:"inset 0 1px 0 rgba(255,255,255,.07)"}}>
             Explore Menu <svg width={14} height={14} viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke={C.goldL} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -1003,7 +1003,23 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
       .then(r=>r.json())
       .then(d=>{ if(d.success && d.data?.length) setMktBanners(d.data); })
       .catch(()=>{}); // Silently fail — fallback to menu items
+
+  // ── Home texts from admin settings ──
+  fetch(`${API_URL}/settings/home_texts`)
+    .then(r=>r.json())
+    .then(d=>{ if(d.data) setHT(prev=>({...prev,...JSON.parse(d.data)})); })
+    .catch(()=>{});
   },[]);
+
+  const [HT, setHT] = useState({
+    heroLine1:"Brewed to", heroLine2:"perfection,", heroLine3:"just for you.",
+    heroSubtext:"Handcrafted with rare single-origin beans.",
+    sectionBestsellerEyebrow:"✦ Smart Pick", sectionBestseller:"Made For You",
+    sectionQuickEyebrow:"✦ Quick Picks",    sectionQuickPicks:"Continue Your Favorites",
+    footerLine1:"🌿 100% Pure Vegetarian",  footerLine2:"Crafted with passion · Served with love",
+    cafeName:"Golden Beans", cafeTagline:"Cafe & Bistro",
+    cafeDesc:"Premium 100% pure vegetarian cafe. Handcrafted coffee & fresh artisanal snacks.",
+  });
 
   useEffect(()=>{const el=scrollRef.current;if(!el)return;const fn=()=>setScrolled(el.scrollTop>72);el.addEventListener("scroll",fn);return()=>el.removeEventListener("scroll",fn);},[]);
 
@@ -1211,19 +1227,19 @@ function CinematicHome({menu,cart,loading,customerData,table,onItemTap,onCategor
             <CHero items={allItems} cart={cart} onTap={onItemTap} onExplore={onExploreMenu} greeting={greeting} name={customerData?.name} mktBanners={mktBanners}/>
             <CGlassBar cats={menu} active={activeCategoryId} onSelect={onCategorySelect}/>
             <CDivider/>
-            {bestsellers.length>0&&<CRow eyebrow="✦ Smart Pick" title={`Made For You${customerData?`, ${customerData.name.split(" ")[0]}`:""}`} items={bestsellers} cart={cart} onTap={onItemTap} favs={favs} onFav={onToggleFav} featured/>}
+            {bestsellers.length>0&&<CRow eyebrow={HT.sectionBestsellerEyebrow} title={`${HT.sectionBestseller}${customerData?`, ${customerData.name.split(" ")[0]}`:""}`} items={bestsellers} cart={cart} onTap={onItemTap} favs={favs} onFav={onToggleFav} featured/>}
             <CPromo onTap={onExploreMenu} mktBanners={mktBanners}/>
             {catItems.length>0&&<CRow eyebrow="✦ From The Menu" title={`${menu.find(c=>c._id===activeCategoryId)?.icon||""} ${menu.find(c=>c._id===activeCategoryId)?.name||""}`} items={catItems.filter(i=>i.isAvailable)} cart={cart} onTap={onItemTap} favs={favs} onFav={onToggleFav}/>}
-            <CCompact eyebrow="✦ Quick Picks" title="Continue Your Favorites" items={allItems.filter(i=>i.isAvailable).slice(4,9)} cart={cart} onTap={onItemTap}/>
+            <CCompact eyebrow={HT.sectionQuickEyebrow} title={HT.sectionQuickPicks} items={allItems.filter(i=>i.isAvailable).slice(4,9)} cart={cart} onTap={onItemTap}/>
             <CDivider/>
             {menu.slice(0,4).map(cat=><CRow key={cat._id} eyebrow={`✦ ${cat.name}`} title={`${cat.icon} ${cat.name}`} items={(cat.items as MenuItem[]).filter(i=>i.isAvailable).slice(0,8)} cart={cart} onTap={onItemTap} favs={favs} onFav={onToggleFav}/>)}
             <div style={{textAlign:"center",padding:"18px 22px 10px"}}>
               <div style={{display:"inline-flex",alignItems:"center",gap:6}}>
                 <div style={{width:32,height:1,background:`linear-gradient(to right,transparent,${C.g40})`}}/>
-                <span style={{fontSize:11,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".12em"}}>🌿 100% Pure Vegetarian</span>
+                <span style={{fontSize:11,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".12em"}}>{HT.footerLine1}</span>
                 <div style={{width:32,height:1,background:`linear-gradient(to left,transparent,${C.g40})`}}/>
               </div>
-              <p style={{fontSize:10,color:C.inkGh,margin:"5px 0 0",fontFamily:"'DM Sans',sans-serif"}}>Crafted with passion · Served with love</p>
+              <p style={{fontSize:10,color:C.inkGh,margin:"5px 0 0",fontFamily:"'DM Sans',sans-serif"}}>{HT.footerLine2}</p>
             </div>
           </>
         )}
