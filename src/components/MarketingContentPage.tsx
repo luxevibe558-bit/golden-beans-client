@@ -793,30 +793,79 @@ function OfferCardsTab() {
       </div>
       {/* Editor */}
       {selCard&&(
-        <div style={{width:240,background:A.bg2,borderRadius:13,border:`1px solid ${A.glBd}`,padding:14,flexShrink:0,overflow:"auto"}}>
-          <h4 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:600,color:A.ink,margin:"0 0 12px"}}>Edit Card</h4>
-          <Field label="Title"    value={selCard.title}    onChange={v=>setCards(cs=>cs.map(c=>c.id===selCard.id?{...c,title:v}:c))}/>
-          <Field label="Discount" value={selCard.discount} onChange={v=>setCards(cs=>cs.map(c=>c.id===selCard.id?{...c,discount:v}:c))} placeholder="e.g. 20% or ₹50"/>
+        <div style={{width:255,background:A.bg2,borderRadius:13,border:`1px solid ${A.glBd}`,padding:14,flexShrink:0,overflow:"auto"}}>
+          <h4 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:16,fontWeight:600,color:A.ink,margin:"0 0 12px"}}>Edit Offer Card</h4>
+          <Field label="Offer Title" value={selCard.title}
+            onChange={v=>setCards(cs=>cs.map(c=>c.id===selCard.id?{...c,title:v}:c))}
+            placeholder="e.g. Happy Hours Deal"/>
+          <Field label="Discount Value" value={selCard.discount}
+            onChange={v=>setCards(cs=>cs.map(c=>c.id===selCard.id?{...c,discount:v}:c))}
+            placeholder="e.g. 20% or ₹50"/>
+          {/* Status */}
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:10,fontWeight:700,color:A.inkD,letterSpacing:".1em",textTransform:"uppercase",display:"block",marginBottom:7,fontFamily:"'DM Mono',monospace"}}>Status</label>
+            <div style={{display:"flex",gap:7}}>
+              {(["active","inactive"] as const).map(s=>(
+                <button key={s} onClick={()=>setCards(cs=>cs.map(c=>c.id===selCard.id?{...c,status:s}:c))} className="mc-btn"
+                  style={{flex:1,padding:"8px 0",borderRadius:8,
+                    border:`1px solid ${selCard.status===s?(s==="active"?"rgba(46,125,82,0.5)":"rgba(192,57,43,0.5)"):A.glBd}`,
+                    background:selCard.status===s?(s==="active"?A.greenL:A.redL):"transparent",
+                    color:selCard.status===s?(s==="active"?"#4ADE80":"#F87171"):A.inkS,
+                    fontWeight:600,fontSize:11.5,fontFamily:"'DM Sans',sans-serif"}}>
+                  {s==="active"?"✓ Active":"✗ Off"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Card Color */}
           <div style={{marginBottom:12}}>
             <label style={{fontSize:10,fontWeight:700,color:A.inkD,letterSpacing:".1em",textTransform:"uppercase",display:"block",marginBottom:6,fontFamily:"'DM Mono',monospace"}}>Card Color</label>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
               {[
                 {c:"rgba(200,146,42,0.2)",l:"Gold"},
-                {c:"rgba(46,125,82,0.2)",l:"Green"},
-                {c:"rgba(37,99,235,0.2)",l:"Blue"},
-                {c:"rgba(192,57,43,0.2)",l:"Red"},
+                {c:"rgba(46,125,82,0.2)", l:"Green"},
+                {c:"rgba(37,99,235,0.2)", l:"Blue"},
+                {c:"rgba(192,57,43,0.2)", l:"Red"},
               ].map(p=>(
                 <button key={p.c} onClick={()=>setCards(cs=>cs.map(c=>c.id===selCard.id?{...c,color:p.c}:c))} className="mc-btn"
-                  style={{height:30,borderRadius:7,background:p.c,border:`2px solid ${selCard.color===p.c?"rgba(200,146,42,0.7)":"transparent"}`,cursor:"pointer",fontSize:10.5,color:"rgba(245,237,216,0.8)",fontFamily:"'DM Sans',sans-serif"}}>
+                  style={{height:30,borderRadius:7,background:p.c,
+                    border:`2px solid ${selCard.color===p.c?"rgba(200,146,42,0.7)":"transparent"}`,
+                    cursor:"pointer",fontSize:10.5,color:"rgba(245,237,216,0.8)",
+                    fontFamily:"'DM Sans',sans-serif"}}>
                   {p.l}
                 </button>
               ))}
             </div>
           </div>
-          <button onClick={()=>setSel(null)} className="mc-btn"
-            style={{width:"100%",padding:"9px",borderRadius:9,border:"none",background:GG,color:"#0A0804",fontWeight:700,fontSize:12.5,fontFamily:"'DM Sans',sans-serif",boxShadow:`0 4px 12px rgba(200,146,42,0.35)`}}>
-            ✓ Save Card
+          {/* Save — syncs to server */}
+          <button onClick={async()=>{
+            // Optimistic close
+            setSel(null);
+            // Try server sync
+            try {
+              const isNew = String(selCard.id).length < 10;
+              const url = isNew
+                ? `${API}/marketing/offer-cards`
+                : `${API}/marketing/offer-cards/${selCard.id}`;
+              await fetch(url,{
+                method: isNew?"POST":"PUT",
+                headers:{"Content-Type":"application/json"},
+                body:JSON.stringify({
+                  title:selCard.title, discount:selCard.discount,
+                  status:selCard.status, color:selCard.color,
+                }),
+              });
+            } catch { /* local already updated */ }
+          }} className="mc-btn"
+            style={{width:"100%",padding:"9px",borderRadius:9,border:"none",
+              background:GG,color:"#0A0804",fontWeight:700,fontSize:12.5,
+              fontFamily:"'DM Sans',sans-serif",boxShadow:`0 4px 12px rgba(200,146,42,0.35)`}}>
+            💾 Save to Server
           </button>
+          <p style={{fontSize:9.5,color:A.inkD,textAlign:"center",margin:"8px 0 0",
+            fontFamily:"'DM Mono',monospace"}}>
+            Changes will appear on customer page
+          </p>
         </div>
       )}
     </div>

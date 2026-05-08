@@ -569,18 +569,83 @@ function CCompact({title,eyebrow,items,cart,onTap}:{title:string;eyebrow?:string
   );
 }
 
-function CPromo({onTap,mktBanners=[]}:{onTap:()=>void;mktBanners?:any[]}){const promoBanner=mktBanners.find((b:any)=>b.status==='active');return(
+function CPromo({onTap,mktBanners=[]}:{onTap:()=>void;mktBanners?:any[]}){
+  const [offerCard, setOfferCard] = useState<any>(null);
+
+  useEffect(()=>{
+    const API_URL = process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+    fetch(`${API_URL}/marketing/offer-cards?status=active`)
+      .then(r=>r.json())
+      .then(d=>{ if(d.success && d.data?.length) setOfferCard(d.data[0]); })
+      .catch(()=>{});
+  },[]);
+
+  // Use API data if available, else fallback defaults
+  const eyebrow = "Special For You";
+  const title   = offerCard?.discount ? `Flat ${offerCard.discount} Off` : "Flat 20% Off";
+  const subtitle= offerCard?.title    ? `${offerCard.title} — today only!` : "On all beverages this evening";
+  const btnText = "Order Now";
+  const bgColor = offerCard?.color    ? offerCard.color.replace(/rgba?\([^)]+\)/,c=>c) : undefined;
+  const imageUrl= offerCard?.imageUrl;
+
+  return(
   <div style={{margin:"0 22px 34px"}}>
-    <div onClick={onTap} style={{background:`radial-gradient(ellipse 100% 100% at 80% 50%,rgba(60,30,8,.9) 0%,rgba(30,14,4,.98) 60%,${C.surface} 100%)`,borderRadius:22,padding:"22px 20px",position:"relative",overflow:"hidden",border:`1px solid rgba(200,146,42,.28)`,boxShadow:`0 8px 36px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.04)`,cursor:"pointer"}}>
-      <div style={{position:"absolute",right:-24,top:"50%",transform:"translateY(-50%)",width:160,height:160,borderRadius:"50%",background:`radial-gradient(circle,${C.g15} 0%,transparent 70%)`,animation:"breathG 5s ease-in-out infinite"}}/>
-      {[0,1].map(i=><div key={i} style={{position:"absolute",right:40+i*14,bottom:"50%",width:4,height:20,borderRadius:99,background:`linear-gradient(to top,${C.g40},transparent)`,animation:`smokeUp 2s ${i*.7}s ease-out infinite`,filter:"blur(1px)",opacity:0}}/>)}
-      <div style={{position:"absolute",right:10,bottom:-8,fontSize:72,opacity:.08,pointerEvents:"none",userSelect:"none"}}>☕</div>
-      <p style={{fontSize:9.5,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".18em",textTransform:"uppercase",margin:"0 0 5px"}}>Special For You</p>
-      <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:34,fontWeight:700,color:C.goldL,margin:"0 0 5px",lineHeight:1}}>Flat 20% Off</h3>
-      <p style={{fontSize:12.5,color:C.inkSub,margin:"0 0 18px",fontFamily:"'DM Sans',sans-serif",maxWidth:200}}>On all beverages this evening</p>
-      <div style={{display:"flex",alignItems:"center",gap:8,background:`linear-gradient(135deg,${C.g15},${C.g08})`,backdropFilter:"blur(12px)",border:`1px solid rgba(200,146,42,.35)`,borderRadius:99,padding:"8px 16px",width:"fit-content",boxShadow:"inset 0 1px 0 rgba(255,255,255,.07)"}}>
-        <span style={{fontSize:12,color:C.goldL,fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>Order Now</span>
-        <svg width={13} height={13} viewBox="0 0 13 13"><path d="M2 6.5h9M7 2.5l4 4-4 4" stroke={C.goldL} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/></svg>
+    <div onClick={onTap} style={{
+      background: imageUrl
+        ? `linear-gradient(to right, rgba(11,9,6,0.92) 0%, rgba(11,9,6,0.6) 55%, rgba(11,9,6,0.2) 100%)`
+        : `radial-gradient(ellipse 100% 100% at 80% 50%,rgba(60,30,8,.9) 0%,rgba(30,14,4,.98) 60%,${C.surface} 100%)`,
+      borderRadius:22,padding:"22px 20px",position:"relative",overflow:"hidden",
+      border:`1px solid rgba(200,146,42,.28)`,
+      boxShadow:`0 8px 36px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.04)`,
+      cursor:"pointer",minHeight:120,
+    }}>
+      {/* Background image if available */}
+      {imageUrl&&(
+        <div style={{position:"absolute",inset:0,zIndex:0,overflow:"hidden",borderRadius:22}}>
+          <img src={imageUrl} alt="" style={{width:"100%",height:"100%",objectFit:"cover",opacity:.55}}/>
+        </div>
+      )}
+      {/* Ambient glow */}
+      <div style={{position:"absolute",right:-24,top:"50%",transform:"translateY(-50%)",
+        width:160,height:160,borderRadius:"50%",zIndex:1,
+        background:`radial-gradient(circle,${C.g15} 0%,transparent 70%)`,
+        animation:"breathG 5s ease-in-out infinite"}}/>
+      {/* Steam */}
+      {[0,1].map(i=><div key={i} style={{position:"absolute",right:40+i*14,bottom:"50%",
+        width:4,height:20,borderRadius:99,zIndex:1,
+        background:`linear-gradient(to top,${C.g40},transparent)`,
+        animation:`smokeUp 2s ${i*.7}s ease-out infinite`,filter:"blur(1px)",opacity:0}}/>)}
+      {/* Coffee emoji bg */}
+      <div style={{position:"absolute",right:10,bottom:-8,fontSize:72,zIndex:1,
+        opacity:.08,pointerEvents:"none",userSelect:"none"}}>☕</div>
+      {/* Content */}
+      <div style={{position:"relative",zIndex:2}}>
+        <p style={{fontSize:9.5,color:C.gold,fontFamily:"'DM Mono',monospace",
+          letterSpacing:".18em",textTransform:"uppercase",margin:"0 0 5px"}}>
+          {eyebrow}
+        </p>
+        <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:34,fontWeight:700,
+          color:C.goldL,margin:"0 0 5px",lineHeight:1}}>
+          {title}
+        </h3>
+        <p style={{fontSize:12.5,color:C.inkSub,margin:"0 0 18px",
+          fontFamily:"'DM Sans',sans-serif",maxWidth:200}}>
+          {subtitle}
+        </p>
+        <div style={{display:"flex",alignItems:"center",gap:8,
+          background:`linear-gradient(135deg,${C.g15},${C.g08})`,
+          backdropFilter:"blur(12px)",
+          border:`1px solid rgba(200,146,42,.35)`,
+          borderRadius:99,padding:"8px 16px",width:"fit-content",
+          boxShadow:"inset 0 1px 0 rgba(255,255,255,.07)"}}>
+          <span style={{fontSize:12,color:C.goldL,
+            fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>
+            {btnText}
+          </span>
+          <svg width={13} height={13} viewBox="0 0 13 13">
+            <path d="M2 6.5h9M7 2.5l4 4-4 4" stroke={C.goldL} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
       </div>
     </div>
   </div>
