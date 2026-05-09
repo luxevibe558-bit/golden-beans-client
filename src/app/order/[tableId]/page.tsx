@@ -1405,19 +1405,49 @@ function MenuTab({ menu, cart, loading, activeCat, onCatSelect, onItemTap, favs,
 // ═══════════════════════════════════════════════════
 // PRODUCT DETAIL MODAL — Full-screen bottom sheet
 // ═══════════════════════════════════════════════════
-function ProductModal({ item, open, onClose, onAdd }: {
+function ProductModal({ item, open, onClose, onAdd, allItems=[] }: {
   item:MenuItem|null; open:boolean; onClose:()=>void;
   onAdd:(i:MenuItem,qty:number,v:{groupName:string;selected:string[]}[],mod:number)=>void;
+  allItems?:MenuItem[];
 }) {
   const [qty,   setQty  ] = useState(1);
   const [vars,  setVars ] = useState<{groupName:string;selected:string[]}[]>([]);
   const [note,  setNote ] = useState("");
+  const [recs,  setRecs ] = useState<MenuItem[]>([]);
 
   useEffect(()=>{
-    if(!item){setQty(1);setVars([]);setNote("");return;}
+    if(!item){setQty(1);setVars([]);setNote("");setRecs([]);return;}
     const vg=(item.variantGroups||[]) as VariantGroup[];
     setVars(vg.map(g=>({groupName:g.name,selected:g.required&&g.options?.length?[g.options[0].name]:[]})));
-  },[item]);
+
+    // Fetch recommendations
+    const API_URL=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+    fetch(`${API_URL}/customers/recommendations/${item._id}?limit=5`)
+      .then(r=>r.json())
+      .then(d=>{
+        if(d.success && d.data?.length){
+          // Map recommendation IDs to full menu items
+          const recItems = d.data
+            .map((r:any)=>allItems.find(i=>i._id===r.menuItemId))
+            .filter(Boolean) as MenuItem[];
+          setRecs(recItems);
+        } else {
+          // Fallback — same category items
+          const sameCat = allItems
+            .filter(i=>i._id!==item._id && i.isAvailable &&
+              (i.category as string)===(item.category as string))
+            .slice(0,4);
+          setRecs(sameCat);
+        }
+      })
+      .catch(()=>{
+        // Fallback on error
+        const sameCat = allItems
+          .filter(i=>i._id!==item._id && i.isAvailable)
+          .slice(0,4);
+        setRecs(sameCat);
+      });
+  },[item, allItems]);
 
   const mod = vars.flatMap(v=>v.selected).reduce((s,name)=>{
     const vg=(item?.variantGroups||[]) as VariantGroup[];
@@ -1536,6 +1566,57 @@ function ProductModal({ item, open, onClose, onAdd }: {
               style={{width:"100%",padding:"12px 14px",borderRadius:13,border:`1px solid ${C.glBd}`,background:C.gl1,color:C.ink,fontSize:13,outline:"none",resize:"none",fontFamily:"'DM Sans',sans-serif",lineHeight:1.5}}/>
           </div>
         </div>
+
+        {/* ── PEOPLE ALSO ORDERED ── */}
+        {recs.length>0&&(
+          <div style={{padding:"14px 20px",borderTop:`1px solid ${C.gl2}`,flexShrink:0}}>
+            <p style={{fontSize:9.5,color:C.gold,fontFamily:"'DM Mono',monospace",
+              letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 10px"}}>
+              ✦ People Also Ordered
+            </p>
+            <div className="hs" style={{display:"flex",gap:9,overflowX:"auto",paddingBottom:2}}>
+              {recs.map((rec,i)=>(
+                <div key={rec._id}
+                  onClick={()=>{ onClose(); setTimeout(()=>onAdd(rec,1,[],0),300); }}
+                  style={{flexShrink:0,width:120,borderRadius:13,overflow:"hidden",
+                    background:`linear-gradient(160deg,${C.raise},${C.surface})`,
+                    border:`1px solid ${C.glBd}`,cursor:"pointer",
+                    transition:`all 0.2s ${EASE}`,
+                    animation:`stgIn 0.35s ${i*.06}s ${EASE} both`}}>
+                  {/* Image */}
+                  <div style={{height:72,overflow:"hidden",position:"relative",
+                    background:`linear-gradient(135deg,#3D2010,${C.surface})`}}>
+                    {rec.imageUrl
+                      ?<img src={getThumbnailUrl(rec.imageUrl)} alt={rec.name}
+                          style={{width:"100%",height:"100%",objectFit:"cover"}} loading="lazy"/>
+                      :<div style={{width:"100%",height:"100%",display:"flex",
+                          alignItems:"center",justifyContent:"center",fontSize:26,opacity:.5}}>☕</div>
+                    }
+                    <div style={{position:"absolute",inset:0,
+                      background:`linear-gradient(to top,${C.surface} 0%,transparent 55%)`}}/>
+                    <div style={{position:"absolute",bottom:5,left:8}}>
+                      <span style={{fontSize:11.5,fontWeight:500,color:C.gold,
+                        fontFamily:"'DM Mono',monospace"}}>₹{rec.price}</span>
+                    </div>
+                  </div>
+                  {/* Name */}
+                  <div style={{padding:"7px 9px 9px"}}>
+                    <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:13,
+                      fontWeight:600,color:C.ink,margin:"0 0 5px",
+                      whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                      {rec.name}
+                    </p>
+                    <div style={{fontSize:10,color:C.goldM,
+                      fontFamily:"'DM Sans',sans-serif",fontWeight:600,
+                      display:"flex",alignItems:"center",gap:4}}>
+                      <span style={{fontSize:11}}>+</span> Quick Add
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Footer — qty + add */}
         <div style={{padding:"14px 20px 24px",borderTop:`1px solid ${C.gl2}`,background:C.dark,flexShrink:0}}>
@@ -3179,18 +3260,50 @@ export default function CustomerOrderPage() {
           const o:Order|null=r.data?.data;
           if(o){
             if(o.status==="settled"){
-              // Earn loyalty points for this order
               const session = getSessionCustomer();
+              const API_URL=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+
               if(session?._id) {
+                // Earn loyalty points
                 earnPoints(session._id, existingOrder._id, existingOrder.totalAmount)
-                  .catch(()=>{}); // background — don't block UI
+                  .then(result=>{
+                    // WhatsApp: loyalty points earned
+                    if(result && session.phone){
+                      fetch(`${API_URL}/whatsapp/loyalty-earned`,{
+                        method:"POST",headers:{"Content-Type":"application/json"},
+                        body:JSON.stringify({
+                          phone:session.phone,
+                          customerName:session.name,
+                          points:result.pointsEarned,
+                          balance:result.newBalance,
+                        }),
+                      }).catch(()=>{});
+                    }
+                  })
+                  .catch(()=>{});
               }
-              // Clear session — next customer starts fresh
               clearSessionCustomer();
               localStorage.removeItem("gb_active_order");
               setPlacedOrder(existingOrder); setScreen("ready"); return;
             }
             if(o.status==="cancelled"){localStorage.removeItem("gb_active_order");setExistingOrder(null);return;}
+
+            // ── WhatsApp: Order Ready notification ──
+            if(o.status==="ready" && prevStatus.current!=="ready" && prevStatus.current!==null){
+              const session = getSessionCustomer();
+              if(session?.phone){
+                const API_URL=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+                fetch(`${API_URL}/whatsapp/order-ready`,{
+                  method:"POST",headers:{"Content-Type":"application/json"},
+                  body:JSON.stringify({
+                    phone:session.phone,
+                    customerName:session.name,
+                    tableNumber:o.tableNumber||tableId,
+                    orderNumber:o.orderNumber||o._id.slice(-6).toUpperCase(),
+                  }),
+                }).catch(()=>{});
+              }
+            }
             setExistingOrder(o);
           }
         }
@@ -3266,6 +3379,21 @@ export default function CustomerOrderPage() {
       setCart([]);setDiscount(null);setRedeemedPoints(0);setExistingOrder(nO);prevStatus.current=nO.status;
       localStorage.setItem("gb_active_order",nO._id);
       setPlacedOrder(nO);setScreen("placed");
+
+      // ── WhatsApp: Order Confirmed ──
+      if(customer?.phone){
+        const API_URL=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+        const total=cart.reduce((s,i)=>s+(i.price+(i.totalPriceModifier||0))*i.quantity,0);
+        fetch(`${API_URL}/whatsapp/order-confirmed`,{
+          method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            phone:customer.phone,
+            customerName:customer.name,
+            tableNumber:table?.tableNumber||tableId,
+            total:Math.round(total*1.05),
+          }),
+        }).catch(()=>{}); // background — don't block UI
+      }
     }catch(e:unknown){alert(e instanceof Error?e.message:"Failed to place order");}
     finally{setIsPlacing(false);}
   };
@@ -3334,7 +3462,7 @@ export default function CustomerOrderPage() {
               redeemedPoints={redeemedPoints}
               onRedeemPoints={(pts)=>{setRedeemedPoints(pts);}}
             />
-            <ProductModal item={selectedItem} open={!!selectedItem} onClose={()=>setSelectedItem(null)} onAdd={addToCart}/>
+            <ProductModal item={selectedItem} open={!!selectedItem} onClose={()=>setSelectedItem(null)} onAdd={addToCart} allItems={allItems}/>
           </>
         )}
 
@@ -3420,7 +3548,7 @@ export default function CustomerOrderPage() {
       <WaiterHelpSheet tableId={tableId} tableNumber={table?.tableNumber||tableId}/>
 
       {/* PRODUCT MODAL */}
-      <ProductModal item={selectedItem} open={!!selectedItem} onClose={()=>setSelectedItem(null)} onAdd={addToCart}/>
+      <ProductModal item={selectedItem} open={!!selectedItem} onClose={()=>setSelectedItem(null)} onAdd={addToCart} allItems={allItems}/>
     </div>
   );
 }
