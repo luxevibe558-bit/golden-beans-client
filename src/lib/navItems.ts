@@ -15,6 +15,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/pos/promotions",         icon: "🎁",  label: "Promos",      permission: "promotions", permissionAction: "view" },
   { href: "/pos/marketing",          icon: "📣",  label: "Marketing",   adminOnly: true },
   { href: "/pos/home-texts",         icon: "✏️",  label: "Home Texts",  adminOnly: true },
+  { href: "/pos/loyalty-settings",   icon: "🫘",  label: "Loyalty",     adminOnly: true },
   { href: "/pos/inventory",          icon: "📦",  label: "Stock",       permission: "inventory",  permissionAction: "view" },
   { href: "/pos/dues",               icon: "📒",  label: "Dues",        permission: "dues",       permissionAction: "view" },
   { href: "/pos/crm",                icon: "👥",  label: "CRM",         permission: "reports",    permissionAction: "view" },
