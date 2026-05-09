@@ -120,27 +120,28 @@ interface Order {
 
 export default function KOTPrintPage({ params }: { params: Promise<{ orderId: string }> }) {
   const [orderId, setOrderId] = useState<string>("");
-
-  useEffect(()=>{
-    // Next.js 15 — params is a Promise
-    Promise.resolve(params).then(p => setOrderId(p.orderId));
-  },[params]);
   const [order,   setOrder  ] = useState<Order|null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError  ] = useState("");
 
   useEffect(()=>{
+    // Next.js 15 — params is a Promise
+    Promise.resolve(params).then(p => {
+      if(p.orderId) setOrderId(p.orderId);
+      else { setError("Invalid order ID"); setLoading(false); }
+    });
+  },[params]);
+
+  useEffect(()=>{
+    if(!orderId) return;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
-    const url = `${apiUrl}/orders/${orderId}`;
-    console.log("KOT fetching:", url);
-    fetch(url)
+    fetch(`${apiUrl}/orders/${orderId}`)
       .then(r=>r.json())
       .then(d=>{
-        console.log("KOT response:", d);
         if(d.success) setOrder(d.data);
-        else setError(`Order not found (${d.message||""})`);
+        else setError(`${d.message||"Order not found"}`);
       })
-      .catch(e=>{ console.error("KOT error:", e); setError("Failed to load order"); })
+      .catch(()=>setError("Failed to load order"))
       .finally(()=>setLoading(false));
   },[orderId]);
 
