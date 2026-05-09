@@ -44,6 +44,35 @@ function useLiveTimer(startIso: string) {
   return elapsed;
 }
 
+// ── KOT BARCODE COMPONENT ──
+function KOTBarcode({ orderId, orderNumber }: { orderId: string; orderNumber?: string }) {
+  const barcodeUrl = `https://barcodeapi.org/api/128/${encodeURIComponent(orderId)}`;
+  return (
+    <div style={{
+      borderTop: "2px dashed rgba(255,255,255,0.15)",
+      marginTop: 8, paddingTop: 8, textAlign: "center"
+    }}>
+      <p style={{ fontSize: "9px", color: T.textDim, fontWeight: 700,
+        letterSpacing: "0.5px", textTransform: "uppercase", margin: "0 0 5px" }}>
+        📦 Scan to Mark Ready
+      </p>
+      <img
+        src={barcodeUrl}
+        alt={orderId}
+        style={{ height: 44, maxWidth: "100%", display: "block",
+          margin: "0 auto", filter: "invert(1)" }}
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = "none";
+        }}
+      />
+      <p style={{ fontSize: "8px", fontFamily: "monospace",
+        color: T.textDim, margin: "3px 0 0", letterSpacing: "0.04em" }}>
+        {orderId}
+      </p>
+    </div>
+  );
+}
+
 function KDSCard({ order, onAdvanceAll, onAdvanceItem, onDismissCancelled }: {
   order: Order & { cancelled?: boolean };
   onAdvanceAll: (orderId: string) => void;
@@ -192,10 +221,34 @@ function KDSCard({ order, onAdvanceAll, onAdvanceItem, onDismissCancelled }: {
         })}
       </div>
 
+      {/* ── BARCODE SECTION ── */}
       {!order.cancelled && (
-        <div style={{ padding: "9px 14px 12px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <p style={{ fontSize: "10px", color: T.textDim, margin: 0, textAlign: "center", fontWeight: 700, letterSpacing: "0.5px" }}>
-            👆 TAP ITEM OR WHOLE CARD TO ADVANCE
+        <div style={{ padding: "4px 14px 12px" }}>
+          <KOTBarcode orderId={order._id} orderNumber={order.orderNumber} />
+        </div>
+      )}
+
+      {!order.cancelled && (
+        <div style={{ padding: "9px 14px 12px", borderTop: "1px solid rgba(255,255,255,0.06)",
+          display:"flex", gap:8 }}>
+          {/* Print KOT button */}
+          <button
+            onClick={e=>{
+              e.stopPropagation();
+              window.open(`/kot/${order._id}`, "_blank", "width=400,height=700");
+            }}
+            style={{ flex:1, padding:"8px 0", borderRadius:10,
+              background:"rgba(212,165,116,0.15)",
+              border:"1px solid rgba(212,165,116,0.35)",
+              color:T.gold, fontWeight:800, fontSize:11,
+              cursor:"pointer", fontFamily:"'Nunito',sans-serif",
+              display:"flex", alignItems:"center", justifyContent:"center", gap:5 }}>
+            🖨️ Print KOT
+          </button>
+          <p style={{ fontSize: "9px", color: T.textDim, margin: 0,
+            textAlign: "center", fontWeight: 700, letterSpacing: "0.5px",
+            flex:1, display:"flex", alignItems:"center", justifyContent:"center" }}>
+            📦 Scan barcode to mark ready
           </p>
         </div>
       )}
@@ -377,7 +430,7 @@ export default function KDSPage() {
                 <h1 style={{ fontWeight: 900, fontSize: "20px", color: T.gold, margin: 0, fontFamily: "'Playfair Display', serif" }}>Kitchen Display</h1>
                 <div style={{ display: "flex", alignItems: "center", gap: "5px", marginTop: "2px" }}>
                   <div style={{ width: "5px", height: "5px", borderRadius: "50%", background: T.success, animation: "pulse-text 2s infinite" }} />
-                  <span style={{ fontSize: "10px", color: T.textMuted, fontWeight: 700 }}>Live • Tap cards to advance</span>
+                  <span style={{ fontSize: "10px", color: T.textMuted, fontWeight: 700 }}>Live • Tap cards or Scan barcode</span>
                 </div>
               </div>
             </div>
