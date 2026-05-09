@@ -46,7 +46,7 @@ function useLiveTimer(startIso: string) {
 
 // ── KOT BARCODE COMPONENT ──
 function KOTBarcode({ orderId, orderNumber }: { orderId: string; orderNumber?: string }) {
-  const barcodeUrl = `https://barcodeapi.org/api/128/${encodeURIComponent(orderId)}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(orderId)}&bgcolor=ffffff&color=000000&margin=4`;
   return (
     <div style={{
       borderTop: "2px dashed rgba(255,255,255,0.15)",
@@ -54,13 +54,13 @@ function KOTBarcode({ orderId, orderNumber }: { orderId: string; orderNumber?: s
     }}>
       <p style={{ fontSize: "9px", color: T.textDim, fontWeight: 700,
         letterSpacing: "0.5px", textTransform: "uppercase", margin: "0 0 5px" }}>
-        📦 Scan to Mark Ready
+        📦 Scan QR to Mark Ready
       </p>
       <img
-        src={barcodeUrl}
+        src={qrUrl}
         alt={orderId}
-        style={{ height: 44, maxWidth: "100%", display: "block",
-          margin: "0 auto", filter: "invert(1)" }}
+        style={{ height: 80, width: 80, display: "block",
+          margin: "0 auto", borderRadius: 6 }}
         onError={(e) => {
           (e.target as HTMLImageElement).style.display = "none";
         }}

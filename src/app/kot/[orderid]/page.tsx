@@ -157,7 +157,7 @@ export default function KOTPrintPage() {
   const date = new Date(order.createdAt).toLocaleDateString("en-IN",{
     day:"2-digit", month:"short", year:"numeric"
   });
-  const barcodeUrl = `https://barcodeapi.org/api/128/${encodeURIComponent(order._id)}`;
+  const barcodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(order._id)}&bgcolor=ffffff&color=000000&margin=4`;
   const isQR = order.createdBy === "customer";
 
   return(
@@ -269,6 +269,7 @@ export default function KOTPrintPage() {
             className="barcode-img"
             src={barcodeUrl}
             alt={order._id}
+            style={{height:100, width:100}}
             onError={e=>{(e.target as HTMLImageElement).style.display="none";}}
           />
           <div className="barcode-id">{order._id}</div>
