@@ -285,8 +285,49 @@ export default function KDSPage() {
   const [filter, setFilter] = useState<"all" | "pending" | "preparing" | "ready">("all");
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [scanFeedback, setScanFeedback] = useState<{msg:string;ok:boolean}|null>(null);
   const prevOrderIds = useRef<Set<string>>(new Set());
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const scanBuffer = useRef("");
+  const scanTimer = useRef<NodeJS.Timeout|null>(null);
+  const hiddenInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Background scanner listener ──
+  useEffect(()=>{
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+
+    const processScan = async(barcode: string) => {
+      const clean = barcode.trim();
+      if(clean.length < 10) return;
+      try {
+        const res = await fetch(`${API_URL}/orders/scan/${clean}`, {
+          method:"PATCH", headers:{"Content-Type":"application/json"}
+        });
+        const data = await res.json();
+        if(data.success) {
+          setScanFeedback({msg:`✅ Order #${data.order?.orderNumber} Ready!`, ok:true});
+          load(); // Refresh KDS
+        } else if(data.alreadyReady) {
+          setScanFeedback({msg:`⚠️ Already ready`, ok:false});
+        } else {
+          setScanFeedback({msg:`❌ Not found`, ok:false});
+        }
+        setTimeout(()=>setScanFeedback(null), 3000);
+      } catch { setScanFeedback({msg:"❌ Network error", ok:false}); setTimeout(()=>setScanFeedback(null),3000); }
+    };
+
+    // Keep hidden input focused for scanner
+    const keepFocus = () => {
+      if(hiddenInputRef.current && document.activeElement !== hiddenInputRef.current) {
+        hiddenInputRef.current.focus();
+      }
+    };
+    keepFocus();
+    const focusInterval = setInterval(keepFocus, 1000);
+    window.addEventListener("click", keepFocus);
+
+    return()=>{ clearInterval(focusInterval); window.removeEventListener("click", keepFocus); };
+  },[]);
 
   const playAlert = useCallback((type: "new" | "cancel") => {
     try {
@@ -411,11 +452,81 @@ export default function KDSPage() {
         @keyframes pulse-border { 0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.4),0 8px 28px rgba(0,0,0,0.4)} 50%{box-shadow:0 0 0 8px rgba(192,57,43,0),0 8px 28px rgba(0,0,0,0.4)} }
         @keyframes pulse-text { 0%,100%{opacity:1} 50%{opacity:0.6} }
         @keyframes slideUp { from{transform:translateY(14px);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes toastIn { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 4px; }
         button { font-family: 'Nunito', sans-serif; }
       `}</style>
+
+      {/* Hidden input — always focused for scanner gun */}
+      <input
+        ref={hiddenInputRef}
+        style={{position:"fixed",top:0,left:0,width:1,height:1,opacity:0,
+          border:"none",outline:"none",background:"transparent",zIndex:9999}}
+        autoFocus
+        autoComplete="off"
+        onChange={e=>{
+          const val = e.target.value;
+          scanBuffer.current = val;
+          if(scanTimer.current) clearTimeout(scanTimer.current);
+          scanTimer.current = setTimeout(()=>{
+            const scan = scanBuffer.current.trim();
+            if(scan.length > 8) {
+              const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+              fetch(`${API_URL}/orders/scan/${scan}`,{method:"PATCH",headers:{"Content-Type":"application/json"}})
+                .then(r=>r.json())
+                .then(data=>{
+                  if(data.success){
+                    setScanFeedback({msg:`✅ Order #${data.order?.orderNumber} Ready! Table ${data.order?.tableNumber}`,ok:true});
+                    load();
+                  } else if(data.alreadyReady){
+                    setScanFeedback({msg:`⚠️ Already ready`,ok:false});
+                  } else {
+                    setScanFeedback({msg:`❌ Not found`,ok:false});
+                  }
+                  setTimeout(()=>setScanFeedback(null),3000);
+                }).catch(()=>{ setScanFeedback({msg:"❌ Network error",ok:false}); setTimeout(()=>setScanFeedback(null),3000); });
+            }
+            scanBuffer.current = "";
+            if(hiddenInputRef.current) hiddenInputRef.current.value = "";
+          }, 200);
+        }}
+        onKeyDown={e=>{
+          if(e.key==="Enter"){
+            const scan = scanBuffer.current.trim();
+            scanBuffer.current = "";
+            if(hiddenInputRef.current) hiddenInputRef.current.value = "";
+            if(scan.length > 8){
+              const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+              fetch(`${API_URL}/orders/scan/${scan}`,{method:"PATCH",headers:{"Content-Type":"application/json"}})
+                .then(r=>r.json())
+                .then(data=>{
+                  if(data.success){
+                    setScanFeedback({msg:`✅ Order #${data.order?.orderNumber} Ready! Table ${data.order?.tableNumber}`,ok:true});
+                    load();
+                  } else {
+                    setScanFeedback({msg:`❌ ${data.message||"Not found"}`,ok:false});
+                  }
+                  setTimeout(()=>setScanFeedback(null),3000);
+                }).catch(()=>{});
+            }
+          }
+        }}
+      />
+
+      {/* Scan feedback toast */}
+      {scanFeedback&&(
+        <div style={{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",
+          zIndex:9998,padding:"12px 24px",borderRadius:99,
+          background:scanFeedback.ok?"rgba(46,125,82,0.95)":"rgba(192,57,43,0.95)",
+          color:"white",fontWeight:800,fontSize:14,
+          boxShadow:"0 8px 32px rgba(0,0,0,0.4)",
+          animation:"toastIn 0.3s ease",
+          fontFamily:"'Nunito',sans-serif",whiteSpace:"nowrap"}}>
+          {scanFeedback.msg}
+        </div>
+      )}
 
       <header style={{ background: T.emeraldDeep, borderBottom: `1px solid ${T.border}`, padding: "0 18px", flexShrink: 0 }}>
         <div style={{ height: "3px", background: `linear-gradient(90deg, ${T.goldDark}, ${T.gold}, ${T.goldLight}, ${T.gold}, ${T.goldDark})` }} />
