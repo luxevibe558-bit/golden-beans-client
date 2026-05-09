@@ -173,7 +173,8 @@ export default function KOTPrintPage({ params }: { params: Promise<{ orderId: st
   const date = new Date(order.createdAt).toLocaleDateString("en-IN",{
     day:"2-digit", month:"short", year:"numeric"
   });
-  const barcodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(order._id)}&bgcolor=ffffff&color=000000&margin=4`;
+  const scanUrl = `https://golden-beans-server.onrender.com/api/orders/scan/${order._id}?redirect=true`;
+  const barcodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(scanUrl)}&bgcolor=ffffff&color=000000&margin=6`;
   const isQR = order.createdBy === "customer";
 
   return(
@@ -285,11 +286,14 @@ export default function KOTPrintPage({ params }: { params: Promise<{ orderId: st
             className="barcode-img"
             src={barcodeUrl}
             alt={order._id}
-            style={{height:100, width:100}}
+            style={{height:130, width:130}}
             onError={e=>{(e.target as HTMLImageElement).style.display="none";}}
           />
           <div className="barcode-id">{order._id}</div>
-          <div className="scan-text">▲ SCAN TO MARK READY ▲</div>
+          <div className="scan-text">▲ SCAN TO MARK ORDER READY ▲</div>
+          <div style={{fontSize:8,color:"#888",marginTop:3,fontFamily:"monospace"}}>
+            No app needed · Works with any QR scanner
+          </div>
         </div>
 
         {/* Footer */}
