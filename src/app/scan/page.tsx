@@ -108,39 +108,55 @@ export default function ScanStationPage() {
   useEffect(()=>{
     setReady(true);
 
-    const handleKey = (e: KeyboardEvent) => {
-      // Ignore if typing in input field
-      if(["INPUT","TEXTAREA"].includes((e.target as HTMLElement).tagName)) return;
+    // Focus page so keyboard events are captured
+    window.focus();
+    document.body.focus();
 
+    const handleKey = (e: KeyboardEvent) => {
+      // Scanner sends Enter after QR data
       if(e.key === "Enter") {
-        // Scanner sends Enter after barcode
-        const barcode = bufferRef.current;
+        const barcode = bufferRef.current.trim();
         bufferRef.current = "";
         setBuffer("");
         if(barcode.length > 4) processScan(barcode);
         return;
       }
 
-      // Accumulate characters
-      if(e.key.length === 1) {
-        bufferRef.current += e.key;
-        setBuffer(bufferRef.current);
+      // Accept all printable characters (QR can contain any char)
+      if(e.key.length === 1 || e.key === "Shift") {
+        if(e.key !== "Shift") {
+          bufferRef.current += e.key;
+          setBuffer(bufferRef.current);
+        }
 
-        // Clear buffer after 100ms of no input (scanner sends fast)
+        // Clear timer — scanner sends chars very fast (<50ms apart)
         if(timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(()=>{
-          // Auto-process if no Enter received (some scanners don't send Enter)
-          if(bufferRef.current.length > 8) {
-            processScan(bufferRef.current);
+          // Auto-process after 200ms silence (scanner done)
+          const val = bufferRef.current.trim();
+          if(val.length > 8) {
+            processScan(val);
           }
           bufferRef.current = "";
           setBuffer("");
-        }, 150);
+        }, 200);
+      }
+    };
+
+    // Also handle paste (some scanners paste as clipboard)
+    const handlePaste = (e: ClipboardEvent) => {
+      const text = e.clipboardData?.getData("text")?.trim();
+      if(text && text.length > 4) {
+        processScan(text);
       }
     };
 
     window.addEventListener("keydown", handleKey);
-    return()=>{ window.removeEventListener("keydown", handleKey); };
+    window.addEventListener("paste", handlePaste);
+    return()=>{
+      window.removeEventListener("keydown", handleKey);
+      window.removeEventListener("paste", handlePaste);
+    };
   },[processScan]);
 
   const isSuccess = result?.success;
@@ -185,9 +201,11 @@ export default function ScanStationPage() {
 
       <div style={{flex:1,display:"flex",gap:0,overflow:"hidden"}}>
 
-        {/* LEFT — Scanner area */}
+        {/* ── Scanner area ── */}
         <div style={{flex:1,display:"flex",flexDirection:"column",
-          alignItems:"center",justifyContent:"center",padding:32}}>
+          alignItems:"center",justifyContent:"center",padding:32}}
+          onClick={()=>{ window.focus(); document.body.focus(); }}
+          tabIndex={0}>
 
           {/* Main scan visual */}
           <div style={{
@@ -254,13 +272,14 @@ export default function ScanStationPage() {
               </div>
             )}
 
-            {/* Buffer display */}
+            {/* Buffer display — shows what scanner is sending */}
             {buffer&&(
-              <div style={{position:"absolute",bottom:12,
-                background:"rgba(0,0,0,0.6)",borderRadius:8,
-                padding:"4px 12px",fontSize:12,
-                color:"rgba(200,146,42,0.7)",fontFamily:"'DM Mono',monospace"}}>
-                {buffer}
+              <div style={{position:"absolute",bottom:12,left:12,right:12,
+                background:"rgba(0,0,0,0.8)",borderRadius:8,
+                padding:"8px 12px",fontSize:11,
+                color:"rgba(200,146,42,0.9)",fontFamily:"'DM Mono',monospace",
+                textAlign:"center",wordBreak:"break-all"}}>
+                📡 Receiving: {buffer}
               </div>
             )}
           </div>
@@ -269,9 +288,13 @@ export default function ScanStationPage() {
           <div style={{textAlign:"center",maxWidth:320}}>
             <p style={{fontSize:13,color:"#5C5040",lineHeight:1.7,
               fontFamily:"'DM Sans',sans-serif"}}>
-              Point scanner at KOT barcode.<br/>
-              Order will automatically be marked <strong style={{color:"#4ADE80"}}>ready</strong><br/>
-              and waiter will be notified.
+              Point scanner at KOT QR code.<br/>
+              <strong style={{color:"#C8922A"}}>Click this area first</strong> to focus,<br/>
+              then scan the QR code.
+            </p>
+            <p style={{fontSize:11,color:"#3A3028",marginTop:8,
+              fontFamily:"'DM Mono',monospace"}}>
+              📡 Scanner output will appear above
             </p>
           </div>
 
