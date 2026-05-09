@@ -125,11 +125,19 @@ export default function KOTPrintPage({ params }: { params: Promise<{ orderId: st
   const [error,   setError  ] = useState("");
 
   useEffect(()=>{
-    // Next.js 15 — params is a Promise
-    Promise.resolve(params).then(p => {
-      if(p.orderId) setOrderId(p.orderId);
-      else { setError("Invalid order ID"); setLoading(false); }
-    });
+    // Read orderId from URL directly — most reliable across Next.js versions
+    const path = window.location.pathname; // e.g. /kot/69fed8501f1ecc8ba52873fa
+    const parts = path.split("/");
+    const id = parts[parts.length - 1];
+    if(id && id.length > 10) {
+      setOrderId(id);
+    } else {
+      // Fallback: try params
+      Promise.resolve(params).then(p => {
+        if(p?.orderId) setOrderId(p.orderId);
+        else { setError("Invalid order ID"); setLoading(false); }
+      });
+    }
   },[params]);
 
   useEffect(()=>{
