@@ -10,7 +10,6 @@
 // ═══════════════════════════════════════════════════
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
 
@@ -119,21 +118,24 @@ interface Order {
   createdBy: string;
 }
 
-export default function KOTPrintPage() {
-  const params   = useParams();
-  const orderId  = params.orderId as string;
+export default function KOTPrintPage({ params }: { params: { orderId: string } }) {
+  const orderId  = params.orderId;
   const [order,   setOrder  ] = useState<Order|null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError  ] = useState("");
 
   useEffect(()=>{
-    fetch(`${API}/orders/${orderId}`)
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+    const url = `${apiUrl}/orders/${orderId}`;
+    console.log("KOT fetching:", url);
+    fetch(url)
       .then(r=>r.json())
       .then(d=>{
+        console.log("KOT response:", d);
         if(d.success) setOrder(d.data);
-        else setError("Order not found");
+        else setError(`Order not found (${d.message||""})`);
       })
-      .catch(()=>setError("Failed to load order"))
+      .catch(e=>{ console.error("KOT error:", e); setError("Failed to load order"); })
       .finally(()=>setLoading(false));
   },[orderId]);
 
