@@ -47,7 +47,20 @@ export default function ScanStationPage() {
   const [result,   setResult  ] = useState<ScanResult|null>(null);
   const [log,      setLog     ] = useState<LogEntry[]>([]);
   const [ready,    setReady   ] = useState(false);
-  const bufferRef = useRef("");
+  const inputRef  = useRef<HTMLInputElement>(null);
+
+  // Keep hidden input always focused
+  useEffect(()=>{
+    const keepFocus = () => {
+      if(inputRef.current && document.activeElement !== inputRef.current) {
+        inputRef.current.focus();
+      }
+    };
+    keepFocus();
+    const iv = setInterval(keepFocus, 500);
+    window.addEventListener("click", keepFocus);
+    return()=>{ clearInterval(iv); window.removeEventListener("click", keepFocus); };
+  },[]);
   const timerRef  = useRef<NodeJS.Timeout|null>(null);
   const lastScan  = useRef<string>("");
   const lastTime  = useRef<number>(0);
@@ -165,8 +178,49 @@ export default function ScanStationPage() {
   return(
     <div style={{minHeight:"100dvh",background:"#030201",
       display:"flex",flexDirection:"column",
-      fontFamily:"'DM Sans',sans-serif",color:"#F0E8D8"}}>
+      fontFamily:"'DM Sans',sans-serif",color:"#F0E8D8"}}
+      onClick={()=>inputRef.current?.focus()}>
       <style>{CSS}</style>
+
+      {/* ── HIDDEN INPUT — Always focused, captures scanner ── */}
+      <input
+        ref={inputRef}
+        value={buffer}
+        onChange={e=>{
+          const val = e.target.value;
+          setBuffer(val);
+          bufferRef.current = val;
+          // Clear debounce timer
+          if(timerRef.current) clearTimeout(timerRef.current);
+          timerRef.current = setTimeout(()=>{
+            const scan = bufferRef.current.trim();
+            if(scan.length > 8) processScan(scan);
+            bufferRef.current = "";
+            setBuffer("");
+            if(inputRef.current) inputRef.current.value = "";
+          }, 200);
+        }}
+        onKeyDown={e=>{
+          if(e.key === "Enter") {
+            const val = bufferRef.current.trim();
+            bufferRef.current = "";
+            setBuffer("");
+            if(inputRef.current) inputRef.current.value = "";
+            if(val.length > 4) processScan(val);
+          }
+        }}
+        style={{
+          position:"fixed", top:0, left:0,
+          width:1, height:1, opacity:0,
+          border:"none", outline:"none",
+          background:"transparent", color:"transparent",
+          fontSize:1, zIndex:999,
+        }}
+        autoFocus
+        autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+      />
 
       {/* Header */}
       <div style={{padding:"16px 24px",borderBottom:"1px solid rgba(255,255,255,0.06)",
