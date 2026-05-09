@@ -48,6 +48,7 @@ export default function ScanStationPage() {
   const [log,      setLog     ] = useState<LogEntry[]>([]);
   const [ready,    setReady   ] = useState(false);
   const inputRef  = useRef<HTMLInputElement>(null);
+  const bufferRef = useRef("");
 
   // Keep hidden input always focused
   useEffect(()=>{
