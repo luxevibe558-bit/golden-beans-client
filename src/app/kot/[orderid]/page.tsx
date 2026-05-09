@@ -118,8 +118,13 @@ interface Order {
   createdBy: string;
 }
 
-export default function KOTPrintPage({ params }: { params: { orderId: string } }) {
-  const orderId  = params.orderId;
+export default function KOTPrintPage({ params }: { params: Promise<{ orderId: string }> }) {
+  const [orderId, setOrderId] = useState<string>("");
+
+  useEffect(()=>{
+    // Next.js 15 — params is a Promise
+    Promise.resolve(params).then(p => setOrderId(p.orderId));
+  },[params]);
   const [order,   setOrder  ] = useState<Order|null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError  ] = useState("");
