@@ -923,9 +923,8 @@ export default function POSPage() {
                   {(cart.length>0||currentOrder)&&(
                     <button onClick={()=>{setCart([]);}}
                       style={{fontSize:11,color:"#EF4444",fontFamily:"Inter,sans-serif",
-                        background:"none",border:"none",cursor:"pointer",
-                        fontWeight:600,padding:"4px 8px",borderRadius:6,
-                        background:"rgba(239,68,68,0.08)"}}>
+                        background:"rgba(239,68,68,0.08)",border:"none",cursor:"pointer",
+                        fontWeight:600,padding:"4px 8px",borderRadius:6}}>
                       🗑 Clear
                     </button>
                   )}
