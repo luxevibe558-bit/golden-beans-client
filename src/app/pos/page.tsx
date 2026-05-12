@@ -308,14 +308,14 @@ function ItemCard({item,qty,onAdd,onRemove}:{
             transition:`opacity 0.2s ${EA}`}}/>
 
         {/* Badges */}
-        {item.badge&&(
+        {(item as any).badge&&(
           <div style={{position:"absolute",top:8,left:8,
             padding:"3px 8px",borderRadius:99,fontSize:9,fontWeight:700,
-            background:item.badge==="Popular"?"rgba(212,164,79,0.9)":
-                       item.badge==="New"?"rgba(59,130,246,0.9)":"rgba(34,197,94,0.9)",
+            background:(item as any).badge==="Popular"?"rgba(212,164,79,0.9)":
+                       (item as any).badge==="New"?"rgba(59,130,246,0.9)":"rgba(34,197,94,0.9)",
             color:"#050505",letterSpacing:".05em",
             fontFamily:"Inter,sans-serif"}}>
-            {item.badge}
+            {(item as any).badge}
           </div>
         )}
 
