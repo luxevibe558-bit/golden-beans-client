@@ -576,7 +576,7 @@ export default function POSPage() {
   const handleCancelOrder=async()=>{
     if(!cancelModal) return;
     try{
-      await orderApi.cancelOrder(cancelModal._id,{reason:cancelReason||"Cancelled by staff",cancelledBy:"cashier"});
+      await orderApi.cancelOrder(cancelModal._id,cancelReason||"Cancelled by staff");
       setCancelModal(null); setCancelReason("");
       setCurrentOrder(null); setSelectedTable(null); setCart([]);
       setView("tables"); loadTables();
