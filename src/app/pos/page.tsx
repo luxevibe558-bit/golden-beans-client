@@ -1023,9 +1023,8 @@ export default function POSPage() {
                             placeholder="+ Add order note..."
                             style={{width:"100%",padding:"8px 11px",borderRadius:9,
                               border:`1px solid ${C.glBd}`,background:C.gl1,
-                              color:C.ink,fontSize:12,outline:"none",
-                              fontFamily:"Inter,sans-serif",
-                              color:C.inkS}}/>
+                              color:C.inkS,fontSize:12,outline:"none",
+                              fontFamily:"Inter,sans-serif"}}/>
                         </div>
                       </>
                     )}
