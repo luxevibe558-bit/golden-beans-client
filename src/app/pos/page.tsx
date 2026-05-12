@@ -109,40 +109,56 @@ function TodayStats() {
   );
 
   return(
-    <div style={{background:C.bg2,borderRadius:14,padding:"14px 16px",
-      border:`1px solid ${C.glBd}`,marginBottom:16}}>
-      <p style={{fontSize:10,color:C.inkD,fontFamily:"'DM Mono',monospace",
-        letterSpacing:".12em",textTransform:"uppercase",margin:"0 0 6px"}}>
-        Today's Overview
-      </p>
-      <div style={{display:"flex",gap:20}}>
-        <div>
-          <p style={{fontFamily:"'Playfair Display',serif",fontSize:22,
-            fontWeight:700,color:C.gold,margin:0,lineHeight:1}}>
-            ₹{stats.revenue>=1000?`${(stats.revenue/1000).toFixed(1)}K`:stats.revenue}
-          </p>
-          <p style={{fontSize:10,color:C.inkD,margin:"2px 0 0",
-            fontFamily:"Inter,sans-serif"}}>Total Sales</p>
-        </div>
-        <div style={{width:1,background:C.glBd}}/>
-        <div>
-          <p style={{fontFamily:"'DM Mono',monospace",fontSize:22,
-            fontWeight:500,color:C.ink,margin:0,lineHeight:1}}>
-            {stats.count}
-          </p>
-          <p style={{fontSize:10,color:C.inkD,margin:"2px 0 0",
-            fontFamily:"Inter,sans-serif"}}>Orders</p>
-        </div>
-        <div style={{width:1,background:C.glBd}}/>
-        <div>
-          <p style={{fontFamily:"'DM Mono',monospace",fontSize:22,
-            fontWeight:500,color:C.ink,margin:0,lineHeight:1}}>
-            ₹{stats.count>0?Math.round(stats.revenue/stats.count):0}
-          </p>
-          <p style={{fontSize:10,color:C.inkD,margin:"2px 0 0",
-            fontFamily:"Inter,sans-serif"}}>Avg Order</p>
-        </div>
+    <div style={{background:C.bg2,borderRadius:14,padding:"14px 18px",
+      border:`1px solid ${C.glBd}`,marginBottom:16,
+      display:"inline-flex",gap:24,alignItems:"center"}}>
+      <div>
+        <p style={{fontSize:10,color:C.inkD,fontFamily:"'DM Mono',monospace",
+          letterSpacing:".12em",textTransform:"uppercase",margin:"0 0 4px"}}>
+          Total Sales
+        </p>
+        <p style={{fontFamily:"'Playfair Display',serif",fontSize:24,
+          fontWeight:700,color:C.gold,margin:0,lineHeight:1}}>
+          ₹{stats.revenue>=1000?`${(stats.revenue/1000).toFixed(1)}K`:stats.revenue}
+        </p>
       </div>
+      <div style={{width:1,height:36,background:C.glBd}}/>
+      <div>
+        <p style={{fontSize:10,color:C.inkD,fontFamily:"'DM Mono',monospace",
+          letterSpacing:".12em",textTransform:"uppercase",margin:"0 0 4px"}}>
+          Orders
+        </p>
+        <p style={{fontFamily:"'DM Mono',monospace",fontSize:24,
+          fontWeight:500,color:C.ink,margin:0,lineHeight:1}}>
+          {stats.count}
+        </p>
+      </div>
+      <div style={{width:1,height:36,background:C.glBd}}/>
+      <div>
+        <p style={{fontSize:10,color:C.inkD,fontFamily:"'DM Mono',monospace",
+          letterSpacing:".12em",textTransform:"uppercase",margin:"0 0 4px"}}>
+          Avg Order
+        </p>
+        <p style={{fontFamily:"'DM Mono',monospace",fontSize:24,
+          fontWeight:500,color:C.ink,margin:0,lineHeight:1}}>
+          ₹{stats.count>0?Math.round(stats.revenue/stats.count):0}
+        </p>
+      </div>
+      {stats.topItems.length>0&&(
+        <>
+          <div style={{width:1,height:36,background:C.glBd}}/>
+          <div>
+            <p style={{fontSize:10,color:C.inkD,fontFamily:"'DM Mono',monospace",
+              letterSpacing:".12em",textTransform:"uppercase",margin:"0 0 4px"}}>
+              Top Item
+            </p>
+            <p style={{fontSize:13,fontWeight:600,color:C.inkS,margin:0,
+              fontFamily:"Inter,sans-serif"}}>
+              {stats.topItems[0].name}
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -171,7 +187,7 @@ function TableGrid({tables,tableOrders,tableRequests,onSelect,pendingCount}:{
   };
 
   return(
-    <div style={{flex:1,overflowY:"auto",padding:"0 22px 24px"}} className="hs">
+    <div style={{flex:1,overflowY:"auto",padding:"20px 24px"}} className="hs">
       {/* Stats */}
       <TodayStats/>
 
@@ -187,19 +203,28 @@ function TableGrid({tables,tableOrders,tableRequests,onSelect,pendingCount}:{
               fontFamily:"Inter,sans-serif",margin:0}}>
               {pendingCount} order{pendingCount>1?"s":""} waiting approval
             </p>
-            <p style={{fontSize:11,color:C.inkD,margin:0,fontFamily:"Inter,sans-serif"}}>
-              Review and approve customer orders
-            </p>
           </div>
           <div style={{width:8,height:8,borderRadius:"50%",
             background:"#F59E0B",animation:"pulse 1s infinite"}}/>
         </div>
       )}
 
+      {/* Section label */}
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <p style={{fontSize:11,color:C.inkD,fontFamily:"'DM Mono',monospace",
+          letterSpacing:".14em",textTransform:"uppercase",margin:0}}>
+          Table Management
+        </p>
+        <div style={{flex:1,height:1,background:C.glBd}}/>
+        <p style={{fontSize:11,color:C.inkD,fontFamily:"Inter,sans-serif",margin:0}}>
+          {tables.length} tables · {Object.keys(tableOrders).length} occupied
+        </p>
+      </div>
+
       {/* Table grid */}
       <div style={{display:"grid",
-        gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",
-        gap:12}}>
+        gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",
+        gap:14}}>
         {tables.map((t,i)=>{
           const status=getStatus(t);
           const sc=STATUS_CONFIG[status];
@@ -210,45 +235,60 @@ function TableGrid({tables,tableOrders,tableRequests,onSelect,pendingCount}:{
           return(
             <div key={t._id} className="tbl-card"
               onClick={()=>onSelect(t)}
-              style={{background:sc.bg,borderRadius:16,padding:"16px 14px",
-                border:`1px solid ${status==="available"?C.glBd:`${sc.dot}35`}`,
+              style={{background:status==="available"?C.bg2:sc.bg,
+                borderRadius:18,padding:"18px 16px",
+                border:`2px solid ${status==="available"?C.glBd:`${sc.dot}50`}`,
                 cursor:"pointer",transition:`all 0.2s ${EA}`,
-                position:"relative",overflow:"hidden",
+                position:"relative",overflow:"hidden",minHeight:130,
+                boxShadow:status!=="available"?`0 8px 24px ${sc.dot}18`:undefined,
                 animation:`fadeUp 0.4s ${i*0.03}s ease both`}}>
+
               {/* Status dot */}
-              <div style={{position:"absolute",top:10,right:10,
-                width:8,height:8,borderRadius:"50%",
+              <div style={{position:"absolute",top:12,right:12,
+                width:9,height:9,borderRadius:"50%",
                 background:sc.dot,
-                boxShadow:status!=="available"?`0 0 8px ${sc.dot}`:undefined,
+                boxShadow:status!=="available"?`0 0 10px ${sc.dot}`:undefined,
                 animation:["cooking","ready"].includes(status)?"pulse 1.5s infinite":"none"}}/>
 
               {/* Help request badge */}
               {reqs.length>0&&(
-                <div style={{position:"absolute",top:6,left:6,
-                  width:18,height:18,borderRadius:"50%",
+                <div style={{position:"absolute",top:8,left:8,
+                  width:20,height:20,borderRadius:"50%",
                   background:"#EF4444",display:"flex",
                   alignItems:"center",justifyContent:"center",
-                  fontSize:9,color:"white",fontWeight:700,
-                  animation:"pulse 1s infinite"}}>
+                  fontSize:10,color:"white",fontWeight:800,
+                  animation:"pulse 1s infinite",
+                  boxShadow:"0 0 10px rgba(239,68,68,0.5)"}}>
                   {reqs.length}
                 </div>
               )}
 
-              <p style={{fontFamily:"'Playfair Display',serif",fontSize:28,
-                fontWeight:700,color:status==="available"?C.inkG:sc.color,
-                margin:"0 0 2px",lineHeight:1}}>
+              {/* Table number */}
+              <p style={{fontFamily:"'Playfair Display',serif",fontSize:36,
+                fontWeight:700,
+                color:status==="available"?"rgba(255,255,255,0.15)":sc.color,
+                margin:"0 0 4px",lineHeight:1,letterSpacing:"-1px"}}>
                 {t.tableNumber}
               </p>
-              <p style={{fontSize:10,color:sc.color,fontWeight:600,
-                margin:"0 0 8px",fontFamily:"Inter,sans-serif",
-                letterSpacing:".05em"}}>
-                {sc.label}
-              </p>
 
+              {/* Status label */}
+              <div style={{display:"inline-flex",alignItems:"center",gap:5,
+                padding:"3px 9px",borderRadius:99,marginBottom:8,
+                background:status==="available"?"rgba(255,255,255,0.05)":`${sc.dot}18`,
+                border:`1px solid ${status==="available"?C.glBd:`${sc.dot}35`}`}}>
+                <span style={{fontSize:9,fontWeight:700,
+                  color:status==="available"?C.inkD:sc.color,
+                  fontFamily:"Inter,sans-serif",letterSpacing:".06em",
+                  textTransform:"uppercase"}}>
+                  {sc.label}
+                </span>
+              </div>
+
+              {/* Order info */}
               {order&&(
-                <div>
-                  <p style={{fontSize:11,color:C.inkS,fontFamily:"'DM Mono',monospace",
-                    margin:"0 0 2px"}}>
+                <div style={{borderTop:`1px solid ${C.glBd}`,paddingTop:8}}>
+                  <p style={{fontSize:11,color:sc.color,fontFamily:"'DM Mono',monospace",
+                    margin:"0 0 1px",fontWeight:500}}>
                     #{order.orderNumber}
                   </p>
                   <p style={{fontSize:11,color:C.inkD,fontFamily:"Inter,sans-serif",margin:0}}>
@@ -257,10 +297,10 @@ function TableGrid({tables,tableOrders,tableRequests,onSelect,pendingCount}:{
                 </div>
               )}
 
-              {/* Bottom glow for active tables */}
+              {/* Bottom accent line */}
               {status!=="available"&&(
                 <div style={{position:"absolute",bottom:0,left:0,right:0,
-                  height:2,background:`linear-gradient(90deg,transparent,${sc.dot},transparent)`}}/>
+                  height:3,background:`linear-gradient(90deg,transparent,${sc.dot},transparent)`}}/>
               )}
             </div>
           );
@@ -610,8 +650,8 @@ export default function POSPage() {
       {/* ── SIDEBAR ── */}
       <POSSidebar/>
 
-      {/* ── MAIN CONTENT ── */}
-      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      {/* ── MAIN CONTENT — offset by sidebar width ── */}
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",marginLeft:64}}>
 
         {/* ── TOP HEADER ── */}
         <div style={{height:60,flexShrink:0,
@@ -801,21 +841,20 @@ export default function POSPage() {
         {/* ── VIEWS ── */}
         {view==="tables"?(
           /* TABLE VIEW */
-          <div style={{flex:1,overflowY:"auto",padding:"20px 22px 0"}} className="hs">
-            {loading?(
-              <div style={{display:"grid",
-                gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:12}}>
-                {Array.from({length:12}).map((_,i)=>(
-                  <div key={i} className="skeleton" style={{height:120,borderRadius:16}}/>
-                ))}
-              </div>
-            ):(
-              <TableGrid tables={tables} tableOrders={tableOrders}
-                tableRequests={tableRequests}
-                onSelect={handleSelectTable}
-                pendingCount={pendingOrders.length}/>
-            )}
-          </div>
+          loading?(
+            <div style={{flex:1,padding:"20px 24px",
+              display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",
+              gap:14,alignContent:"start"}}>
+              {Array.from({length:12}).map((_,i)=>(
+                <div key={i} className="skeleton" style={{height:130,borderRadius:18}}/>
+              ))}
+            </div>
+          ):(
+            <TableGrid tables={tables} tableOrders={tableOrders}
+              tableRequests={tableRequests}
+              onSelect={handleSelectTable}
+              pendingCount={pendingOrders.length}/>
+          )
         ):(
           /* ORDER VIEW — 2 column layout */
           <div style={{flex:1,display:"flex",overflow:"hidden"}}>
