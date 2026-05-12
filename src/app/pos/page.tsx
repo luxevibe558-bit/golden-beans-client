@@ -576,7 +576,12 @@ export default function POSPage() {
   const handleCancelOrder=async()=>{
     if(!cancelModal) return;
     try{
-      await orderApi.cancelOrder(cancelModal._id,cancelReason||"Cancelled by staff");
+      const API=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+      await fetch(`${API}/orders/${cancelModal._id}/cancel`,{
+        method:"PATCH",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({reason:cancelReason||"Cancelled by staff",cancelledBy:"cashier"}),
+      });
       setCancelModal(null); setCancelReason("");
       setCurrentOrder(null); setSelectedTable(null); setCart([]);
       setView("tables"); loadTables();
