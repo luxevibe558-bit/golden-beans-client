@@ -521,6 +521,7 @@ export default function CRMPage() {
           </div>
         )}
       </div>
+      </div>
     </div>
   );
 }

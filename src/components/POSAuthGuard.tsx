@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { getAdminSession, needsTOTPReVerify, saveAdminSession, hasPermission, clearAdminSession } from "@/lib/adminAuth";
-import { NAV_ITEMS } from "@/lib/navItems";
+import { getAdminSession, needsTOTPReVerify, saveAdminSession } from "@/lib/adminAuth";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
 
@@ -14,6 +13,7 @@ const T = {
   border: "#E5DCC9", danger: "#C0392B", textMuted: "#7A6B54",
 };
 
+// Pages that don't need auth
 const PUBLIC_PATHS = ["/pos/login"];
 
 function TOTPReVerify({ onVerified, onLogout }: { onVerified: () => void; onLogout: () => void }) {
@@ -63,28 +63,10 @@ function TOTPReVerify({ onVerified, onLogout }: { onVerified: () => void; onLogo
   );
 }
 
-// Unauthorized page
-function UnauthorizedPage() {
-  const router = useRouter();
-  return (
-    <div style={{ minHeight: "100vh", background: "#FAF6F0", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Nunito', sans-serif" }}>
-      <div style={{ textAlign: "center", padding: "40px" }}>
-        <p style={{ fontSize: "64px", margin: "0 0 16px" }}>🚫</p>
-        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "24px", fontWeight: 800, color: "#0F3D2E", margin: "0 0 8px" }}>Access Denied</h2>
-        <p style={{ fontSize: "14px", color: "#7A6B54", margin: "0 0 24px", fontWeight: 600 }}>You don't have permission to view this page.</p>
-        <button onClick={() => router.replace("/pos")}
-          style={{ padding: "12px 28px", borderRadius: "12px", border: "none", background: "linear-gradient(135deg, #0F3D2E, #1A5340)", color: "#D4A574", fontWeight: 800, fontSize: "14px", cursor: "pointer" }}>
-          ← Go Back to POS
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export default function POSAuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [status, setStatus] = useState<"loading" | "ok" | "reVerify" | "redirect" | "unauthorized">("loading");
+  const [status, setStatus] = useState<"loading" | "ok" | "reVerify" | "redirect">("loading");
 
   useEffect(() => {
     // Public paths — no auth needed
@@ -101,6 +83,7 @@ export default function POSAuthGuard({ children }: { children: React.ReactNode }
       setStatus("redirect");
       return;
     }
+    
 
     // TOTP re-verify needed (only for admin role)
     if (session.role === "admin" && needsTOTPReVerify(session)) {
@@ -108,38 +91,20 @@ export default function POSAuthGuard({ children }: { children: React.ReactNode }
       return;
     }
 
-    // ── Page-level permission check ──
-    const pageItem = NAV_ITEMS.find(item =>
-      item.exact ? pathname === item.href : pathname.startsWith(item.href)
-    );
-
-    if (pageItem) {
-      // Admin-only page
-      if (pageItem.adminOnly && session.role !== "admin") {
-        setStatus("unauthorized");
-        return;
-      }
-      // Permission check
-      if (pageItem.permission && pageItem.permissionAction) {
-        if (!hasPermission(session, pageItem.permission, pageItem.permissionAction)) {
-          setStatus("unauthorized");
-          return;
-        }
-      }
-    }
-
     setStatus("ok");
   }, [pathname, router]);
 
   const handleLogout = () => {
-    clearAdminSession();
+    localStorage.removeItem("gb_admin_session");
+    localStorage.removeItem("gb_admin_token");
+    localStorage.removeItem("gb_admin_user");
     router.replace("/pos/login");
   };
 
   if (status === "loading") {
     return (
       <div style={{ minHeight: "100vh", background: T.emerald, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: "40px", height: "40px", borderRadius: "50%", border: "3px solid rgba(212,165,116,0.3)", borderTopColor: T.gold, animation: "spin 0.8s linear infinite" }} />
+        <div style={{ width: "40px", height: "40px", borderRadius: "50%", border: `3px solid rgba(212,165,116,0.3)`, borderTopColor: T.gold, animation: "spin 0.8s linear infinite" }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
@@ -147,10 +112,6 @@ export default function POSAuthGuard({ children }: { children: React.ReactNode }
 
   if (status === "reVerify") {
     return <TOTPReVerify onVerified={() => setStatus("ok")} onLogout={handleLogout} />;
-  }
-
-  if (status === "unauthorized") {
-    return <UnauthorizedPage />;
   }
 
   if (status === "redirect") return null;
