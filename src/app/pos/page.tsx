@@ -571,7 +571,21 @@ export default function POSPage() {
       } catch { } finally { setLoading(false); }
     }
     init(); loadPendingApprovals(); loadLowStock();
-    const iv = setInterval(() => { loadTables(); loadPendingApprovals(); loadLowStock(); }, 5000);
+
+    // ── Socket.IO — instant updates ──
+    try {
+      const { getSocket, joinPOS } = require("@/lib/socket");
+      const sock = getSocket();
+      joinPOS();
+      sock.on("order:new",      () => { loadTables(); loadPendingApprovals(); });
+      sock.on("order:update",   () => { loadTables(); });
+      sock.on("order:ready",    () => { loadTables(); loadPendingApprovals(); });
+      sock.on("waiter:request", () => { loadTables(); });
+      sock.on("table:update",   () => { loadTables(); });
+    } catch {}
+
+    // Fallback polling every 15s
+    const iv = setInterval(() => { loadTables(); loadPendingApprovals(); loadLowStock(); }, 15000);
     return () => clearInterval(iv);
   }, [loadTables, loadPendingApprovals, loadLowStock]);
 
