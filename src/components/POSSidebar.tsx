@@ -19,6 +19,7 @@ export default function POSSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [session, setSession] = useState<AdminSession | null>(null);
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("embed") === "true") return null;
 
   useEffect(() => {
     const s = getAdminSession();

@@ -786,37 +786,37 @@ export default function AdminDashboard() {
 
           {activeTab === "waiters" && <WaitersTab token={token} />}
           {activeTab === "orders" && (
-  <iframe src="/pos/orders" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+  <iframe src="/pos/orders?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
 )}
 {activeTab === "menu" && (
-  <iframe src="/pos/menu" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+  <iframe src="/pos/menu?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
 )}
 {activeTab === "inventory" && (
-  <iframe src="/pos/inventory" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+  <iframe src="/pos/inventory?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
 )}
 {activeTab === "analytics" && (
-  <iframe src="/pos/analytics" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+  <iframe src="/pos/analytics?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
 )}
 {activeTab === "promotions" && (
-  <iframe src="/pos/promotions" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+  <iframe src="/pos/promotions?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
 )}
 {activeTab === "crm" && (
-  <iframe src="/pos/crm" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+  <iframe src="/pos/crm?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
 )}
 {activeTab === "feedback" && (
-  <iframe src="/pos/feedback" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+  <iframe src="/pos/feedback?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
 )}
 {activeTab === "dues" && (
-  <iframe src="/pos/dues" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+  <iframe src="/pos/dues?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
 )}
 {activeTab === "cancellations" && (
-  <iframe src="/pos/cancellation-logs" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+  <iframe src="/pos/cancellation-logs?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
 )}
 {activeTab === "waiter_perf" && (
-  <iframe src="/pos/waiter-performance" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+  <iframe src="/pos/waiter-performance?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
 )}
 {activeTab === "settings" && (
-  <iframe src="/pos/settings" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+  <iframe src="/pos/settings?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
 )}
         </main>
       </div>
