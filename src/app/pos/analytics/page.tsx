@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import POSSidebar from "@/components/POSSidebar";
 
 // ═══════════════════════════════════════════════════
 // GOLDEN BEANS — PREMIUM ANALYTICS DASHBOARD
@@ -210,9 +211,10 @@ export default function AnalyticsPage() {
   ];
 
   return(
-    <div style={{display:"flex",flexDirection:"column",height:"100%",
-      background:T.bg0,color:T.ink,fontFamily:"'DM Sans',sans-serif",
-      overflow:"hidden"}}>
+    <div style={{display:"flex",minHeight:"100vh",background:T.bg0}}>
+      <POSSidebar/>
+      <div style={{flex:1,marginLeft:"64px",display:"flex",flexDirection:"column",
+        height:"100vh",overflow:"hidden",color:T.ink,fontFamily:"'DM Sans',sans-serif"}}>
       <style>{CSS}</style>
 
       {/* ── HEADER ── */}
@@ -499,6 +501,7 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
+      </div>
       </div>
     </div>
   );
