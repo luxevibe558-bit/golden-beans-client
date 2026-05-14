@@ -390,7 +390,17 @@ export default function KDSPage() {
 
   useEffect(() => {
     load();
-    const iv = setInterval(load, 5000);
+    // ── Socket.IO for instant updates ──
+    try {
+      const {getSocket,joinKDS}=require("@/lib/socket");
+      const sock=getSocket();
+      joinKDS();
+      sock.on("order:new",    ()=>load());
+      sock.on("order:update", ()=>load());
+      sock.on("kds:update",   ()=>load());
+    } catch {}
+    // Fallback polling every 8s
+    const iv = setInterval(load, 8000);
     return () => clearInterval(iv);
   }, [load]);
 

@@ -3248,78 +3248,96 @@ export default function CustomerOrderPage() {
     load();
   },[tableId,secStatus]);
 
-  // Poll orders
+  // ── Real-time: Socket.IO + fallback polling ──
   useEffect(()=>{
     if(secStatus!=="passed")return;
     let alive=true;
+
+    const processOrderUpdate=async(o:Order)=>{
+      if(!alive)return;
+      if(o.status==="settled"){
+        const session=getSessionCustomer();
+        const API_URL=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+        if(session?._id){
+          earnPoints(session._id,existingOrder!._id,existingOrder!.totalAmount)
+            .then(result=>{
+              if(result&&session.phone){
+                fetch(`${API_URL}/whatsapp/loyalty-earned`,{method:"POST",headers:{"Content-Type":"application/json"},
+                  body:JSON.stringify({phone:session.phone,customerName:session.name,points:result.pointsEarned,balance:result.newBalance})}).catch(()=>{});
+              }
+            }).catch(()=>{});
+        }
+        clearSessionCustomer();
+        localStorage.removeItem("gb_active_order");
+        setPlacedOrder(existingOrder); setScreen("ready"); return;
+      }
+      if(o.status==="cancelled"){localStorage.removeItem("gb_active_order");setExistingOrder(null);return;}
+      if(o.status==="ready"&&prevStatus.current!=="ready"&&prevStatus.current!==null){
+        const session=getSessionCustomer();
+        if(session?.phone){
+          const API_URL=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+          fetch(`${API_URL}/whatsapp/order-ready`,{method:"POST",headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({phone:session.phone,customerName:session.name,tableNumber:o.tableNumber||tableId,orderNumber:o.orderNumber||o._id.slice(-6).toUpperCase()})}).catch(()=>{});
+        }
+      }
+      prevStatus.current=o.status;
+      setExistingOrder(o);
+    };
+
+    // ── Try Socket.IO first ──
+    let socketCleanup:()=>void=()=>{};
+    try{
+      const {getSocket,joinTable}=require("@/lib/socket");
+      const sock=getSocket();
+      joinTable(tableId);
+
+      const onOrderUpdate=(o:Order)=>{ if(o.table===tableId||o._id===existingOrder?._id) processOrderUpdate(o); };
+      const onOrderReady =(o:Order)=>{ if(o.table===tableId||o._id===existingOrder?._id) processOrderUpdate(o); };
+      const onOrderNew   =(o:Order)=>{ if(o.table===tableId){ prevStatus.current=o.status; setExistingOrder(o); } };
+
+      sock.on("order:update", onOrderUpdate);
+      sock.on("order:ready",  onOrderReady);
+      sock.on("order:new",    onOrderNew);
+
+      socketCleanup=()=>{
+        sock.off("order:update", onOrderUpdate);
+        sock.off("order:ready",  onOrderReady);
+        sock.off("order:new",    onOrderNew);
+      };
+    }catch{}
+
+    // ── Fallback polling (slower — 10s backup) ──
     const check=async()=>{
       if(!alive)return;
       try{
         if(existingOrder){
           const r=await orderApi.getOrder(existingOrder._id);
           const o:Order|null=r.data?.data;
-          if(o){
-            if(o.status==="settled"){
-              const session = getSessionCustomer();
-              const API_URL=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
-
-              if(session?._id) {
-                // Earn loyalty points
-                earnPoints(session._id, existingOrder._id, existingOrder.totalAmount)
-                  .then(result=>{
-                    // WhatsApp: loyalty points earned
-                    if(result && session.phone){
-                      fetch(`${API_URL}/whatsapp/loyalty-earned`,{
-                        method:"POST",headers:{"Content-Type":"application/json"},
-                        body:JSON.stringify({
-                          phone:session.phone,
-                          customerName:session.name,
-                          points:result.pointsEarned,
-                          balance:result.newBalance,
-                        }),
-                      }).catch(()=>{});
-                    }
-                  })
-                  .catch(()=>{});
-              }
-              clearSessionCustomer();
-              localStorage.removeItem("gb_active_order");
-              setPlacedOrder(existingOrder); setScreen("ready"); return;
-            }
-            if(o.status==="cancelled"){localStorage.removeItem("gb_active_order");setExistingOrder(null);return;}
-
-            // ── WhatsApp: Order Ready notification ──
-            if(o.status==="ready" && prevStatus.current!=="ready" && prevStatus.current!==null){
-              const session = getSessionCustomer();
-              if(session?.phone){
-                const API_URL=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
-                fetch(`${API_URL}/whatsapp/order-ready`,{
-                  method:"POST",headers:{"Content-Type":"application/json"},
-                  body:JSON.stringify({
-                    phone:session.phone,
-                    customerName:session.name,
-                    tableNumber:o.tableNumber||tableId,
-                    orderNumber:o.orderNumber||o._id.slice(-6).toUpperCase(),
-                  }),
-                }).catch(()=>{});
-              }
-            }
-            setExistingOrder(o);
-          }
+          if(o) await processOrderUpdate(o);
         }
         const [oR,aR]=await Promise.all([orderApi.getOrderByTable(tableId),orderApi.getKdsOrders()]);
         if(!alive)return;
         if(aR.data.data)setAllOrders(aR.data.data);
         const nO:Order|null=oR.data.data;
         if(!nO)return;
-        prevStatus.current=nO.status;setExistingOrder(nO);
+        prevStatus.current=nO.status; setExistingOrder(nO);
       }catch{}
     };
-    pollTimer.current=setInterval(check,5000);
+
+    // Poll every 10s as backup (socket handles instant updates)
+    pollTimer.current=setInterval(check,10000);
     const onVis=()=>{if(document.visibilityState==="visible")check();};
-    document.addEventListener("visibilitychange",onVis);window.addEventListener("focus",check);
-    check();
-    return()=>{alive=false;if(pollTimer.current)clearInterval(pollTimer.current);document.removeEventListener("visibilitychange",onVis);window.removeEventListener("focus",check);};
+    document.addEventListener("visibilitychange",onVis);
+    window.addEventListener("focus",check);
+    check(); // initial load
+
+    return()=>{
+      alive=false;
+      socketCleanup();
+      if(pollTimer.current)clearInterval(pollTimer.current);
+      document.removeEventListener("visibilitychange",onVis);
+      window.removeEventListener("focus",check);
+    };
   },[secStatus,tableId,existingOrder]);
 
   const queuePos=existingOrder
