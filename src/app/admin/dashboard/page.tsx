@@ -795,7 +795,9 @@ export default function AdminDashboard() {
   <iframe src="/pos/inventory?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
 )}
 {activeTab === "analytics" && (
-  <iframe src="/pos/analytics?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
+  <div style={{ marginLeft: "-24px", marginRight: "-24px", marginTop: "-24px", height: "calc(100vh - 65px)", overflow: "hidden" }}>
+    <iframe src="/pos/analytics?embed=true" style={{ width: "100%", height: "100%", border: "none" }} />
+  </div>
 )}
 {activeTab === "promotions" && (
   <iframe src="/pos/promotions?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
