@@ -124,16 +124,12 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
         setResendTimer(60);
         if(r._dev_otp) setError(`DEV — OTP: ${r._dev_otp}`);
       } else {
-        // Fallback — register without OTP
-        const result = await registerCustomer(name.trim(), p, tableId);
-        if(result){ setProfile(result); setStep("success"); onCustomerIdentified?.(result); setTimeout(()=>setVisible(false),3500); }
-        else { setError("Connection failed. Please try again."); shake_(); }
+        setError("Failed to send OTP. Please try again.");
+        shake_();
       }
     } catch {
-      // Network error fallback
-      const result = await registerCustomer(name.trim(), phone.trim().replace(/\D/g,""), tableId).catch(()=>null);
-      if(result){ setProfile(result); setStep("success"); onCustomerIdentified?.(result); setTimeout(()=>setVisible(false),3500); }
-      else { setError("Connection failed. Please try again."); shake_(); }
+      setError("Connection failed. Please check your internet and try again.");
+      shake_();
     }
     setLoading(false);
   };
