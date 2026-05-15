@@ -3248,6 +3248,17 @@ export default function CustomerOrderPage() {
     load();
   },[tableId,secStatus]);
 
+  // ── Socket join — runs ONCE only ──
+  useEffect(()=>{
+    if(secStatus!=="passed") return;
+    try{
+      const {getSocket,joinTable}=require("@/lib/socket");
+      const sock=getSocket();
+      joinTable(tableId);
+    }catch{}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[secStatus]); // Only when secStatus becomes "passed"
+
   // ── Real-time: Socket.IO + fallback polling ──
   useEffect(()=>{
     if(secStatus!=="passed")return;
@@ -3284,14 +3295,11 @@ export default function CustomerOrderPage() {
       setExistingOrder(o);
     };
 
-    // ── Try Socket.IO first ──
+    // ── Socket.IO event listeners only (no joinTable here) ──
     let socketCleanup:()=>void=()=>{};
     try{
-      const {getSocket,joinTable}=require("@/lib/socket");
+      const {getSocket}=require("@/lib/socket");
       const sock=getSocket();
-      joinTable(tableId);
-
-      // Use latest existingOrder via closure ref to avoid stale data
       const onOrderUpdate=(o:Order)=>{ if(o.table===tableId) processOrderUpdate(o); };
       const onOrderReady =(o:Order)=>{ if(o.table===tableId) processOrderUpdate(o); };
       const onOrderNew   =(o:Order)=>{ if(o.table===tableId){ prevStatus.current=o.status; setExistingOrder(o); } };
