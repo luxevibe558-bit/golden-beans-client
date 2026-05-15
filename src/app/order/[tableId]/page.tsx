@@ -3417,9 +3417,10 @@ export default function CustomerOrderPage() {
             phone:customer.phone,
             customerName:customer.name,
             tableNumber:table?.tableNumber||tableId,
+            orderNumber:nO.orderNumber||nO._id.slice(-6).toUpperCase(),
             total:Math.round(total*1.05),
           }),
-        }).catch(()=>{}); // background — don't block UI
+        }).catch(()=>{});
       }
     }catch(e:unknown){alert(e instanceof Error?e.message:"Failed to place order");}
     finally{setIsPlacing(false);}

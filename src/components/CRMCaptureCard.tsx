@@ -201,6 +201,21 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
           setProfile(result);
           setStep("success");
           onCustomerIdentified?.(result);
+
+          // WhatsApp welcome — new customers only
+          if(result.isNew !== false && result.totalOrders <= 1){
+            fetch(`${API}/whatsapp/welcome`,{
+              method:"POST",
+              headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({
+                phone: cleanPhone,
+                customerName: name.trim(),
+                welcomePoints: result.totalPoints || 50,
+                value: Math.floor((result.totalPoints || 50) / 10),
+              }),
+            }).catch(()=>{});
+          }
+
           setTimeout(()=>setVisible(false), 3500);
         }
       } else {
