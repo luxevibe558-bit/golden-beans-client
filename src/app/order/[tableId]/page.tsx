@@ -3203,7 +3203,13 @@ export default function CustomerOrderPage() {
   const prevStatus = useRef<string|null>(null);
   const pollTimer  = useRef<NodeJS.Timeout|null>(null);
 
-  const onPassed = useCallback(()=>{ setSecStatus("passed"); setScreen("welcome"); },[]);
+  const onPassed = useCallback(()=>{
+    setSecStatus("passed");
+    // Always clear session on fresh scan — OTP required
+    clearSessionCustomer();
+    localStorage.removeItem("gb_active_order");
+    setScreen("welcome");
+  },[]);
   const onFailed = useCallback((r:SecRes)=>{ setSecResult(r); setSecStatus("failed"); },[]);
   const onRetry  = useCallback(()=>setSecStatus("checking"),[]);
 
@@ -3309,7 +3315,9 @@ export default function CustomerOrderPage() {
         if(data.tableId===tableId){
           clearSessionCustomer();
           localStorage.removeItem("gb_active_order");
-          window.location.reload();
+          localStorage.removeItem("gb_crm_verified");
+          // Hard redirect — forces full page reload + security check + welcome screen
+          window.location.href = window.location.pathname;
         }
       };
 
