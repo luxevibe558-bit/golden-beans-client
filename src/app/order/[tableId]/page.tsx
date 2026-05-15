@@ -3309,10 +3309,6 @@ export default function CustomerOrderPage() {
         if(data.tableId===tableId){
           clearSessionCustomer();
           localStorage.removeItem("gb_active_order");
-          setExistingOrder(null);
-          setCart([]);
-          setScreen("home");
-          setVisible(true); // Show CRM popup again
           window.location.reload(); // Force reload → OTP required again
         }
       };
