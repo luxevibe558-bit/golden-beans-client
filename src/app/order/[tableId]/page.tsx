@@ -2488,6 +2488,7 @@ function OrderTrackingScreen({ order, onReady, onBack, queuePos=0 }:{order:Order
 function OrderReadyScreen({ order, onRestart }:{order:Order|null;onRestart:()=>void}) {
   const [rating,setRating]=useState(0);
   const [submitted,setSubmitted]=useState(false);
+  const [countdown,setCountdown]=useState(0);
   const beans=order?Math.floor(order.totalAmount/10):0;
   const EMOJIS=[
     {v:1,e:"😞",l:"Bad"},
@@ -2496,6 +2497,101 @@ function OrderReadyScreen({ order, onRestart }:{order:Order|null;onRestart:()=>v
     {v:4,e:"😄",l:"Great"},
     {v:5,e:"🤩",l:"Amazing"},
   ];
+
+  // After feedback submitted — 5 second countdown then logout
+  useEffect(()=>{
+    if(!submitted) return;
+    setCountdown(5);
+    const iv = setInterval(()=>{
+      setCountdown(p=>{
+        if(p<=1){
+          clearInterval(iv);
+          onRestart(); // logout + redirect
+          return 0;
+        }
+        return p-1;
+      });
+    },1000);
+    return()=>clearInterval(iv);
+  },[submitted,onRestart]);
+
+  return(
+    <div style={{minHeight:"100dvh",background:C.void,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"28px 24px",textAlign:"center"}}>
+      {/* Ambient */}
+      <div style={{position:"fixed",inset:0,pointerEvents:"none",background:`radial-gradient(ellipse 70% 50% at 50% 60%,${C.g08} 0%,transparent 70%)`,animation:"breathG 5s ease-in-out infinite"}}/>
+
+      {/* Coffee glow */}
+      <div style={{position:"relative",width:100,height:100,marginBottom:22,animation:"floatY 3s ease-in-out infinite"}}>
+        <div style={{position:"absolute",inset:-16,borderRadius:"50%",background:`radial-gradient(circle,${C.g25} 0%,transparent 70%)`,animation:"breathG 3s ease-in-out infinite"}}/>
+        <div style={{width:100,height:100,borderRadius:"50%",overflow:"hidden",border:`2px solid ${C.g60}`,boxShadow:`0 0 40px ${C.g40}`}}>
+          <div style={{width:"100%",height:"100%",background:`radial-gradient(circle at 40% 35%,#5C2E0A,#2A1205)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:44}}>☕</div>
+        </div>
+      </div>
+
+      <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:36,fontWeight:300,color:C.ink,margin:"0 0 6px",letterSpacing:"-.01em",animation:`fadeRise 0.6s 0.1s ${EASE} both`}}>
+        Order <em style={{color:C.goldL,fontStyle:"italic",fontWeight:600}}>Ready!</em>
+      </h1>
+      <p style={{fontSize:13,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",margin:"0 0 26px",animation:`fadeRise 0.6s 0.2s ${EASE} both`}}>
+        Your order is being served. Enjoy your meal!
+      </p>
+
+      {/* Beans earned */}
+      <div style={{width:"100%",maxWidth:340,display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:24,animation:`stgIn 0.5s 0.3s ${EASE} both`}}>
+        <div style={{background:`linear-gradient(135deg,${C.g15},${C.g08})`,border:`1px solid ${C.g25}`,borderRadius:15,padding:"14px 12px",textAlign:"center"}}>
+          <p style={{fontSize:26,margin:"0 0 3px"}}>🫘</p>
+          <p style={{fontFamily:"'DM Mono',monospace",fontSize:20,fontWeight:500,color:C.gold,margin:"0 0 2px"}}>+{beans}</p>
+          <p style={{fontSize:11,color:C.inkDim,margin:0,fontFamily:"'DM Sans',sans-serif"}}>Beans Earned</p>
+        </div>
+        <div style={{background:C.gl1,border:`1px solid ${C.glBd}`,borderRadius:15,padding:"14px 12px",textAlign:"center"}}>
+          <p style={{fontSize:26,margin:"0 0 3px"}}>🧾</p>
+          <p style={{fontFamily:"'DM Mono',monospace",fontSize:16,fontWeight:500,color:C.ink,margin:"0 0 2px"}}>₹{order?.totalAmount||0}</p>
+          <p style={{fontSize:11,color:C.inkDim,margin:0,fontFamily:"'DM Sans',sans-serif"}}>Total Paid</p>
+        </div>
+      </div>
+
+      {/* Rating */}
+      {!submitted ? (
+        <div style={{width:"100%",maxWidth:340,animation:`stgIn 0.5s 0.4s ${EASE} both`}}>
+          <p style={{fontSize:12,color:C.inkDim,fontFamily:"'DM Mono',monospace",letterSpacing:".1em",textTransform:"uppercase",margin:"0 0 14px"}}>How was your experience?</p>
+          <div style={{display:"flex",justifyContent:"center",gap:12,marginBottom:20}}>
+            {EMOJIS.map(em=>(
+              <button key={em.v} onClick={()=>setRating(em.v)}
+                style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,
+                  background:"none",border:"none",cursor:"pointer",
+                  transform:rating===em.v?"scale(1.25)":"scale(1)",
+                  transition:`transform 0.25s ${SPR}`,
+                  filter:rating>0&&rating!==em.v?"grayscale(0.7) opacity(0.5)":"none",
+                }}>
+                <span style={{fontSize:28}}>{em.e}</span>
+                <span style={{fontSize:9.5,color:rating===em.v?C.gold:C.inkDim,fontFamily:"'DM Mono',monospace",fontWeight:rating===em.v?600:400}}>{em.l}</span>
+              </button>
+            ))}
+          </div>
+          {rating>0&&(
+            <button onClick={()=>setSubmitted(true)} className="press"
+              style={{width:"100%",padding:"14px",borderRadius:14,border:"none",background:GG,color:C.void,fontWeight:700,fontSize:14,fontFamily:"'DM Sans',sans-serif",boxShadow:`0 6px 24px ${C.g40}`,cursor:"pointer",marginBottom:10,animation:`scaleIn 0.35s ${SPR}`}}>
+              Submit Feedback
+            </button>
+          )}
+          {/* Skip feedback */}
+          <button onClick={onRestart}
+            style={{background:"none",border:"none",color:C.inkDim,fontSize:12,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",padding:"8px",textDecoration:"underline"}}>
+            Skip & Exit
+          </button>
+        </div>
+      ):(
+        <div style={{marginBottom:20,animation:`scaleIn 0.4s ${SPR}`,textAlign:"center"}}>
+          <p style={{fontSize:36,marginBottom:8}}>🙏</p>
+          <p style={{fontSize:18,color:C.goldL,fontWeight:600,fontFamily:"'Cormorant Garamond',serif",margin:"0 0 6px"}}>Thank you!</p>
+          <p style={{fontSize:13,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",marginBottom:16}}>Your feedback helps us improve</p>
+          <p style={{fontSize:12,color:C.inkDim,fontFamily:"'DM Mono',monospace"}}>
+            Session ending in <span style={{color:C.goldL,fontWeight:700}}>{countdown}s</span>...
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
   return(
     <div style={{minHeight:"100dvh",background:C.void,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"28px 24px",textAlign:"center"}}>
@@ -3492,7 +3588,13 @@ export default function CustomerOrderPage() {
   // ── FULL SCREEN FLOWS ──
   if(screen==="ready")return(
     <div style={{minHeight:"100dvh",background:C.void}}><style>{CSS}</style>
-      <OrderReadyScreen order={placedOrder} onRestart={()=>{setScreen("home");setCart([]);setDiscount(null);setRedeemedPoints(0);setExistingOrder(null);setPlacedOrder(null);router.replace("/");}}/>
+      <OrderReadyScreen order={placedOrder} onRestart={()=>{
+        // Clear everything — force fresh session
+        clearSessionCustomer();
+        localStorage.removeItem("gb_active_order");
+        // Hard redirect — page fully reloads → security check → welcome screen
+        window.location.href = window.location.pathname;
+      }}/>
     </div>
   );
 
