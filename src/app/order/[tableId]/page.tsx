@@ -3236,25 +3236,19 @@ export default function CustomerOrderPage() {
   const onFailed = useCallback((r:SecRes)=>{ setSecResult(r); setSecStatus("failed"); },[]);
   const onRetry  = useCallback(()=>setSecStatus("checking"),[]);
 
-  // ── Customer Identity — session based (phone persistent across visits) ──
+  // ── Customer Identity — only set after CRM OTP verified ──
   useEffect(()=>{
     if(secStatus!=="passed") return;
-    // Check current session
-    const session = getSessionCustomer();
-    if(session) setCustomer({ name:session.name, phone:session.phone });
+    // DO NOT pre-load from session — OTP required every time
+    // Customer is set only via onCustomerIdentified callback from CRMCaptureCard
 
-    // Listen for session updates (when CRM popup completes)
+    // Listen for session updates (when CRM popup completes OTP)
     const onSession = ()=>{
       const s = getSessionCustomer();
       if(s) setCustomer({ name:s.name, phone:s.phone });
     };
     window.addEventListener("gb_customer_updated", onSession);
-    // Poll every 2s in case CRM popup just completed
-    const iv = setInterval(()=>{
-      const s = getSessionCustomer();
-      if(s) setCustomer(p => p?.phone===s.phone ? p : { name:s.name, phone:s.phone });
-    }, 2000);
-    return()=>{ window.removeEventListener("gb_customer_updated", onSession); clearInterval(iv); };
+    return()=>{ window.removeEventListener("gb_customer_updated", onSession); };
   },[secStatus]);
 
   // Load menu + table + orders
@@ -3335,11 +3329,13 @@ export default function CustomerOrderPage() {
 
       // Table cleared — logout all devices on this table
       const onTableCleared=(data:{tableId:string})=>{
-        if(data.tableId===tableId){
+        // Compare loosely — data.tableId may be full ObjectId, tableId may be same
+        const receivedId = (data?.tableId||"").toString().trim();
+        const currentId  = (tableId||"").toString().trim();
+        if(receivedId && currentId && (receivedId===currentId || receivedId.includes(currentId) || currentId.includes(receivedId))){
           clearSessionCustomer();
           localStorage.removeItem("gb_active_order");
           localStorage.removeItem("gb_crm_verified");
-          // Hard redirect — forces full page reload + security check + welcome screen
           window.location.href = window.location.pathname;
         }
       };
