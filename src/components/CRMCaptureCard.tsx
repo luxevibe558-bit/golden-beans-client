@@ -8,7 +8,7 @@
 
 import { useState, useEffect } from "react";
 import {
-  registerCustomer, getSessionCustomer,
+  registerCustomer, getSessionCustomer, clearSessionCustomer,
   TIER_CONFIG, type CustomerProfile,
 } from "@/lib/CustomerIdentitySystem";
 
@@ -102,15 +102,17 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
 
   // Show popup immediately — compulsory every visit
   useEffect(()=>{
-    // Always clear old session — OTP required every time
+    // Always clear session — OTP required every time
     const existing = getSessionCustomer();
     if(existing){
       // Pre-fill name and phone from previous session
       setName(existing.name || "");
       setPhone(existing.phone || "");
-      // Clear session — must re-verify via OTP
-      // (session cleared after OTP verify)
     }
+    // Clear existing session — must re-verify via OTP
+    clearSessionCustomer();
+    localStorage.removeItem("gb_crm_dismissed");
+
     // Show after 1.5s for smooth page load
     const t = setTimeout(()=>setVisible(true), 1500);
     return()=>clearTimeout(t);
