@@ -3227,11 +3227,14 @@ export default function CustomerOrderPage() {
   const pollTimer  = useRef<NodeJS.Timeout|null>(null);
 
   const onPassed = useCallback(()=>{
-    // Clear session — OTP required every visit
+    // Clear EVERYTHING — fresh start every QR scan
     clearSessionCustomer();
     localStorage.removeItem("gb_active_order");
+    setCustomer(null); // Reset customer state
+    setCart([]);
+    setExistingOrder(null);
     setSecStatus("passed");
-    setScreen("home"); // WelcomeScreen already shown inside SecurityCheckScreen
+    setScreen("home");
   },[]);
   const onFailed = useCallback((r:SecRes)=>{ setSecResult(r); setSecStatus("failed"); },[]);
   const onRetry  = useCallback(()=>setSecStatus("checking"),[]);
