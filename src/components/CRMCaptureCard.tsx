@@ -202,8 +202,8 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
           setStep("success");
           onCustomerIdentified?.(result);
 
-          // WhatsApp welcome — new customers only
-          if(result.isNew !== false && result.totalOrders <= 1){
+          // WhatsApp welcome — new customers only (1 or fewer orders)
+          if(result.totalOrders <= 1){
             fetch(`${API}/whatsapp/welcome`,{
               method:"POST",
               headers:{"Content-Type":"application/json"},
