@@ -16,8 +16,10 @@ export function getSocket(): Socket {
     socket = io(SERVER_URL, {
       transports: ["websocket", "polling"],
       reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
+      reconnectionDelay: 2000,
+      reconnectionDelayMax: 10000,
       timeout: 10000,
+      autoConnect: true,
     });
 
     socket.on("connect", () => {
@@ -35,6 +37,7 @@ export function getSocket(): Socket {
   return socket;
 }
 
+// Join rooms — safe to call multiple times (server handles dedup)
 export function joinPOS()                    { getSocket().emit("join:pos"); }
 export function joinKDS()                    { getSocket().emit("join:kds"); }
 export function joinTable(tableId: string)   { getSocket().emit("join:table", tableId); }

@@ -3291,8 +3291,9 @@ export default function CustomerOrderPage() {
       const sock=getSocket();
       joinTable(tableId);
 
-      const onOrderUpdate=(o:Order)=>{ if(o.table===tableId||o._id===existingOrder?._id) processOrderUpdate(o); };
-      const onOrderReady =(o:Order)=>{ if(o.table===tableId||o._id===existingOrder?._id) processOrderUpdate(o); };
+      // Use latest existingOrder via closure ref to avoid stale data
+      const onOrderUpdate=(o:Order)=>{ if(o.table===tableId) processOrderUpdate(o); };
+      const onOrderReady =(o:Order)=>{ if(o.table===tableId) processOrderUpdate(o); };
       const onOrderNew   =(o:Order)=>{ if(o.table===tableId){ prevStatus.current=o.status; setExistingOrder(o); } };
 
       sock.on("order:update", onOrderUpdate);
@@ -3338,7 +3339,7 @@ export default function CustomerOrderPage() {
       document.removeEventListener("visibilitychange",onVis);
       window.removeEventListener("focus",check);
     };
-  },[secStatus,tableId,existingOrder]);
+  },[secStatus,tableId]); // ← existingOrder removed to prevent reconnect loop
 
   const queuePos=existingOrder
     ?allOrders.filter(o=>["kotSent","open"].includes(o.status)&&o._id!==existingOrder._id&&new Date(o.createdAt).getTime()<new Date(existingOrder.createdAt).getTime()).length
