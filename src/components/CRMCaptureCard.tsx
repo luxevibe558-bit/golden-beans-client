@@ -127,8 +127,8 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
   // Step 1 — Send OTP
   const sendOTP = async()=>{
     const cleanPhone = phone.trim().replace(/\D/g,"");
-    if(!name.trim()){ setError("Aapnu naam bharvu farajiyat chhe"); triggerShake(); return; }
-    if(cleanPhone.length!==10){ setError("Valid 10-digit number bharvo"); triggerShake(); return; }
+    if(!name.trim()){ setError("Please enter your name"); triggerShake(); return; }
+    if(cleanPhone.length!==10){ setError("Please enter a valid 10-digit number"); triggerShake(); return; }
     
     setError(""); setLoading(true);
     
@@ -143,6 +143,11 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
       if(r.success){
         setStep("otp");
         setResendTimer(60);
+        // DEV: Show OTP on screen if server returns it
+        if(r._dev_otp){
+          console.log(`[DEV OTP]: ${r._dev_otp}`);
+          setError(`⚠ DEV MODE — OTP: ${r._dev_otp}`);
+        }
       } else {
         // If OTP service not available, try direct register
         const result = await registerCustomer(name.trim(), cleanPhone, tableId);
@@ -179,7 +184,7 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
 
   // Step 2 — Verify OTP
   const verifyOTP = async()=>{
-    if(otp.length!==6){ setError("6-digit OTP enter karo"); triggerShake(); return; }
+    if(otp.length!==6){ setError("Please enter the 6-digit OTP"); triggerShake(); return; }
     setError(""); setLoading(true);
     
     try {
@@ -199,7 +204,7 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
           setTimeout(()=>setVisible(false), 3500);
         }
       } else {
-        setError("OTP incorrect chhe. Pharthi try karo.");
+        setError("Incorrect OTP. Please try again.");
         setOtp("");
         triggerShake();
       }
@@ -325,8 +330,8 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
                 </h2>
                 <p style={{fontSize:13,color:T.inkSub,
                   fontFamily:"'DM Sans',sans-serif",margin:0,lineHeight:1.6}}>
-                  Order karvano start karva pehla<br/>
-                  <strong style={{color:T.goldL}}>aapni details fill karvo</strong> — mandatory chhe
+                  Please fill in your details<br/>
+                  <strong style={{color:T.goldL}}>to start ordering</strong> — required
                 </p>
               </div>
 
@@ -344,7 +349,7 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
                     className="crm-inp"
                     value={name}
                     onChange={e=>{ setName(e.target.value); setError(""); }}
-                    placeholder="Nirav Patel"
+                    placeholder="e.g. Nirav Patel"
                     onKeyDown={e=>e.key==="Enter"&&sendOTP()}
                   />
                 </div>
@@ -377,7 +382,7 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
                   </div>
                   <p style={{fontSize:11,color:T.inkDim,margin:"6px 0 0",
                     fontFamily:"'DM Sans',sans-serif"}}>
-                    📱 OTP WhatsApp par aavse
+                    📱 You will receive an OTP on WhatsApp
                   </p>
                 </div>
               </div>
@@ -408,13 +413,13 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
                       border:`2.5px solid rgba(0,0,0,0.2)`,
                       borderTopColor:"rgba(0,0,0,0.6)",
                       animation:"spin .75s linear infinite"}}/> Sending OTP...</>
-                  :<><span>📱</span> OTP Send Karo</>}
+                  :<><span>📱</span> Send OTP</>}
               </button>
 
               {/* Notice */}
               <p style={{textAlign:"center",fontSize:11,color:T.inkGh,
                 margin:"12px 0 0",fontFamily:"'DM Sans',sans-serif",lineHeight:1.5}}>
-                🔒 Tamari details safe chhe · Loyalty points earn karso
+                🔒 Your details are safe · Earn loyalty points on every visit
               </p>
             </div>
           )}
@@ -427,12 +432,12 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
                 <div style={{fontSize:36,marginBottom:10}}>📱</div>
                 <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,
                   fontWeight:700,color:T.ink,margin:"0 0 6px"}}>
-                  OTP Verify Karo
+                  Verify Your Number
                 </h2>
                 <p style={{fontSize:13,color:T.inkSub,
                   fontFamily:"'DM Sans',sans-serif",margin:0,lineHeight:1.6}}>
-                  WhatsApp par 6-digit OTP moklyo chhe<br/>
-                  <strong style={{color:T.goldL}}>+91 {phone}</strong> par
+                  A 6-digit OTP has been sent to WhatsApp<br/>
+                  <strong style={{color:T.goldL}}>+91 {phone}</strong>
                 </p>
               </div>
 
@@ -442,7 +447,7 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
                   letterSpacing:".1em",textTransform:"uppercase",
                   display:"block",marginBottom:8,
                   fontFamily:"'DM Mono',monospace"}}>
-                  OTP Enter Karo
+                  Enter OTP
                 </label>
                 <input
                   className="otp-inp"
@@ -485,7 +490,7 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
                       border:`2.5px solid rgba(0,0,0,0.2)`,
                       borderTopColor:"rgba(0,0,0,0.6)",
                       animation:"spin .75s linear infinite"}}/> Verifying...</>
-                  :<><span>✓</span> Verify Karo</>}
+                  :<><span>✓</span> Verify OTP</>}
               </button>
 
               {/* Resend + Back */}
@@ -494,14 +499,14 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
                   style={{background:"none",border:"none",color:T.inkDim,
                     fontSize:12,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",
                     fontWeight:600,padding:0}}>
-                  ← Number badlo
+                  ← Change Number
                 </button>
                 <button onClick={resendOTP} disabled={resendTimer>0||loading}
                   style={{background:"none",border:"none",
                     color:resendTimer>0?T.inkDim:T.goldM,
                     fontSize:12,cursor:resendTimer>0?"not-allowed":"pointer",
                     fontFamily:"'DM Sans',sans-serif",fontWeight:600,padding:0}}>
-                  {resendTimer>0?`OTP resend: ${resendTimer}s`:"OTP Resend Karo"}
+                  {resendTimer>0?`Resend OTP in ${resendTimer}s`:"Resend OTP"}
                 </button>
               </div>
             </div>
