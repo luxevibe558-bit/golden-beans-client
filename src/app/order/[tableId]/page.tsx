@@ -3309,7 +3309,7 @@ export default function CustomerOrderPage() {
         if(data.tableId===tableId){
           clearSessionCustomer();
           localStorage.removeItem("gb_active_order");
-          window.location.reload(); // Force reload → OTP required again
+          window.location.reload();
         }
       };
 
