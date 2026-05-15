@@ -127,7 +127,7 @@ interface SecRes {
   ipRequired:boolean; distance:number|null; cafeName:string; cafeAddress:string;
   cafePhone:string; wifiName:string; reason:string;
 }
-type Screen = "security"|"home"|"cart"|"checkout"|"placed"|"tracking"|"ready";
+type Screen = "security"|"welcome"|"home"|"cart"|"checkout"|"placed"|"tracking"|"ready";
 type Tab    = "home"|"menu"|"orders"|"cart"|"profile";
 // ═══════════════════════════════════════════════════
 // SECURITY — Welcome + Check
@@ -3203,7 +3203,7 @@ export default function CustomerOrderPage() {
   const prevStatus = useRef<string|null>(null);
   const pollTimer  = useRef<NodeJS.Timeout|null>(null);
 
-  const onPassed = useCallback(()=>{ setSecStatus("passed"); setScreen("home"); },[]);
+  const onPassed = useCallback(()=>{ setSecStatus("passed"); setScreen("welcome"); },[]);
   const onFailed = useCallback((r:SecRes)=>{ setSecResult(r); setSecStatus("failed"); },[]);
   const onRetry  = useCallback(()=>setSecStatus("checking"),[]);
 
@@ -3473,6 +3473,14 @@ export default function CustomerOrderPage() {
     return null;
   }
 
+  // ── WELCOME / QR LANDING SCREEN ──
+  if(screen==="welcome")return(
+    <WelcomeLandingScreen
+      tableId={tableId}
+      onEnter={()=>setScreen("home")}
+    />
+  );
+
   // ── FULL SCREEN FLOWS ──
   if(screen==="ready")return(
     <div style={{minHeight:"100dvh",background:C.void}}><style>{CSS}</style>
@@ -3588,6 +3596,168 @@ export default function CustomerOrderPage() {
 
       {/* PRODUCT MODAL */}
       <ProductModal item={selectedItem} open={!!selectedItem} onClose={()=>setSelectedItem(null)} onAdd={addToCart} allItems={allItems}/>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// WELCOME LANDING SCREEN — Ultra Premium QR Scan Landing
+// ═══════════════════════════════════════════════════════════════
+function WelcomeLandingScreen({ tableId, onEnter }: { tableId: string; onEnter: ()=>void }) {
+  const [tableNum, setTableNum] = useState("");
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+
+  useEffect(()=>{
+    fetch(`${API_URL}/tables/${tableId}`)
+      .then(r=>r.json())
+      .then(d=>{ if(d.data?.tableNumber) setTableNum(d.data.tableNumber); })
+      .catch(()=>{});
+  },[tableId]);
+
+  const W = {
+    void:"#020100",gold:"#C8922A",goldM:"#E8B84B",goldL:"#F5CC6A",
+    ink:"#F5EDD8",inkS:"#C4AA80",inkD:"#7A6448",
+  };
+  const GG = `linear-gradient(135deg,${W.gold},${W.goldM} 52%,${W.goldL})`;
+  const SPR = "cubic-bezier(0.34,1.56,0.64,1)";
+
+  const WCSS = `
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,600&family=DM+Mono:wght@300;400;500&display=swap');
+    *{box-sizing:border-box;-webkit-font-smoothing:antialiased;}
+    @keyframes wIn{from{opacity:0;transform:scale(0.93) translateY(24px)}to{opacity:1;transform:scale(1) translateY(0)}}
+    @keyframes wUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes wFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    @keyframes wSpin{to{transform:rotate(360deg)}}
+    @keyframes wRipple{0%{transform:scale(0.9);opacity:0.6}100%{transform:scale(2.4);opacity:0}}
+    @keyframes wShimmer{0%{background-position:200% center}100%{background-position:-200% center}}
+    @keyframes wScan{0%{transform:translateY(-100%);opacity:0}15%{opacity:1}85%{opacity:1}100%{transform:translateY(350%);opacity:0}}
+    .wb{width:100%;padding:17px;border-radius:16px;border:none;
+      background:${GG};color:#050301;font-weight:700;font-size:16px;
+      font-family:'DM Sans',sans-serif;cursor:pointer;letter-spacing:0.02em;
+      box-shadow:0 8px 32px rgba(200,146,42,0.4),0 2px 8px rgba(0,0,0,0.4);
+      transition:all 0.2s ${SPR};position:relative;overflow:hidden;}
+    .wb::before{content:'';position:absolute;inset:0;
+      background:linear-gradient(135deg,transparent,rgba(255,255,255,0.18),transparent);
+      background-size:200% 100%;animation:wShimmer 3s ease infinite;}
+    .wb:hover{transform:translateY(-2px);box-shadow:0 14px 40px rgba(200,146,42,0.5);}
+    .wb:active{transform:scale(0.97);}
+  `;
+
+  return(
+    <div style={{minHeight:"100dvh",background:W.void,display:"flex",
+      flexDirection:"column",alignItems:"center",justifyContent:"center",
+      padding:"32px 24px",position:"relative",overflow:"hidden"}}>
+      <style>{WCSS}</style>
+
+      {/* Ambient bg */}
+      <div style={{position:"fixed",inset:0,pointerEvents:"none",
+        background:`radial-gradient(ellipse 80% 50% at 50% 0%,rgba(200,146,42,0.07),transparent 60%),radial-gradient(ellipse 50% 40% at 80% 80%,rgba(200,146,42,0.04),transparent 50%)`}}/>
+      <div style={{position:"fixed",inset:0,pointerEvents:"none",
+        backgroundImage:`linear-gradient(rgba(200,146,42,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(200,146,42,0.03) 1px,transparent 1px)`,
+        backgroundSize:"56px 56px",
+        maskImage:"radial-gradient(ellipse 75% 75% at 50% 50%,black,transparent)"}}/>
+
+      <div style={{position:"relative",zIndex:10,width:"100%",maxWidth:380,
+        display:"flex",flexDirection:"column",alignItems:"center",
+        animation:`wIn 0.7s ${SPR} both`}}>
+
+        {/* Logo */}
+        <div style={{position:"relative",width:96,height:96,marginBottom:26,
+          animation:"wFloat 4s ease-in-out infinite"}}>
+          {[0,0.9,1.8].map((d,i)=>(
+            <div key={i} style={{position:"absolute",inset:-16,borderRadius:"50%",
+              border:"1px solid rgba(200,146,42,0.18)",
+              animation:`wRipple 2.8s ${d}s ease-out infinite`}}/>
+          ))}
+          <div style={{position:"absolute",inset:-10,borderRadius:"50%",
+            border:"1.5px solid transparent",
+            borderTopColor:"rgba(200,146,42,0.4)",
+            borderRightColor:"rgba(200,146,42,0.15)",
+            animation:"wSpin 12s linear infinite"}}/>
+          <div style={{width:"100%",height:"100%",borderRadius:"50%",
+            background:"radial-gradient(circle at 35% 30%,#3D1F08,#120802)",
+            border:"1.5px solid rgba(200,146,42,0.3)",
+            display:"flex",alignItems:"center",justifyContent:"center",fontSize:44,
+            boxShadow:`0 0 0 6px rgba(200,146,42,0.06),0 0 32px rgba(200,146,42,0.2),0 20px 40px rgba(0,0,0,0.6)`}}>
+            ☕
+          </div>
+        </div>
+
+        {/* Brand */}
+        <div style={{textAlign:"center",marginBottom:6,animation:`wUp 0.5s 0.1s ease both`}}>
+          <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:36,
+            fontWeight:300,color:W.ink,letterSpacing:"-0.01em",lineHeight:1.1,margin:"0 0 4px"}}>
+            Golden{" "}
+            <em style={{fontStyle:"italic",fontWeight:600,
+              background:GG,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>
+              Beans
+            </em>
+          </h1>
+          <p style={{fontFamily:"'DM Mono',monospace",fontSize:10,color:W.inkD,letterSpacing:"0.28em",textTransform:"uppercase"}}>
+            Café &amp; Bistro · Surat
+          </p>
+        </div>
+
+        {/* Divider */}
+        <div style={{width:56,height:1,margin:"14px 0 18px",
+          background:`linear-gradient(90deg,transparent,${W.gold},transparent)`,
+          animation:`wUp 0.5s 0.15s ease both`}}/>
+
+        {/* Table badge */}
+        {tableNum&&(
+          <div style={{display:"inline-flex",alignItems:"center",gap:8,
+            background:"rgba(200,146,42,0.08)",border:"1px solid rgba(200,146,42,0.22)",
+            borderRadius:99,padding:"7px 18px",marginBottom:22,
+            animation:`wUp 0.5s 0.2s ease both`}}>
+            <span style={{fontFamily:"'DM Mono',monospace",fontSize:11,color:W.goldL,letterSpacing:"0.12em",textTransform:"uppercase"}}>Table</span>
+            <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:600,color:W.ink}}>{tableNum}</span>
+          </div>
+        )}
+
+        {/* Scan animation */}
+        <div style={{position:"relative",width:60,height:60,marginBottom:24,animation:`wUp 0.5s 0.25s ease both`}}>
+          <div style={{position:"absolute",top:0,left:0,width:13,height:13,borderTop:`2px solid ${W.gold}`,borderLeft:`2px solid ${W.gold}`}}/>
+          <div style={{position:"absolute",top:0,right:0,width:13,height:13,borderTop:`2px solid ${W.gold}`,borderRight:`2px solid ${W.gold}`}}/>
+          <div style={{position:"absolute",bottom:0,left:0,width:13,height:13,borderBottom:`2px solid ${W.gold}`,borderLeft:`2px solid ${W.gold}`}}/>
+          <div style={{position:"absolute",bottom:0,right:0,width:13,height:13,borderBottom:`2px solid ${W.gold}`,borderRight:`2px solid ${W.gold}`}}/>
+          <div style={{position:"absolute",left:4,right:4,height:1,
+            background:`linear-gradient(90deg,transparent,${W.goldL},transparent)`,
+            animation:"wScan 2s ease-in-out infinite",
+            boxShadow:`0 0 8px ${W.gold}`}}/>
+        </div>
+
+        {/* Welcome text */}
+        <div style={{textAlign:"center",marginBottom:26,animation:`wUp 0.5s 0.3s ease both`}}>
+          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,fontWeight:400,color:W.inkS,lineHeight:1.5,marginBottom:7}}>
+            Your table is ready
+          </p>
+          <p style={{fontSize:13,color:W.inkD,fontFamily:"'DM Sans',sans-serif",lineHeight:1.6}}>
+            Tap below to browse our menu<br/>and place your order instantly
+          </p>
+        </div>
+
+        {/* CTA */}
+        <button className="wb" onClick={onEnter} style={{animation:`wUp 0.5s 0.35s ease both`}}>
+          View Menu &amp; Order →
+        </button>
+
+        {/* Stats */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,width:"100%",marginTop:20,animation:`wUp 0.5s 0.4s ease both`}}>
+          {[{icon:"🍽️",label:"Menu",sub:"50+ items"},{icon:"⚡",label:"Instant",sub:"Live orders"},{icon:"🫘",label:"Points",sub:"Earn free"}].map((s,i)=>(
+            <div key={i} style={{background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:12,padding:"11px 8px",textAlign:"center"}}>
+              <div style={{fontSize:20,marginBottom:3}}>{s.icon}</div>
+              <div style={{fontFamily:"'DM Mono',monospace",fontSize:11,fontWeight:500,color:W.goldL,marginBottom:1}}>{s.label}</div>
+              <div style={{fontSize:9,color:W.inkD,textTransform:"uppercase",letterSpacing:"0.08em"}}>{s.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        <p style={{fontSize:10,color:"rgba(122,100,72,0.35)",marginTop:22,
+          fontFamily:"'DM Mono',monospace",letterSpacing:"0.06em",textAlign:"center",
+          animation:`wUp 0.5s 0.5s ease both`}}>
+          Pramukh Darshan Society · Dabholi · Surat
+        </p>
+      </div>
     </div>
   );
 }
