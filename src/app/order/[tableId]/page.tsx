@@ -3304,14 +3304,29 @@ export default function CustomerOrderPage() {
       const onOrderReady =(o:Order)=>{ if(o.table===tableId) processOrderUpdate(o); };
       const onOrderNew   =(o:Order)=>{ if(o.table===tableId){ prevStatus.current=o.status; setExistingOrder(o); } };
 
-      sock.on("order:update", onOrderUpdate);
-      sock.on("order:ready",  onOrderReady);
-      sock.on("order:new",    onOrderNew);
+      // Table cleared — logout all devices on this table
+      const onTableCleared=(data:{tableId:string})=>{
+        if(data.tableId===tableId){
+          clearSessionCustomer();
+          localStorage.removeItem("gb_active_order");
+          setExistingOrder(null);
+          setCart([]);
+          setScreen("home");
+          setVisible(true); // Show CRM popup again
+          window.location.reload(); // Force reload → OTP required again
+        }
+      };
+
+      sock.on("order:update",   onOrderUpdate);
+      sock.on("order:ready",    onOrderReady);
+      sock.on("order:new",      onOrderNew);
+      sock.on("table:cleared",  onTableCleared);
 
       socketCleanup=()=>{
-        sock.off("order:update", onOrderUpdate);
-        sock.off("order:ready",  onOrderReady);
-        sock.off("order:new",    onOrderNew);
+        sock.off("order:update",  onOrderUpdate);
+        sock.off("order:ready",   onOrderReady);
+        sock.off("order:new",     onOrderNew);
+        sock.off("table:cleared", onTableCleared);
       };
     }catch{}
 

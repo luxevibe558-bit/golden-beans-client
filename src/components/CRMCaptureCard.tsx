@@ -100,12 +100,16 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
   const [profile,    setProfile   ] = useState<CustomerProfile|null>(null);
   const [shake,      setShake     ] = useState(false);
 
-  // Show popup immediately — compulsory
+  // Show popup immediately — compulsory every visit
   useEffect(()=>{
+    // Always clear old session — OTP required every time
     const existing = getSessionCustomer();
     if(existing){
-      onCustomerIdentified?.(existing);
-      return;
+      // Pre-fill name and phone from previous session
+      setName(existing.name || "");
+      setPhone(existing.phone || "");
+      // Clear session — must re-verify via OTP
+      // (session cleared after OTP verify)
     }
     // Show after 1.5s for smooth page load
     const t = setTimeout(()=>setVisible(true), 1500);
