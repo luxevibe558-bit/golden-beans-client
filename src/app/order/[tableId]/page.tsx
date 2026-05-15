@@ -3204,11 +3204,11 @@ export default function CustomerOrderPage() {
   const pollTimer  = useRef<NodeJS.Timeout|null>(null);
 
   const onPassed = useCallback(()=>{
-    setSecStatus("passed");
-    // Always clear session on fresh scan — OTP required
+    // Clear session — OTP required every visit
     clearSessionCustomer();
     localStorage.removeItem("gb_active_order");
-    setScreen("welcome");
+    setSecStatus("passed");
+    setScreen("home"); // WelcomeScreen already shown inside SecurityCheckScreen
   },[]);
   const onFailed = useCallback((r:SecRes)=>{ setSecResult(r); setSecStatus("failed"); },[]);
   const onRetry  = useCallback(()=>setSecStatus("checking"),[]);
