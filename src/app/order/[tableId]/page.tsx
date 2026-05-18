@@ -2046,7 +2046,13 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing, redee
   onBack:()=>void;onPay:(method:string,tip:number,note:string)=>void;
   isPlacing:boolean;redeemedPoints?:number;
 }) {
-  const [method,    setMethod   ]=useState("upi");
+  const [method, setMethod] = useState("upi");
+
+  // Update default method when payment mode loads
+  useEffect(()=>{
+    if(paymentMode==="counter") setMethod("cash");
+    else setMethod("upi");
+  },[paymentMode]);
   const [tip,       setTip      ]=useState<number>(0);
   const [note,      setNote     ]=useState("");
   const [splitMode, setSplitMode]=useState(false);
@@ -2063,12 +2069,24 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing, redee
   const paidAmount = paidCount*perHead;
   const remaining  = total - paidAmount;
 
-  const PAY_METHODS=[
-    {id:"upi",   icon:"📱",label:"UPI / BHIM"},
-    {id:"card",  icon:"💳",label:"Card"},
-    {id:"wallet",icon:"👛",label:"Wallet"},
-    {id:"cash",  icon:"💵",label:"Cash"},
-  ];
+  const [paymentMode, setPaymentMode] = useState<string>("both");
+
+  // Load payment mode from admin settings
+  useEffect(()=>{
+    fetch(`${API}/settings/payment_mode`)
+      .then(r=>r.json())
+      .then(d=>{ if(d.data) setPaymentMode(d.data); })
+      .catch(()=>{});
+  },[]);
+
+  // Payment methods based on admin setting
+  const PAY_METHODS = (() => {
+    const upi  = {id:"upi",  icon:"📱", label:"UPI / BHIM"};
+    const cash = {id:"cash", icon:"💵", label:"Cash Counter"};
+    if(paymentMode==="online") return [upi];
+    if(paymentMode==="counter") return [cash];
+    return [upi, cash]; // both
+  })();
   const TIPS=[0,10,20,50];
 
   return(
@@ -3417,8 +3435,7 @@ export default function CustomerOrderPage() {
     if(!cart.length)return;
     try{
       const API=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
-      const pm=(await fetch(`${API}/settings/payment_mode`).then(r=>r.json())).data||"counter";
-      if((pm==="online"||pm==="both")&&method!=="cash"){await initiateRazorpay(tip,note);}
+      if((paymentMode==="online"||paymentMode==="both")&&method!=="cash"){await initiateRazorpay(tip,note);}
       else{await placeOrder(tip,note);}
     }catch{await placeOrder(tip,note);}
   };
