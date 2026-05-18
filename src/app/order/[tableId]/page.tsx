@@ -2041,27 +2041,13 @@ function CartScreen({ cart, onUpdateQty, onCheckout, discount, onDiscountChange,
 // ═══════════════════════════════════════════════════
 // CHECKOUT SCREEN — Cinematic 3-step
 // ═══════════════════════════════════════════════════
-function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing, redeemedPoints=0 }:{
+function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing, redeemedPoints=0, paymentModeSetting="both" }:{
   cart:ECI[];table:Table|null;discount:Disc|null;
   onBack:()=>void;onPay:(method:string,tip:number,note:string)=>void;
-  isPlacing:boolean;redeemedPoints?:number;
+  isPlacing:boolean;redeemedPoints?:number;paymentModeSetting?:string;
 }) {
-  const [paymentMode, setPaymentMode] = useState<string>("both");
-  const [method, setMethod] = useState("upi");
-
-  // Load payment mode from admin settings
-  useEffect(()=>{
-    const API_URL = process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
-    fetch(`${API_URL}/settings/payment_mode`)
-      .then(r=>r.json())
-      .then(d=>{
-        if(d.data){
-          setPaymentMode(d.data);
-          setMethod(d.data==="counter" ? "cash" : "upi");
-        }
-      })
-      .catch(()=>{});
-  },[]);
+  const [paymentMode] = useState<string>(paymentModeSetting);
+  const [method, setMethod] = useState(paymentModeSetting==="counter" ? "cash" : "upi");
 
   const [tip,       setTip      ]=useState<number>(0);
   const [note,      setNote     ]=useState("");
@@ -3188,6 +3174,13 @@ export default function CustomerOrderPage() {
   const [discount,       setDiscount      ] = useState<Disc|null>(null);
   const [redeemedPoints, setRedeemedPoints] = useState(0);
   const [isPlacing,      setIsPlacing     ] = useState(false);
+  const [pmSetting,      setPmSetting     ] = useState("both");
+
+  // Load payment mode once
+  useEffect(()=>{
+    const A=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+    fetch(`${A}/settings/payment_mode`).then(r=>r.json()).then(d=>{ if(d.data) setPmSetting(d.data); }).catch(()=>{});
+  },[]);
   const [placedOrder,    setPlacedOrder   ] = useState<Order|null>(null);
 
   // Navigation
@@ -3434,8 +3427,7 @@ export default function CustomerOrderPage() {
   const handlePay=async(method:string,tip:number,note:string)=>{
     if(!cart.length)return;
     try{
-      const API=process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
-      if((paymentMode==="online"||paymentMode==="both")&&method!=="cash"){await initiateRazorpay(tip,note);}
+      if(method!=="cash"){await initiateRazorpay(tip,note);}
       else{await placeOrder(tip,note);}
     }catch{await placeOrder(tip,note);}
   };
@@ -3580,7 +3572,7 @@ export default function CustomerOrderPage() {
 
         {/* ── CHECKOUT ── */}
         {screen==="checkout"&&(
-          <CheckoutScreen cart={cart} table={table} discount={discount} onBack={()=>setScreen("cart")} onPay={handlePay} isPlacing={isPlacing} redeemedPoints={redeemedPoints}/>
+          <CheckoutScreen cart={cart} table={table} discount={discount} onBack={()=>setScreen("cart")} onPay={handlePay} isPlacing={isPlacing} redeemedPoints={redeemedPoints} paymentModeSetting={pmSetting}/>
         )}
 
         {/* ── ORDER PLACED ── */}
