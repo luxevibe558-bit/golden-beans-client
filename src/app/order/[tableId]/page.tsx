@@ -3433,7 +3433,28 @@ export default function CustomerOrderPage() {
       const orderData=await fetch(`${API}/payment/create-order`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount:total,tableNumber:table?.tableNumber})}).then(r=>r.json());
       if(!orderData.success)throw new Error(orderData.message);
       await new Promise<void>((resolve,reject)=>{if((window as any).Razorpay){resolve();return;}const s=document.createElement("script");s.src="https://checkout.razorpay.com/v1/checkout.js";s.onload=()=>resolve();s.onerror=()=>reject();document.body.appendChild(s);});
-      await new Promise<void>((resolve,reject)=>{new (window as any).Razorpay({key:orderData.data?.keyId,amount:total*100,currency:"INR",name:"Golden Beans Café",order_id:orderData.data?.orderId,prefill:{name:customer?.name||"",contact:customer?.phone||""},theme:{color:C.gold},handler:async(r:any)=>{try{const v=await fetch(`${API}/payment/verify`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(r)}).then(r=>r.json());if(v.success){await placeOrder(tip,note,r.razorpay_payment_id);resolve();}else reject();}catch(e){reject(e);}},modal:{ondismiss:()=>reject(new Error("cancelled"))}}).open();});
+      await new Promise<void>((resolve,reject)=>{new (window as any).Razorpay({
+        key:orderData.data?.keyId,
+        amount:total*100,
+        currency:"INR",
+        name:"Golden Beans Café",
+        description:"Table Order",
+        order_id:orderData.data?.orderId,
+        prefill:{name:customer?.name||"",contact:`91${customer?.phone||""}`},
+        theme:{color:C.gold},
+        config:{
+          display:{
+            blocks:{
+              utib:{name:"Pay via UPI",instruments:[{method:"upi"}]},
+              other:{name:"Other Methods",instruments:[{method:"card"},{method:"netbanking"},{method:"wallet"}]},
+            },
+            sequence:["block.utib","block.other"],
+            preferences:{show_default_blocks:false},
+          }
+        },
+        handler:async(r:any)=>{try{const v=await fetch(`${API}/payment/verify`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(r)}).then(r=>r.json());if(v.success){await placeOrder(tip,note,r.razorpay_payment_id);resolve();}else reject();}catch(e){reject(e);}},
+        modal:{ondismiss:()=>reject(new Error("cancelled"))}
+      }).open();});
     }catch(e:any){if(e?.message!=="cancelled")alert(e?.message||"Payment failed");}
     finally{setIsPlacing(false);}
   };
