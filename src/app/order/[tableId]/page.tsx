@@ -2051,7 +2051,8 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing, redee
 
   // Load payment mode from admin settings
   useEffect(()=>{
-    fetch(`${API}/settings/payment_mode`)
+    const API_URL = process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+    fetch(`${API_URL}/settings/payment_mode`)
       .then(r=>r.json())
       .then(d=>{
         if(d.data){
