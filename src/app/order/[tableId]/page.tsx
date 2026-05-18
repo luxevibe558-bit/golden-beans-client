@@ -2046,13 +2046,22 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing, redee
   onBack:()=>void;onPay:(method:string,tip:number,note:string)=>void;
   isPlacing:boolean;redeemedPoints?:number;
 }) {
+  const [paymentMode, setPaymentMode] = useState<string>("both");
   const [method, setMethod] = useState("upi");
 
-  // Update default method when payment mode loads
+  // Load payment mode from admin settings
   useEffect(()=>{
-    if(paymentMode==="counter") setMethod("cash");
-    else setMethod("upi");
-  },[paymentMode]);
+    fetch(`${API}/settings/payment_mode`)
+      .then(r=>r.json())
+      .then(d=>{
+        if(d.data){
+          setPaymentMode(d.data);
+          setMethod(d.data==="counter" ? "cash" : "upi");
+        }
+      })
+      .catch(()=>{});
+  },[]);
+
   const [tip,       setTip      ]=useState<number>(0);
   const [note,      setNote     ]=useState("");
   const [splitMode, setSplitMode]=useState(false);
@@ -2068,16 +2077,6 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing, redee
   const paidCount  = splitPaid.length;
   const paidAmount = paidCount*perHead;
   const remaining  = total - paidAmount;
-
-  const [paymentMode, setPaymentMode] = useState<string>("both");
-
-  // Load payment mode from admin settings
-  useEffect(()=>{
-    fetch(`${API}/settings/payment_mode`)
-      .then(r=>r.json())
-      .then(d=>{ if(d.data) setPaymentMode(d.data); })
-      .catch(()=>{});
-  },[]);
 
   // Payment methods based on admin setting
   const PAY_METHODS = (() => {
