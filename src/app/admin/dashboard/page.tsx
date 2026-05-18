@@ -15,7 +15,7 @@ const T = {
 
 const API = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
 
-type AdminTab = "overview" | "users" | "security" | "sessions" | "2fa" | "waiters" | "orders" | "menu" | "inventory" | "analytics" | "promotions" | "crm" | "feedback" | "dues" | "cancellations" | "waiter_perf" | "settings";
+type AdminTab = "overview" | "users" | "security" | "sessions" | "2fa" | "waiters";
 type UserRole = "admin" | "manager" | "cashier";
 
 interface AdminUser {
@@ -29,6 +29,7 @@ interface SecuritySettings {
   allowedIPs: string[]; cafeLatitude: number; cafeLongitude: number;
   geofenceRadius: number; ipWhitelistEnabled: boolean; geofenceEnabled: boolean;
   cafeName: string; cafeAddress: string; cafePhone: string; wifiName: string;
+  otpEnabled: boolean;
 }
 
 interface AdminSettings {
@@ -150,17 +151,6 @@ function AdminSidebar({ activeTab, onTabChange, user, onLogout }: {
     { id: "sessions", label: "Sessions", icon: "⏱️" },
     { id: "2fa", label: "2FA Setup", icon: "🔐" },
     { id: "waiters", label: "Waiters", icon: "🧑‍🍳" },
-    { id: "orders", label: "Orders", icon: "📋" },
-    { id: "menu", label: "Menu", icon: "📖" },
-    { id: "inventory", label: "Inventory", icon: "📦" },
-    { id: "analytics", label: "Analytics", icon: "📊" },
-    { id: "promotions", label: "Promos", icon: "🎁" },
-    { id: "crm", label: "CRM", icon: "👥" },
-    { id: "feedback", label: "Feedback", icon: "⭐" },
-    { id: "dues", label: "Dues", icon: "📒" },
-    { id: "cancellations", label: "Cancelled", icon: "🚫" },
-    { id: "waiter_perf", label: "Performance", icon: "📈" },
-    { id: "settings", label: "Settings", icon: "⚙️" },
   ];
 
   return (
@@ -290,11 +280,6 @@ function UserModal({ user, isOpen, onClose, onSaved, token }: { user: AdminUser 
       const res = await fetch(url, { method, headers: authHeaders(token), body: JSON.stringify(payload) });
       const data = await res.json();
       if (!data.success) throw new Error(data.message);
-      // Show TOTP QR if new user
-      if (isNew && data.totpSetup) {
-        const qr = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data.totpSetup.qrUrl)}`;
-        alert(`✅ User created!\n\n🔐 TOTP Setup Required:\nSecret: ${data.totpSetup.secret}\n\nQR Code: ${qr}\n\nShare this with ${name} to setup Google Authenticator.`);
-      }
       onSaved();
     } catch (err) { alert(err instanceof Error ? err.message : "Failed"); }
     finally { setSaving(false); }
@@ -695,7 +680,25 @@ export default function AdminDashboard() {
               </div>
 
               <div style={{ background: T.ivory, borderRadius: "16px", padding: "20px", marginBottom: "16px", border: `1px solid ${T.border}` }}>
-                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: "18px", fontWeight: 800, color: T.emerald, margin: "0 0 14px" }}>☕ Cafe Info</h3>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: "18px", fontWeight: 800, color: T.emerald, margin: "0 0 4px" }}>📱 WhatsApp OTP Verification</h3>
+                    <p style={{ fontSize: "12px", color: T.textMuted, margin: 0, fontWeight: 500 }}>
+                      {securitySettings.otpEnabled
+                        ? "Customers must verify via OTP before ordering"
+                        : "Customers can order with just name & phone — no OTP"}
+                    </p>
+                  </div>
+                  <button onClick={() => setSecuritySettings({ ...securitySettings, otpEnabled: !securitySettings.otpEnabled })}
+                    style={{ padding: "10px 20px", borderRadius: "99px", border: "none", cursor: "pointer", fontWeight: 800, fontSize: "13px", transition: "all 0.2s",
+                      background: securitySettings.otpEnabled ? T.success : T.danger,
+                      color: "white",
+                      boxShadow: `0 4px 12px ${securitySettings.otpEnabled ? "rgba(74,139,74,0.3)" : "rgba(192,57,43,0.3)"}`,
+                    }}>
+                    {securitySettings.otpEnabled ? "✅ OTP ON" : "❌ OTP OFF"}
+                  </button>
+                </div>
+              </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                   {[{ label: "WiFi Name", key: "wifiName" }, { label: "Cafe Name", key: "cafeName" }, { label: "Address", key: "cafeAddress" }, { label: "Phone", key: "cafePhone" }].map(field => (
                     <div key={field.key}>
@@ -785,41 +788,6 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === "waiters" && <WaitersTab token={token} />}
-          {activeTab === "orders" && (
-  <iframe src="/pos/orders?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
-)}
-{activeTab === "menu" && (
-  <iframe src="/pos/menu?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
-)}
-{activeTab === "inventory" && (
-  <iframe src="/pos/inventory?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
-)}
-{activeTab === "analytics" && (
-  <div style={{ marginLeft: "-24px", marginRight: "-24px", marginTop: "-24px", height: "calc(100vh - 65px)", overflow: "hidden" }}>
-    <iframe src="/pos/analytics?embed=true" style={{ width: "100%", height: "100%", border: "none" }} />
-  </div>
-)}
-{activeTab === "promotions" && (
-  <iframe src="/pos/promotions?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
-)}
-{activeTab === "crm" && (
-  <iframe src="/pos/crm?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
-)}
-{activeTab === "feedback" && (
-  <iframe src="/pos/feedback?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
-)}
-{activeTab === "dues" && (
-  <iframe src="/pos/dues?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
-)}
-{activeTab === "cancellations" && (
-  <iframe src="/pos/cancellation-logs?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
-)}
-{activeTab === "waiter_perf" && (
-  <iframe src="/pos/waiter-performance?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
-)}
-{activeTab === "settings" && (
-  <iframe src="/pos/settings?embed=true" style={{ width: "100%", height: "calc(100vh - 100px)", border: "none", borderRadius: "12px" }} />
-)}
         </main>
       </div>
 

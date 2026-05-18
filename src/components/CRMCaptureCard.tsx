@@ -86,13 +86,20 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
   const [profile,     setProfile    ] = useState<CustomerProfile|null>(null);
   const [shake,       setShake      ] = useState(false);
 
+  const [otpRequired, setOtpRequired] = useState(true); // default ON
+
   // ── ALWAYS clear session on mount — OTP every visit ──
   useEffect(()=>{
     clearSessionCustomer();
     localStorage.removeItem("gb_active_order");
-    // Pre-fill from previous session if exists
-    const prev = getSessionCustomer();
-    if(prev){ setName(prev.name||""); setPhone(prev.phone||""); }
+    // Check if OTP is enabled from server settings
+    fetch(`${API}/security/settings`)
+      .then(r=>r.json())
+      .then(d=>{ 
+        if(d.data?.otpEnabled === false) setOtpRequired(false);
+        else setOtpRequired(true);
+      })
+      .catch(()=>{ setOtpRequired(true); }); // default ON if fetch fails
     // Show popup after 800ms
     const t = setTimeout(()=>setVisible(true), 800);
     return()=>clearTimeout(t);
@@ -107,12 +114,29 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
 
   const shake_ = ()=>{ setShake(true); setTimeout(()=>setShake(false),500); };
 
-  // ── STEP 1: Send OTP ──
+  // ── STEP 1: Send OTP or Direct Register ──
   const sendOTP = async()=>{
     const p = phone.trim().replace(/\D/g,"");
     if(!name.trim()){ setError("Please enter your name"); shake_(); return; }
     if(p.length!==10){ setError("Enter a valid 10-digit WhatsApp number"); shake_(); return; }
     setError(""); setLoading(true);
+
+    // If OTP disabled — direct register
+    if(!otpRequired){
+      try{
+        const result = await registerCustomer(name.trim(), p, tableId);
+        if(result){
+          setProfile(result);
+          setStep("success");
+          onCustomerIdentified?.(result);
+          setTimeout(()=>setVisible(false), 3000);
+        } else { setError("Registration failed. Please try again."); shake_(); }
+      } catch { setError("Connection failed. Please try again."); shake_(); }
+      setLoading(false);
+      return;
+    }
+
+    // OTP required — send via WhatsApp
     try{
       const r = await fetch(`${API}/crm-capture/send-otp`,{
         method:"POST", headers:{"Content-Type":"application/json"},
@@ -296,7 +320,7 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
                   </div>
                   <p style={{fontSize:11,color:C.inkD,margin:"5px 0 0",
                     fontFamily:"'DM Sans',sans-serif"}}>
-                    📱 OTP will be sent on WhatsApp
+                    {otpRequired ? "📱 OTP will be sent on WhatsApp" : "✅ No OTP required — enter directly"}
                   </p>
                 </div>
               </div>
@@ -321,7 +345,7 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
                   ?<><div style={{width:18,height:18,borderRadius:"50%",
                       border:`2.5px solid rgba(0,0,0,0.2)`,borderTopColor:"rgba(0,0,0,0.6)",
                       animation:"spin .75s linear infinite"}}/>Sending OTP...</>
-                  :<><span>📱</span>Send OTP</>}
+                  :<><span>{otpRequired ? "📱" : "✅"}</span>{otpRequired ? "Send OTP" : "Continue"}</>}
               </button>
 
               <p style={{textAlign:"center",fontSize:11,color:C.inkG,
