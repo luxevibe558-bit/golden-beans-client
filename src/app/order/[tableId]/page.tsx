@@ -3442,16 +3442,7 @@ export default function CustomerOrderPage() {
         order_id:orderData.data?.orderId,
         prefill:{name:customer?.name||"",contact:`91${customer?.phone||""}`},
         theme:{color:C.gold},
-        config:{
-          display:{
-            blocks:{
-              utib:{name:"Pay via UPI",instruments:[{method:"upi"}]},
-              other:{name:"Other Methods",instruments:[{method:"card"},{method:"netbanking"},{method:"wallet"}]},
-            },
-            sequence:["block.utib","block.other"],
-            preferences:{show_default_blocks:false},
-          }
-        },
+        method_order:["upi","card","netbanking","wallet"],
         handler:async(r:any)=>{try{const v=await fetch(`${API}/payment/verify`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(r)}).then(r=>r.json());if(v.success){await placeOrder(tip,note,r.razorpay_payment_id);resolve();}else reject();}catch(e){reject(e);}},
         modal:{ondismiss:()=>reject(new Error("cancelled"))}
       }).open();});
