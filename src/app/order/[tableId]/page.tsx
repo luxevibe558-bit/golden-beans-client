@@ -133,30 +133,22 @@ type Tab    = "home"|"menu"|"orders"|"cart"|"profile";
 // SECURITY — Welcome + Check
 // ═══════════════════════════════════════════════════
 function WelcomeScreen({ onDone }: { onDone:()=>void }) {
-  const [n,      setN     ] = useState(3);
-  const [phase,  setPhase ] = useState(0);
-  const [numKey, setNumKey] = useState(0);
   const [exiting,setExiting] = useState(false);
-  const circumference = 2*Math.PI*52;
-  const filled = circumference*(1-(n-1)/3);
 
-  const BEANS=[
-    {x:8, y:12,r:-35,s:.7, d:0.3},{x:82,y:8, r:25, s:.65,d:0.6},
-    {x:6, y:38,r:15, s:.55,d:0.9},{x:88,y:28,r:-20,s:.6, d:0.4},
-    {x:15,y:65,r:40, s:.5, d:0.7},{x:78,y:62,r:-30,s:.58,d:0.2},
-    {x:72,y:18,r:50, s:.45,d:1.0},{x:22,y:22,r:-15,s:.52,d:0.5},
-    {x:90,y:52,r:20, s:.48,d:0.8},{x:5, y:78,r:-45,s:.4, d:1.1},
-  ];
-  const RPTS=Array.from({length:14},(_,i)=>({angle:(i/14)*360,r:52+i%3*4,size:2+i%3,delay:i*.07}));
-
-  useEffect(()=>{const t=setTimeout(()=>setPhase(1),80);return()=>clearTimeout(t);},[]);
   useEffect(()=>{
-    const iv=setInterval(()=>setN(p=>{
-      if(p<=1){clearInterval(iv);setExiting(true);setTimeout(onDone,550);return 0;}
-      setNumKey(k=>k+1);return p-1;
-    }),1000);
-    return()=>clearInterval(iv);
+    // 1.5 second smooth welcome — not too long
+    const t = setTimeout(()=>{ setExiting(true); setTimeout(onDone, 400); }, 1500);
+    return()=>clearTimeout(t);
   },[onDone]);
+
+  const WS=`
+    @keyframes ws-fadeIn {from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
+    @keyframes ws-float  {0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+    @keyframes ws-steam  {0%{opacity:0;transform:translateY(0) scaleX(1)}20%{opacity:.58}80%{opacity:.18}100%{opacity:0;transform:translateY(-60px) scaleX(2.4)}}
+    @keyframes ws-exit   {from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(1.04)}}
+    @keyframes ws-ring   {0%{box-shadow:0 0 0 0 rgba(200,146,42,.5)}70%{box-shadow:0 0 0 12px rgba(200,146,42,0)}100%{box-shadow:0 0 0 0 rgba(200,146,42,0)}}
+    @keyframes ws-shimmer{0%,100%{opacity:.05}50%{opacity:.2}}
+  `;
 
   const WS=`
     @keyframes ws-breathe {0%,100%{opacity:.35;transform:scale(1)}50%{opacity:.72;transform:scale(1.1)}}
@@ -285,15 +277,34 @@ function WelcomeScreen({ onDone }: { onDone:()=>void }) {
         {/* Bottom icons */}
         <div style={{display:"flex",justifyContent:"space-around",width:"100%",
           opacity:phase>=1?1:0,transition:`opacity 0.8s 0.9s ease`}}>
-          {[{icon:"☕",label:"PREMIUM COFFEE"},{icon:"🌿",label:"QUALITY INGREDIENTS"},{icon:"❤️",label:"MADE WITH LOVE"}].map((item,i)=>(
-            <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:5,
-              animation:phase>=1?`ws-iconIn 0.6s ${0.9+i*.12}s ease both`:undefined,opacity:0}}>
-              <div style={{width:33,height:33,borderRadius:"50%",border:"1px solid rgba(200,146,42,0.28)",background:"rgba(200,146,42,0.05)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>{item.icon}</div>
-              <span style={{fontSize:7.5,color:"rgba(200,146,42,0.52)",fontFamily:"'DM Mono',monospace",letterSpacing:".08em",textTransform:"uppercase",textAlign:"center",lineHeight:1.3}}>{item.label}</span>
-            </div>
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:999,background:"#030201",
+      display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+      animation:exiting?"ws-exit 0.4s ease forwards":"ws-fadeIn 0.5s ease"}}>
+      <style>{WS}</style>
+      <div style={{position:"absolute",inset:0,pointerEvents:"none",
+        background:"radial-gradient(ellipse 70% 50% at 50% 40%,rgba(200,146,42,0.1),transparent 65%)"}}/>
+      <div style={{position:"relative",zIndex:10,textAlign:"center",padding:"0 32px"}}>
+        <div style={{width:96,height:96,borderRadius:"50%",border:"2px solid rgba(200,146,42,0.35)",
+          background:"radial-gradient(circle at 40% 35%,#3D1F08,#120802)",
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:46,
+          margin:"0 auto 18px",boxShadow:"0 0 32px rgba(200,146,42,0.18)",
+          animation:"ws-float 3s ease-in-out infinite"}}>☕</div>
+        <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:40,fontWeight:300,
+          color:"#F5EDD8",margin:"0 0 4px",letterSpacing:"-0.01em",lineHeight:1}}>
+          Golden <em style={{fontStyle:"italic",fontWeight:600,color:"#F5CC6A"}}>Beans</em>
+        </h1>
+        <p style={{fontFamily:"'DM Mono',monospace",fontSize:9,color:"rgba(200,146,42,0.55)",
+          letterSpacing:"0.22em",textTransform:"uppercase",margin:"0 0 20px"}}>
+          Café &amp; Bistro
+        </p>
+        <div style={{display:"flex",justifyContent:"center",gap:6}}>
+          {[0,1,2].map(i=>(
+            <div key={i} style={{width:5,height:5,borderRadius:"50%",
+              background:"rgba(200,146,42,0.5)",
+              animation:`ws-shimmer 1.2s ${i*0.2}s ease-in-out infinite`}}/>
           ))}
         </div>
-
       </div>
     </div>
   );
@@ -3283,6 +3294,15 @@ export default function CustomerOrderPage() {
       }catch{}finally{setLoading(false);}
     }
     load();
+
+    // Poll menu every 30s for realtime stock updates
+    const menuPoll = setInterval(async()=>{
+      try{
+        const mR = await menuApi.getMenu();
+        setMenu(mR.data.data);
+      }catch{}
+    }, 30000);
+    return()=>clearInterval(menuPoll);
   },[tableId,secStatus]);
 
   // ── Socket join — runs ONCE only ──
