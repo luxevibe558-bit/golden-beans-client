@@ -15,7 +15,9 @@ const T = {
 
 const API = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
 
-type AdminTab = "overview" | "users" | "security" | "sessions" | "2fa" | "waiters";
+type AdminTab = "overview" | "users" | "security" | "sessions" | "2fa" | "waiters" |
+  "menu" | "orders" | "tables" | "inventory" | "promotions" | "dues" |
+  "crm" | "analytics" | "marketing" | "feedback" | "settings";
 type UserRole = "admin" | "manager" | "cashier";
 
 interface AdminUser {
@@ -144,13 +146,27 @@ function AdminSidebar({ activeTab, onTabChange, user, onLogout }: {
   activeTab: AdminTab; onTabChange: (t: AdminTab) => void;
   user: AdminUser | null; onLogout: () => void;
 }) {
-  const tabs: { id: AdminTab; label: string; icon: string }[] = [
-    { id: "overview", label: "Overview", icon: "🏠" },
-    { id: "users", label: "Users", icon: "👥" },
-    { id: "security", label: "Security", icon: "🔒" },
-    { id: "sessions", label: "Sessions", icon: "⏱️" },
-    { id: "2fa", label: "2FA Setup", icon: "🔐" },
-    { id: "waiters", label: "Waiters", icon: "🧑‍🍳" },
+  const tabs: { id: AdminTab; label: string; icon: string; section?: string }[] = [
+    // ── Admin
+    { id: "overview",   label: "Overview",   icon: "🏠" },
+    { id: "users",      label: "Users",      icon: "👥" },
+    { id: "security",   label: "Security",   icon: "🔒" },
+    { id: "sessions",   label: "Sessions",   icon: "⏱️" },
+    { id: "2fa",        label: "2FA Setup",  icon: "🔐" },
+    { id: "waiters",    label: "Waiters",    icon: "🧑‍🍳" },
+    // ── Operations
+    { id: "menu",       label: "Menu",       icon: "🍽️" },
+    { id: "orders",     label: "Orders",     icon: "📋" },
+    { id: "tables",     label: "Tables",     icon: "🪑" },
+    { id: "inventory",  label: "Inventory",  icon: "📦" },
+    { id: "promotions", label: "Promos",     icon: "🏷️" },
+    { id: "dues",       label: "Dues",       icon: "💳" },
+    // ── Insights
+    { id: "crm",        label: "CRM",        icon: "👤" },
+    { id: "analytics",  label: "Analytics",  icon: "📊" },
+    { id: "marketing",  label: "Marketing",  icon: "📣" },
+    { id: "feedback",   label: "Feedback",   icon: "⭐" },
+    { id: "settings",   label: "Settings",   icon: "⚙️" },
   ];
 
   return (
@@ -176,7 +192,41 @@ function AdminSidebar({ activeTab, onTabChange, user, onLogout }: {
       )}
 
       <nav style={{ flex: 1, padding: "12px 8px", overflowY: "auto" }}>
-        {tabs.map(tab => (
+        {/* Admin Section */}
+        <p style={{ fontSize: "8px", color: "rgba(212,165,116,0.4)", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", padding: "4px 12px 6px", margin: 0 }}>ADMIN</p>
+        {tabs.slice(0, 6).map(tab => (
+          <button key={tab.id} onClick={() => onTabChange(tab.id)} style={{
+            width: "100%", padding: "10px 12px", borderRadius: "10px", marginBottom: "3px",
+            background: activeTab === tab.id ? "rgba(212,165,116,0.15)" : "transparent",
+            border: `1.5px solid ${activeTab === tab.id ? "rgba(212,165,116,0.3)" : "transparent"}`,
+            color: activeTab === tab.id ? T.gold : "rgba(212,165,116,0.55)",
+            fontWeight: 700, fontSize: "12px", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: "10px", textAlign: "left", transition: "all 150ms ease",
+          }}>
+            <span style={{ fontSize: "16px" }}>{tab.icon}</span>{tab.label}
+          </button>
+        ))}
+
+        {/* Operations Section */}
+        <div style={{ height: "1px", background: "rgba(212,165,116,0.1)", margin: "8px 4px" }} />
+        <p style={{ fontSize: "8px", color: "rgba(212,165,116,0.4)", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", padding: "4px 12px 6px", margin: 0 }}>OPERATIONS</p>
+        {tabs.slice(6, 12).map(tab => (
+          <button key={tab.id} onClick={() => onTabChange(tab.id)} style={{
+            width: "100%", padding: "10px 12px", borderRadius: "10px", marginBottom: "3px",
+            background: activeTab === tab.id ? "rgba(212,165,116,0.15)" : "transparent",
+            border: `1.5px solid ${activeTab === tab.id ? "rgba(212,165,116,0.3)" : "transparent"}`,
+            color: activeTab === tab.id ? T.gold : "rgba(212,165,116,0.55)",
+            fontWeight: 700, fontSize: "12px", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: "10px", textAlign: "left", transition: "all 150ms ease",
+          }}>
+            <span style={{ fontSize: "16px" }}>{tab.icon}</span>{tab.label}
+          </button>
+        ))}
+
+        {/* Insights Section */}
+        <div style={{ height: "1px", background: "rgba(212,165,116,0.1)", margin: "8px 4px" }} />
+        <p style={{ fontSize: "8px", color: "rgba(212,165,116,0.4)", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", padding: "4px 12px 6px", margin: 0 }}>INSIGHTS</p>
+        {tabs.slice(12).map(tab => (
           <button key={tab.id} onClick={() => onTabChange(tab.id)} style={{
             width: "100%", padding: "10px 12px", borderRadius: "10px", marginBottom: "3px",
             background: activeTab === tab.id ? "rgba(212,165,116,0.15)" : "transparent",
@@ -561,12 +611,23 @@ export default function AdminDashboard() {
       <div style={{ flex: 1, marginLeft: "200px", display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         <header style={{ background: T.ivory, borderBottom: `1px solid ${T.border}`, padding: "16px 24px", boxShadow: "0 1px 2px rgba(15,61,46,0.04)" }}>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: "24px", fontWeight: 800, color: T.emerald, margin: 0 }}>
-            {activeTab === "overview" && "🏠 Overview"}
-            {activeTab === "users" && "👥 User Management"}
-            {activeTab === "security" && "🔒 Security Settings"}
-            {activeTab === "sessions" && "⏱️ Session & PIN Settings"}
-            {activeTab === "2fa" && "🔐 Two-Factor Authentication"}
-            {activeTab === "waiters" && "🧑‍🍳 Waiter Management"}
+            {activeTab === "overview"   && "🏠 Overview"}
+            {activeTab === "users"      && "👥 User Management"}
+            {activeTab === "security"   && "🔒 Security Settings"}
+            {activeTab === "sessions"   && "⏱️ Session & PIN Settings"}
+            {activeTab === "2fa"        && "🔐 Two-Factor Authentication"}
+            {activeTab === "waiters"    && "🧑‍🍳 Waiter Management"}
+            {activeTab === "menu"       && "🍽️ Menu Management"}
+            {activeTab === "orders"     && "📋 Orders"}
+            {activeTab === "tables"     && "🪑 Tables"}
+            {activeTab === "inventory"  && "📦 Inventory"}
+            {activeTab === "promotions" && "🏷️ Promotions & Promo Codes"}
+            {activeTab === "dues"       && "💳 Due Ledger"}
+            {activeTab === "crm"        && "👤 CRM & Customers"}
+            {activeTab === "analytics"  && "📊 Analytics"}
+            {activeTab === "marketing"  && "📣 Marketing"}
+            {activeTab === "feedback"   && "⭐ Feedback"}
+            {activeTab === "settings"   && "⚙️ Settings"}
           </h1>
         </header>
 
@@ -790,6 +851,17 @@ export default function AdminDashboard() {
           )}
 
           {activeTab === "waiters" && <WaitersTab token={token} />}
+
+          {/* ── POS Pages via iframe ── */}
+          {["menu","orders","tables","inventory","promotions","dues","crm","analytics","marketing","feedback","settings"].includes(activeTab) && (
+            <div style={{ height: "calc(100vh - 80px)", borderRadius: "16px", overflow: "hidden", border: `1px solid ${T.border}` }}>
+              <iframe
+                src={`/pos/${activeTab}?embed=true`}
+                style={{ width: "100%", height: "100%", border: "none", background: T.cream }}
+                title={activeTab}
+              />
+            </div>
+          )}
         </main>
       </div>
 
