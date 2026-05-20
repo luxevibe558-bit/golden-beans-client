@@ -3402,9 +3402,9 @@ export default function CustomerOrderPage() {
     try{
       const {getSocket}=require("@/lib/socket");
       const sock=getSocket();
-      const onOrderUpdate=(o:Order)=>{ if(o.table===tableId) processOrderUpdate(o); };
-      const onOrderReady =(o:Order)=>{ if(o.table===tableId) processOrderUpdate(o); };
-      const onOrderNew   =(o:Order)=>{ if(o.table===tableId){ prevStatus.current=o.status; setExistingOrder(o); } };
+      const onOrderUpdate=(o:Order)=>{ if(o.table?.toString()===tableId) processOrderUpdate(o); };
+      const onOrderReady =(o:Order)=>{ if(o.table?.toString()===tableId) processOrderUpdate(o); };
+      const onOrderNew   =(o:Order)=>{ if(o.table?.toString()===tableId){ prevStatus.current=o.status; setExistingOrder(o); } };
 
       // Table cleared — logout all devices on this table
       const onTableCleared=(data:{tableId:string})=>{
@@ -3439,7 +3439,10 @@ export default function CustomerOrderPage() {
         if(existingOrder){
           const r=await orderApi.getOrder(existingOrder._id);
           const o:Order|null=r.data?.data;
-          if(o) await processOrderUpdate(o);
+          if(o){
+            await processOrderUpdate(o);
+            return; // Don't override after processOrderUpdate
+          }
         }
         const [oR,aR]=await Promise.all([orderApi.getOrderByTable(tableId),orderApi.getKdsOrders()]);
         if(!alive)return;
