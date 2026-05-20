@@ -3219,16 +3219,18 @@ export default function CustomerOrderPage() {
       }
       if(o.status==="cancelled"){localStorage.removeItem("gb_active_order");setExistingOrder(null);return;}
 
-      // ── Delivered — show served screen then redirect to menu ──
+      // ── Delivered — show "Enjoy your meal!" toast then redirect to menu ──
       if((o.status as string)==="delivered"&&(prevStatus.current as string)!=="delivered"){
         prevStatus.current=o.status;
         setExistingOrder(o);
-        // Show "Order Served!" for 3 seconds then go to home/menu
+        setScreen("tracking"); // Force tracking screen to show delivered status
+        // After 3 seconds redirect to menu
         setTimeout(()=>{
           localStorage.removeItem("gb_active_order");
           setExistingOrder(null);
+          prevStatus.current=null;
           setScreen("home");
-          setActiveTab("home");
+          setActiveTab("menu");
         }, 3000);
         return;
       }
