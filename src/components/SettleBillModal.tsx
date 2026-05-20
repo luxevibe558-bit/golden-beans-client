@@ -138,8 +138,7 @@ export default function SettleBillModal({ order, isOpen, onClose, onSettled }: S
         paymentMethod: paidOnline ? "upi" : paymentMethod,
         discount: totalDiscount,
         resolvedBy: "pos",
-        razorpayPaymentId: onlinePayId || undefined,
-      });
+      } as any);
       if (paymentMethod === "due") {
         const existingDues = JSON.parse(localStorage.getItem("gb_dues") || "[]");
         existingDues.push({ id: Date.now(), orderId: order._id, orderNumber: order.orderNumber, tableNumber: order.tableNumber, customerName: dueCustomerName, customerPhone: dueCustomerPhone, amount: grandTotal, items: order.items, notes, date: new Date().toISOString(), settled: false });
