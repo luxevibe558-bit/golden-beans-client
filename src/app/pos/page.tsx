@@ -526,6 +526,233 @@ function printKOT(order: Order) {
   win.print();
 }
 
+// ── Parcel Status Config ──
+const PARCEL_STATUS: Record<string,{label:string;color:string;bg:string;icon:string}> = {
+  confirmed: { label:"Order Received", color:"#D97706", bg:"#FFFBEB", icon:"✅" },
+  preparing: { label:"In Kitchen 👨‍🍳",  color:"#2563EB", bg:"#EFF6FF", icon:"👨‍🍳" },
+  ready:     { label:"Ready! 🔔",       color:"#16A34A", bg:"#F0FDF4", icon:"🔔" },
+  delivered: { label:"Picked Up",       color:"#6B7280", bg:"#F9FAFB", icon:"✓"  },
+};
+
+// ── Parcel Card ──
+function ParcelCard({ parcel, onSettle, onStatusChange }: { parcel:any; onSettle:(p:any)=>void; onStatusChange:(id:string,status:string)=>void }) {
+  const [elapsed, setElapsed] = useState(0);
+  const [hovered, setHovered] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(()=>{
+    const iv = setInterval(()=> setElapsed(Math.floor((Date.now()-new Date(parcel.createdAt).getTime())/1000)),1000);
+    return()=>clearInterval(iv);
+  },[parcel.createdAt]);
+
+  const formatTime=(s:number)=>{ const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60; return h>0?`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`; };
+
+  const sc = PARCEL_STATUS[parcel.status] || PARCEL_STATUS.confirmed;
+  const isReady     = parcel.status === "ready";
+  const isPaidOnline= parcel.paidOnline;
+  const timerColor  = elapsed>1800?T.danger:elapsed>900?"#D97706":T.success;
+
+  const nextStatus: Record<string,string> = { confirmed:"preparing", preparing:"ready", ready:"delivered" };
+
+  const handleNextStatus = async()=>{
+    const next = nextStatus[parcel.status];
+    if(!next) return;
+    setLoading(true);
+    try{
+      const API = process.env.NEXT_PUBLIC_API_URL||'https://golden-beans-server.onrender.com/api';
+      await fetch(`${API}/parcel/${parcel._id}/status`,{
+        method:"PATCH", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ status:next }),
+      });
+      onStatusChange(parcel._id, next);
+    }catch{}
+    setLoading(false);
+  };
+
+  return(
+    <div onMouseEnter={()=>setHovered(true)} onMouseLeave={()=>setHovered(false)}
+      style={{ background:T.ivory, borderRadius:"18px", overflow:"hidden",
+        border:`2px solid ${isReady?"#22C55E":isPaidOnline?"#3B82F6":T.border}`,
+        boxShadow:isReady?`0 8px 24px rgba(34,197,94,0.2)`:hovered?`0 12px 32px rgba(15,61,46,0.15)`:`0 2px 8px rgba(0,0,0,0.04)`,
+        transition:"all 0.25s ease" }}>
+      {/* Top bar */}
+      <div style={{ height:3, background:isReady?`linear-gradient(90deg,#16A34A,#22C55E)`:isPaidOnline?`linear-gradient(90deg,#1D4ED8,#3B82F6)`:`linear-gradient(90deg,${T.gold},${T.goldLight})` }}/>
+
+      <div style={{ padding:"14px 16px" }}>
+        {/* Header */}
+        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:10 }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ width:40, height:40, borderRadius:12, flexShrink:0,
+              background:isReady?"rgba(34,197,94,0.12)":isPaidOnline?"rgba(59,130,246,0.1)":"rgba(212,165,116,0.12)",
+              display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>
+              📦
+            </div>
+            <div>
+              <p style={{ fontFamily:"'Playfair Display',serif", fontSize:"15px", fontWeight:800, color:T.emerald, margin:0 }}>{parcel.token}</p>
+              <p style={{ fontSize:"11px", color:T.textMuted, margin:"2px 0 0", fontWeight:600 }}>{parcel.customerName} · {parcel.customerPhone}</p>
+            </div>
+          </div>
+          {/* Timer */}
+          <div style={{ background:T.cream, borderRadius:8, padding:"4px 8px", textAlign:"center" }}>
+            <p style={{ fontFamily:"'DM Mono',monospace", fontSize:13, fontWeight:700, color:timerColor, margin:0 }}>{formatTime(elapsed)}</p>
+            <p style={{ fontSize:8, color:T.textDim, margin:0, fontWeight:700 }}>WAITING</p>
+          </div>
+        </div>
+
+        {/* Online paid badge */}
+        {isPaidOnline&&(
+          <div style={{ background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.2)", borderRadius:8, padding:"5px 10px", marginBottom:8, display:"flex", alignItems:"center", gap:6 }}>
+            <span style={{ fontSize:12 }}>💳</span>
+            <span style={{ fontSize:11, fontWeight:700, color:"#1D4ED8" }}>Paid Online — No cash needed</span>
+            <span style={{ marginLeft:"auto", fontSize:9, background:"#DBEAFE", borderRadius:4, padding:"1px 6px", color:"#1D4ED8", fontWeight:800 }}>PAID ✓</span>
+          </div>
+        )}
+
+        {/* Items */}
+        <div style={{ background:T.cream, borderRadius:10, padding:"8px 10px", marginBottom:10, border:`1px solid ${T.creamDark}` }}>
+          <p style={{ fontSize:9, color:T.textMuted, fontWeight:800, letterSpacing:"0.5px", textTransform:"uppercase", margin:"0 0 6px" }}>ITEMS · VERIFY BEFORE HANDOVER</p>
+          {parcel.items.map((item:any,i:number)=>(
+            <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"3px 0", borderBottom:i<parcel.items.length-1?`1px solid ${T.creamDark}`:"none" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <span style={{ width:18, height:18, borderRadius:4, background:T.emerald, color:T.gold, fontSize:9, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{item.quantity}</span>
+                <span style={{ fontSize:12, color:T.text, fontWeight:600 }}>{item.name}</span>
+              </div>
+              <span style={{ fontSize:11, color:T.emerald, fontWeight:700 }}>₹{item.price*item.quantity}</span>
+            </div>
+          ))}
+          <div style={{ display:"flex", justifyContent:"space-between", marginTop:6, paddingTop:6, borderTop:`1px dashed ${T.creamDark}` }}>
+            <span style={{ fontSize:10, color:T.textMuted }}>📦 Packaging</span>
+            <span style={{ fontSize:10, color:T.textMuted, fontWeight:700 }}>+₹{parcel.packagingCharge||10}</span>
+          </div>
+        </div>
+
+        {/* Status + Amount */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+          <div style={{ background:sc.bg, borderRadius:7, padding:"3px 9px", display:"flex", alignItems:"center", gap:5 }}>
+            <span style={{ fontSize:10 }}>{sc.icon}</span>
+            <span style={{ fontSize:10, fontWeight:800, color:sc.color }}>{sc.label}</span>
+          </div>
+          <div style={{ textAlign:"right" }}>
+            <p style={{ fontSize:9, color:T.textDim, margin:0 }}>TOTAL</p>
+            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:20, fontWeight:900, color:isReady?"#16A34A":T.emerald, margin:0 }}>₹{parcel.totalAmount}</p>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display:"flex", gap:8 }}>
+          {/* Next status button */}
+          {parcel.status!=="delivered"&&(
+            <button onClick={handleNextStatus} disabled={loading}
+              style={{ flex:parcel.status==="ready"?1:2, padding:"10px", borderRadius:10, border:"none",
+                background:parcel.status==="ready"?`linear-gradient(135deg,#16A34A,#22C55E)`:parcel.status==="preparing"?`linear-gradient(135deg,#1D4ED8,#3B82F6)`:`linear-gradient(135deg,${T.emerald},${T.emeraldMid})`,
+                color:"white", fontWeight:800, fontSize:12, cursor:"pointer",
+                boxShadow:parcel.status==="ready"?`0 4px 12px rgba(34,197,94,0.4)`:"none" }}>
+              {loading?"...":parcel.status==="confirmed"?"👨‍🍳 Start Preparing":parcel.status==="preparing"?"🔔 Mark Ready":"✓ Handed Over"}
+            </button>
+          )}
+          {/* Settle — only when ready */}
+          {parcel.status==="ready"&&(
+            <button onClick={()=>onSettle(parcel)}
+              style={{ flex:1, padding:"10px", borderRadius:10, border:`1.5px solid ${isPaidOnline?"#3B82F6":T.gold}`,
+                background:isPaidOnline?"rgba(59,130,246,0.1)":"rgba(212,165,116,0.1)",
+                color:isPaidOnline?"#1D4ED8":T.goldDark, fontWeight:800, fontSize:12, cursor:"pointer" }}>
+              {isPaidOnline?"🔒 Close":"💰 Collect"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Parcel Settle Modal ──
+function ParcelSettleModal({ parcel, isOpen, onClose, onSettled }:{ parcel:any; isOpen:boolean; onClose:()=>void; onSettled:()=>void }) {
+  const [method, setMethod] = useState<"cash"|"upi">("cash");
+  const [settling, setSettling] = useState(false);
+
+  useEffect(()=>{ if(isOpen&&parcel){ setMethod(parcel.paidOnline?"upi":"cash"); } },[isOpen,parcel]);
+
+  if(!isOpen||!parcel) return null;
+
+  const handleSettle = async()=>{
+    setSettling(true);
+    try{
+      const API = process.env.NEXT_PUBLIC_API_URL||'https://golden-beans-server.onrender.com/api';
+      await fetch(`${API}/parcel/${parcel._id}/status`,{
+        method:"PATCH", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ status:"delivered", paymentMethod:method, amountPaid:parcel.totalAmount }),
+      });
+      onSettled();
+    }catch{}
+    setSettling(false);
+  };
+
+  return(
+    <div onClick={onClose} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:16, backdropFilter:"blur(4px)" }}>
+      <div onClick={e=>e.stopPropagation()} style={{ background:T.ivory, borderRadius:20, width:"100%", maxWidth:400, overflow:"hidden", boxShadow:"0 24px 60px rgba(0,0,0,0.25)" }}>
+        <div style={{ height:3, background:`linear-gradient(90deg,${T.goldDark},${T.gold},${T.goldLight})` }}/>
+        <div style={{ padding:"20px 22px", background:`linear-gradient(135deg,${T.emerald},${T.emeraldMid})` }}>
+          <p style={{ fontSize:10, color:"rgba(212,165,116,0.7)", fontWeight:800, letterSpacing:"0.08em", textTransform:"uppercase", margin:"0 0 3px" }}>Parcel Handover</p>
+          <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:20, fontWeight:800, color:T.gold, margin:0 }}>{parcel.token}</h2>
+          <p style={{ fontSize:11, color:"rgba(212,165,116,0.7)", margin:"3px 0 0" }}>{parcel.customerName} · {parcel.items.length} items</p>
+        </div>
+        <div style={{ padding:"20px 22px" }}>
+          {/* Online paid banner */}
+          {parcel.paidOnline&&(
+            <div style={{ background:"rgba(59,130,246,0.08)", border:"1.5px solid rgba(59,130,246,0.25)", borderRadius:12, padding:"12px 14px", marginBottom:16, display:"flex", alignItems:"center", gap:10 }}>
+              <span style={{ fontSize:22 }}>💳</span>
+              <div>
+                <p style={{ fontSize:13, fontWeight:800, color:"#1D4ED8", margin:0 }}>Already Paid Online!</p>
+                <p style={{ fontSize:11, color:"#3B82F6", margin:0 }}>₹{parcel.totalAmount} received — no cash needed</p>
+              </div>
+            </div>
+          )}
+
+          {/* Items checklist */}
+          <p style={{ fontSize:10, fontWeight:800, color:T.textMuted, textTransform:"uppercase", letterSpacing:"0.5px", margin:"0 0 8px" }}>Verify items before handover</p>
+          <div style={{ background:T.cream, borderRadius:10, padding:"10px 12px", marginBottom:16, border:`1px solid ${T.creamDark}` }}>
+            {parcel.items.map((item:any,i:number)=>(
+              <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"4px 0", borderBottom:i<parcel.items.length-1?`1px solid ${T.creamDark}`:"none" }}>
+                <span style={{ fontSize:12, color:T.text, fontWeight:600 }}>✓ {item.name} × {item.quantity}</span>
+                <span style={{ fontSize:11, color:T.emerald, fontWeight:700 }}>₹{item.price*item.quantity}</span>
+              </div>
+            ))}
+            <div style={{ display:"flex", justifyContent:"space-between", marginTop:6, paddingTop:6, borderTop:`1px dashed ${T.creamDark}`, fontWeight:800 }}>
+              <span style={{ fontSize:13, color:T.emerald }}>Total (incl. packaging)</span>
+              <span style={{ fontSize:15, color:T.emerald }}>₹{parcel.totalAmount}</span>
+            </div>
+          </div>
+
+          {/* Payment method — only if not paid online */}
+          {!parcel.paidOnline&&(
+            <div style={{ marginBottom:16 }}>
+              <p style={{ fontSize:10, fontWeight:800, color:T.textMuted, textTransform:"uppercase", margin:"0 0 8px" }}>Collect Payment</p>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                {(["cash","upi"] as const).map(m=>(
+                  <button key={m} onClick={()=>setMethod(m)} style={{ padding:"12px", borderRadius:12, border:`2px solid ${method===m?T.emerald:T.border}`, background:method===m?`${T.emerald}12`:T.cream, color:method===m?T.emerald:T.textMuted, fontWeight:800, fontSize:13, cursor:"pointer" }}>
+                    {m==="cash"?"💵 Cash":"📱 UPI"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display:"flex", gap:8 }}>
+            <button onClick={onClose} style={{ flex:1, padding:"12px", borderRadius:12, border:`1px solid ${T.border}`, background:"white", color:T.text, fontWeight:700, cursor:"pointer" }}>Cancel</button>
+            <button onClick={handleSettle} disabled={settling}
+              style={{ flex:2, padding:"12px", borderRadius:12, border:"none",
+                background:parcel.paidOnline?`linear-gradient(135deg,#1D4ED8,#3B82F6)`:`linear-gradient(135deg,${T.emerald},${T.emeraldMid})`,
+                color:"white", fontWeight:800, fontSize:14, cursor:"pointer",
+                boxShadow:parcel.paidOnline?"0 6px 16px rgba(59,130,246,0.4)":"0 6px 16px rgba(15,61,46,0.3)" }}>
+              {settling?"Processing...":`${parcel.paidOnline?"🔒 Close Parcel":"✅ Confirm Handover"}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function POSPage() {
   const [view,           setView          ] = useState<"tables"|"order">("tables");
   const [tables,         setTables        ] = useState<Table[]>([]);
@@ -543,6 +770,9 @@ export default function POSPage() {
   const [tableRequests,  setTableRequests ] = useState<Record<string, any[]>>({});
   const [currentTime,    setCurrentTime   ] = useState(new Date());
   const [cancelModal,    setCancelModal   ] = useState<Order | null>(null);
+  const [parcels,        setParcels       ] = useState<any[]>([]);
+  const [parcelModal,    setParcelModal   ] = useState<any|null>(null);
+  const [posTab,         setPosTab        ] = useState<"tables"|"parcels">("tables");
 
   useEffect(() => { const iv = setInterval(() => setCurrentTime(new Date()), 1000); return () => clearInterval(iv); }, []);
 
@@ -564,6 +794,14 @@ export default function POSPage() {
         requests.forEach(r => { if (!reqMap[r.tableId]) reqMap[r.tableId] = []; reqMap[r.tableId].push(r); });
         setTableRequests(reqMap);
       } catch { }
+    } catch { }
+  }, []);
+
+  const loadParcels = useCallback(async () => {
+    try {
+      const API = process.env.NEXT_PUBLIC_API_URL || 'https://golden-beans-server.onrender.com/api';
+      const res = await fetch(`${API}/parcel/active/all`).then(r => r.json());
+      if (res.success) setParcels(res.data || []);
     } catch { }
   }, []);
 
@@ -589,7 +827,7 @@ export default function POSPage() {
         setTableOrders(orderMap);
       } catch { } finally { setLoading(false); }
     }
-    init(); loadPendingApprovals(); loadLowStock();
+    init(); loadPendingApprovals(); loadLowStock(); loadParcels();
     try {
       const { getSocket, joinPOS } = require("@/lib/socket");
       const sock = getSocket(); joinPOS();
@@ -598,8 +836,10 @@ export default function POSPage() {
       sock.on("order:ready",    () => { loadTables(); loadPendingApprovals(); });
       sock.on("waiter:request", () => { loadTables(); });
       sock.on("table:update",   () => { loadTables(); });
+      sock.on("parcel:new",     () => { loadParcels(); });
+      sock.on("parcel:update",  () => { loadParcels(); });
     } catch { }
-    const iv = setInterval(() => { loadTables(); loadPendingApprovals(); loadLowStock(); }, 15000);
+    const iv = setInterval(() => { loadTables(); loadPendingApprovals(); loadLowStock(); loadParcels(); }, 15000);
     return () => clearInterval(iv);
   }, [loadTables, loadPendingApprovals, loadLowStock]);
 
@@ -680,7 +920,13 @@ export default function POSPage() {
                 <p style={{ fontSize: "9px", color: T.textMuted, margin: 0, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</p>
               </div>
             ))}
-            {/* Ready to settle counter */}
+            {/* Parcel ready counter */}
+            {parcels.filter(p=>p.status==="ready").length>0&&(
+              <div style={{ background:"rgba(34,197,94,0.1)", borderRadius:"12px", padding:"8px 16px", textAlign:"center", border:"1.5px solid rgba(34,197,94,0.4)", cursor:"pointer" }} onClick={()=>setPosTab("parcels")}>
+                <p style={{ fontWeight:900, fontSize:"22px", color:"#16A34A", margin:0 }}>{parcels.filter(p=>p.status==="ready").length}</p>
+                <p style={{ fontSize:"9px", color:"#16A34A", margin:0, fontWeight:800, textTransform:"uppercase" }}>📦 Ready</p>
+              </div>
+            )}
             {Object.values(tableOrders).filter(o => getSettleReadiness(o).canSettle).length > 0 && (
               <div style={{ background: "rgba(34,197,94,0.1)", borderRadius: "12px", padding: "8px 16px", textAlign: "center", border: "1.5px solid rgba(34,197,94,0.4)", animation: "settleGlow 2s ease-in-out infinite" }}>
                 <p style={{ fontWeight: 900, fontSize: "22px", color: '#16A34A', margin: 0 }}>
@@ -699,30 +945,75 @@ export default function POSPage() {
         </header>
         <main style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
           <RevenueGoalWidget goal={10000} />
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "20px", fontWeight: 800, color: T.emerald, margin: 0 }}>Select Table</h2>
-            <button onClick={() => handleSelectTable({ _id: "counter", tableNumber: "Counter", status: "available", currentOrderId: null, capacity: 1, qrCode: "" } as any)}
-              style={{ padding: "10px 20px", borderRadius: "12px", border: `2px solid ${T.emerald}`, background: T.emerald, color: T.gold, fontWeight: 800, fontSize: "13px", cursor: "pointer" }}>
-              🏪 Counter Order
-            </button>
+
+          {/* Tab switcher */}
+          <div style={{ display:"flex", gap:8, marginBottom:20 }}>
+            {([
+              { id:"tables", label:"🪑 Tables",  count:tables.filter(t=>t.status==="occupied").length },
+              { id:"parcels",label:"📦 Parcels", count:parcels.filter(p=>p.status!=="delivered").length },
+            ] as const).map(tab=>(
+              <button key={tab.id} onClick={()=>setPosTab(tab.id)}
+                style={{ padding:"10px 20px", borderRadius:12, border:`2px solid ${posTab===tab.id?T.emerald:T.border}`, background:posTab===tab.id?T.emerald:"white", color:posTab===tab.id?T.gold:T.textMuted, fontWeight:800, fontSize:13, cursor:"pointer", display:"flex", alignItems:"center", gap:8 }}>
+                {tab.label}
+                {tab.count>0&&<span style={{ background:posTab===tab.id?"rgba(212,165,116,0.3)":T.creamDark, borderRadius:99, padding:"1px 8px", fontSize:11, color:posTab===tab.id?T.gold:T.textMuted, fontWeight:900 }}>{tab.count}</span>}
+              </button>
+            ))}
+            {posTab==="tables"&&(
+              <button onClick={() => handleSelectTable({ _id: "counter", tableNumber: "Counter", status: "available", currentOrderId: null, capacity: 1, qrCode: "" } as any)}
+                style={{ marginLeft:"auto", padding: "10px 20px", borderRadius: "12px", border: `2px solid ${T.emerald}`, background: T.emerald, color: T.gold, fontWeight: 800, fontSize: "13px", cursor: "pointer" }}>
+                🏪 Counter Order
+              </button>
+            )}
           </div>
-          {loading ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
-              {Array.from({ length: 6 }).map((_, i) => (<div key={i} style={{ height: "200px", background: T.ivory, borderRadius: "22px", border: `1px solid ${T.border}`, animation: "pulse 1.5s infinite" }} />))}
-            </div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
-              {tables.map((table, idx) => (
-                <div key={table._id} style={{ animation: `fadeInUp 0.3s ${idx * 0.04}s ease both` }}>
-                  <TableCard table={table} order={tableOrders[table._id] || null} onSelect={() => handleSelectTable(table)} waiterRequests={tableRequests[table._id] || []} />
+
+          {/* Tables tab */}
+          {posTab==="tables"&&(
+            loading ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
+                {Array.from({ length: 6 }).map((_, i) => (<div key={i} style={{ height: "200px", background: T.ivory, borderRadius: "22px", border: `1px solid ${T.border}`, animation: "pulse 1.5s infinite" }} />))}
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
+                {tables.map((table, idx) => (
+                  <div key={table._id} style={{ animation: `fadeInUp 0.3s ${idx * 0.04}s ease both` }}>
+                    <TableCard table={table} order={tableOrders[table._id] || null} onSelect={() => handleSelectTable(table)} waiterRequests={tableRequests[table._id] || []} />
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+
+          {/* Parcels tab */}
+          {posTab==="parcels"&&(
+            <div>
+              {parcels.length===0?(
+                <div style={{ textAlign:"center", padding:"60px 20px", color:T.textMuted }}>
+                  <div style={{ fontSize:48, marginBottom:12, opacity:0.3 }}>📦</div>
+                  <p style={{ fontFamily:"'Playfair Display',serif", fontSize:20, fontWeight:700, color:T.emerald, margin:"0 0 6px" }}>No active parcels</p>
+                  <p style={{ fontSize:13, fontWeight:600 }}>Parcel orders will appear here</p>
                 </div>
-              ))}
+              ):(
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:16 }}>
+                  {parcels.map((parcel,idx)=>(
+                    <div key={parcel._id} style={{ animation:`fadeInUp 0.3s ${idx*0.05}s ease both` }}>
+                      <ParcelCard parcel={parcel}
+                        onSettle={p=>setParcelModal(p)}
+                        onStatusChange={(_id,status)=>{
+                          setParcels(prev=>prev.map(p=>p._id===_id?{...p,status}:p));
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </main>
       </div>
       <SettleBillModal order={settleModalOrder} isOpen={!!settleModalOrder} onClose={() => setSettleModalOrder(null)}
         onSettled={() => { setSettleModalOrder(null); setCurrentOrder(null); setSelectedTable(null); loadTables(); loadPendingApprovals(); }} />
+      <ParcelSettleModal parcel={parcelModal} isOpen={!!parcelModal} onClose={()=>setParcelModal(null)}
+        onSettled={()=>{ setParcelModal(null); loadParcels(); }} />
     </div>
   );
 
