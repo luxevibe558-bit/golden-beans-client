@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { setSessionCustomer, clearSessionCustomer } from "@/lib/CustomerIdentitySystem";
+import { setSessionCustomer, clearSessionCustomer, type CustomerProfile } from "@/lib/CustomerIdentitySystem";
 
 // ═══════════════════════════════════════════════════════════════════
 // CRM CAPTURE — Smart Phone-First Login
@@ -32,11 +32,6 @@ const TIER_CONFIG: Record<string,{label:string;icon:string;color:string}> = {
   platinum: {label:"Platinum", icon:"💎", color:"#E5E4E2"},
 };
 
-interface CustomerProfile {
-  _id:string; name:string; phone:string;
-  totalPoints:number; tier:string; totalOrders:number;
-}
-
 async function registerCustomer(name:string, phone:string, tableId:string): Promise<CustomerProfile|null> {
   try{
     const r = await fetch(`${API}/crm-capture/register`,{
@@ -45,7 +40,15 @@ async function registerCustomer(name:string, phone:string, tableId:string): Prom
     }).then(r=>r.json());
     if(r.success&&r.data){
       const p = r.data;
-      setSessionCustomer({_id:p._id,name:p.name,phone:p.phone,totalPoints:p.totalPoints||0,tier:p.tier||"bronze",totalOrders:p.totalOrders||0, totalSpent:0, visits:p.visitCount||0, lastVisit:new Date().toISOString()});
+      setSessionCustomer({
+        _id:p._id, name:p.name, phone:p.phone,
+        totalPoints:p.totalPoints||0,
+        tier:(p.tier||"bronze") as "bronze"|"silver"|"gold"|"platinum",
+        totalOrders:p.totalOrders||0,
+        totalSpent:p.totalSpent||0,
+        visits:p.visitCount||p.visits||0,
+        lastVisit:p.lastVisit||new Date().toISOString(),
+      });
       return p;
     }
     return null;
