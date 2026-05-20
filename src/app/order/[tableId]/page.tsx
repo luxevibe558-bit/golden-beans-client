@@ -2791,7 +2791,13 @@ function OrdersTab({ existingOrder, queuePos }:{existingOrder:Order|null;queuePo
 // ═══════════════════════════════════════════════════
 // PROFILE TAB
 // ═══════════════════════════════════════════════════
-function ProfileTab({ table, customer }:{table:Table|null;customer:{name:string;phone:string}|null}) {
+function ProfileTab({ table, customer, allItems, addToCart, setActiveTab: setParentTab }:{
+  table:Table|null;
+  customer:{name:string;phone:string}|null;
+  allItems:MenuItem[];
+  addToCart:(item:MenuItem,qty:number,variants:{groupName:string;selected:string[]}[],mod:number)=>void;
+  setActiveTab:(tab:any)=>void;
+}) {
   const [profile,  setProfile ] = useState<any>(null);
   const [history,  setHistory ] = useState<any[]>([]);
   const [loading,  setLoading ] = useState(false);
@@ -3139,7 +3145,7 @@ function ProfileTab({ table, customer }:{table:Table|null;customer:{name:string;
                             addToCart(menuItem, item.quantity||1, [], 0);
                           }
                       });
-                      setActiveTab("cart");
+                      setParentTab("cart");
                     }} style={{
                       width:"100%",marginTop:10,padding:"10px",borderRadius:11,
                       border:`1px solid ${C.g25}`,background:C.g08,
@@ -3758,7 +3764,7 @@ export default function CustomerOrderPage() {
             {activeTab==="orders"&&<OrdersTab existingOrder={existingOrder} queuePos={queuePos}/>}
 
             {/* PROFILE TAB */}
-            {activeTab==="profile"&&<ProfileTab table={table} customer={customer}/>}
+            {activeTab==="profile"&&<ProfileTab table={table} customer={customer} allItems={allItems} addToCart={addToCart} setActiveTab={setActiveTab}/>}
           </>
         )}
 
