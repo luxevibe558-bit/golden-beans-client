@@ -117,19 +117,26 @@ export default function WaiterHelpSheet({tableId,tableNumber,orderStatus="",orde
     return()=>clearInterval(iv);
   },[]);
 
-  // Socket: listen for request:completed to remove from badge
+  // Poll every 10s to check if requests are completed → remove from badge
   useEffect(()=>{
-    try{
-      const { getSocket } = require("@/lib/socket");
-      const sock = getSocket();
-      if(!sock) return;
-      const handler=(data:any)=>{
-        setSentRequests(p=>p.filter(r=>r.reqId!==data.requestId&&r.id!==data.type));
-      };
-      sock.on("request:completed", handler);
-      return()=>{ sock.off("request:completed", handler); };
-    }catch{}
-  },[]);
+    if(sentRequests.length===0) return;
+    const iv=setInterval(async()=>{
+      try{
+        const ids=sentRequests.map(r=>r.reqId).filter(Boolean);
+        if(!ids.length) return;
+        // Check each request status
+        const results = await Promise.all(
+          ids.map(id=>fetch(`${API}/waiter/request-status/${id}`).then(r=>r.json()).catch(()=>null))
+        );
+        results.forEach((data,i)=>{
+          if(data?.status==="completed"||data?.status==="cancelled"){
+            setSentRequests(p=>p.filter(r=>r.reqId!==ids[i]));
+          }
+        });
+      }catch{}
+    },10000);
+    return()=>clearInterval(iv);
+  },[sentRequests]);
 
   // ── INSTANT SEND — no countdown, auto-close in 3s ──
   const sendRequest=async(reqId:string, subId?:string)=>{
@@ -161,12 +168,12 @@ export default function WaiterHelpSheet({tableId,tableNumber,orderStatus="",orde
     setSentRequests(p=>[...p,{uid,id:reqId,reqId:serverReqId,subLabel:sub?.label}]);
     setPhase("sent");
 
-    // Auto-close after 3 seconds
+    // Auto-close after 1 second
     if(closeTimer.current) clearTimeout(closeTimer.current);
     closeTimer.current=setTimeout(()=>{
       setOpen(false);
-      setTimeout(()=>{ setPhase("select");setSelected(null);setSubSelected(null); },350);
-    },3000);
+      setTimeout(()=>{ setPhase("select");setSelected(null);setSubSelected(null); },300);
+    },1000);
   };
 
   const handleSelectRequest=(id:string)=>{
