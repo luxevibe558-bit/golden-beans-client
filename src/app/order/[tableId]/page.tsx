@@ -3717,7 +3717,7 @@ export default function CustomerOrderPage() {
       />
 
       {/* WAITER HELP — always visible */}
-      <WaiterHelpSheet tableId={tableId} tableNumber={table?.tableNumber||tableId}/>
+      <WaiterHelpSheet tableId={tableId} tableNumber={table?.tableNumber||tableId} orderStatus={(existingOrder?.status as string)||""} orderTime={existingOrder?.createdAt||""}/>
 
       {/* PRODUCT MODAL */}
       <ProductModal item={selectedItem} open={!!selectedItem} onClose={()=>setSelectedItem(null)} onAdd={addToCart} allItems={allItems}/>
