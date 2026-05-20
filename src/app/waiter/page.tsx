@@ -96,6 +96,7 @@ export default function WaiterPage() {
   const [loading,   setLoading  ] = useState(true);
   const [completing,setCompleting]=useState<string|null>(null);
   const [justDone,  setJustDone ] = useState<Set<string>>(new Set());
+  const [loginUsername, setLoginUsername] = useState("");
   const [loginPin,  setLoginPin ] = useState("");
   const [loginErr,  setLoginErr ] = useState("");
   const [loginLoading,setLoginLoading]=useState(false);
@@ -132,21 +133,22 @@ export default function WaiterPage() {
   },[waiter,loadData]);
 
   const handleLogin = async()=>{
-    if(loginPin.length<4) return;
+    if(!loginUsername.trim()||loginPin.length<4) return;
     setLoginLoading(true);
     setLoginErr("");
     try{
       const res=await fetch(`${API}/waiter/login`,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({pin:loginPin}),
+        body:JSON.stringify({username:loginUsername.trim(),pin:loginPin}),
       });
       const data=await res.json();
       if(data.success&&data.waiter){
         setWaiter(data.waiter);
         localStorage.setItem("gb_waiter",JSON.stringify(data.waiter));
       } else {
-        setLoginErr("Invalid PIN. Try again.");
+        setLoginErr(data.error||"Invalid username or PIN. Try again.");
+        setLoginPin("");
       }
     }catch{ setLoginErr("Connection failed."); }
     setLoginLoading(false);
@@ -208,7 +210,20 @@ export default function WaiterPage() {
             <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:600,
               color:C.ink,margin:"0 0 6px"}}>Waiter Login</h2>
             <p style={{fontSize:13,color:C.inkDim,fontFamily:"'DM Sans',sans-serif",
-              margin:"0 0 24px"}}>Enter your 4-digit PIN to start your shift</p>
+              margin:"0 0 20px"}}>Enter your username and 4-digit PIN</p>
+
+            {/* Username input */}
+            <input
+              value={loginUsername}
+              onChange={e=>setLoginUsername(e.target.value)}
+              placeholder="Username (e.g. rahul)"
+              autoCapitalize="none"
+              style={{width:"100%",padding:"13px 16px",borderRadius:14,
+                border:`1.5px solid ${loginUsername?C.g25:C.glBd}`,
+                background:C.gl1,color:C.ink,fontSize:14,outline:"none",
+                boxSizing:"border-box",marginBottom:16,
+                fontFamily:"'DM Sans',sans-serif",
+                transition:`all 0.2s ${EASE}`}}/>
 
             {/* PIN display */}
             <div style={{display:"flex",justifyContent:"center",gap:10,marginBottom:20}}>
@@ -243,13 +258,14 @@ export default function WaiterPage() {
 
             {loginErr&&<p style={{fontSize:12,color:C.red,marginBottom:12,fontFamily:"'DM Sans',sans-serif"}}>{loginErr}</p>}
 
-            <button onClick={handleLogin} disabled={loginPin.length<4||loginLoading}
+            <button onClick={handleLogin} disabled={!loginUsername.trim()||loginPin.length<4||loginLoading}
               style={{width:"100%",padding:"15px",borderRadius:14,border:"none",
-                background:loginPin.length===4?GG:C.gl1,
-                color:loginPin.length===4?C.void:C.inkDim,
-                fontWeight:700,fontSize:15,cursor:loginPin.length===4?"pointer":"not-allowed",
+                background:(loginUsername.trim()&&loginPin.length===4)?GG:C.gl1,
+                color:(loginUsername.trim()&&loginPin.length===4)?C.void:C.inkDim,
+                fontWeight:700,fontSize:15,
+                cursor:(loginUsername.trim()&&loginPin.length===4)?"pointer":"not-allowed",
                 fontFamily:"'DM Sans',sans-serif",
-                boxShadow:loginPin.length===4?`0 8px 24px ${C.g40}`:"none",
+                boxShadow:(loginUsername.trim()&&loginPin.length===4)?`0 8px 24px ${C.g40}`:"none",
                 transition:`all 0.25s ${EASE}`}}>
               {loginLoading?"Signing in...":"Sign In ✓"}
             </button>
