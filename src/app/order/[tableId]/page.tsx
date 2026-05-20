@@ -3424,9 +3424,7 @@ export default function CustomerOrderPage() {
       sock.on("order:new",      onOrderNew);
       sock.on("table:cleared",  onTableCleared);
       // Badge update when waiter completes request
-      sock.on("request:completed",(data:any)=>{
-        if(waiterSheetRef.current) waiterSheetRef.current.markDone(data.type);
-      });
+      sock.on("request:completed",(data:any)=>{ /* handled internally by WaiterHelpSheet */ });
 
       socketCleanup=()=>{
         sock.off("order:update",  onOrderUpdate);
