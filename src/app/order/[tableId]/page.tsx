@@ -3220,7 +3220,7 @@ export default function CustomerOrderPage() {
       if(o.status==="cancelled"){localStorage.removeItem("gb_active_order");setExistingOrder(null);return;}
 
       // ── Delivered — show served screen then redirect to menu ──
-      if(o.status==="delivered"&&prevStatus.current!=="delivered"){
+      if((o.status as string)==="delivered"&&(prevStatus.current as string)!=="delivered"){
         prevStatus.current=o.status;
         setExistingOrder(o);
         // Show "Order Served!" for 3 seconds then go to home/menu
