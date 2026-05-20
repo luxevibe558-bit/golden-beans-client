@@ -110,9 +110,13 @@ export default function WaiterPage() {
     return()=>clearInterval(iv);
   },[]);
 
+  const waiterRef = useRef<WaiterInfo|null>(null);
+  useEffect(()=>{ waiterRef.current=waiter; },[waiter]);
+
   const loadData = useCallback(async()=>{
-    if(!waiter) return;
-    const token = waiter.sessionToken||"";
+    const w = waiterRef.current;
+    if(!w) return;
+    const token = w.sessionToken||"";
     const headers: Record<string,string> = { "Content-Type":"application/json", "x-waiter-token": token };
     try{
       const [rRes, oRes] = await Promise.all([
@@ -126,12 +130,13 @@ export default function WaiterPage() {
       else if(Array.isArray(oData)) setReadyOrders(oData);
     }catch{}
     setLoading(false);
-  },[waiter]);
+  },[]);
 
   // Poll every 8 seconds
   useEffect(()=>{
     if(!waiter) return;
     loadData();
+    if(pollRef.current) clearInterval(pollRef.current);
     pollRef.current=setInterval(loadData,8000);
     return()=>{ if(pollRef.current) clearInterval(pollRef.current); };
   },[waiter,loadData]);
@@ -165,7 +170,7 @@ export default function WaiterPage() {
     if(saved){ try{ setWaiter(JSON.parse(saved)); }catch{} }
   },[]);
 
-  const getAuthHeaders = ()=>({ "Content-Type":"application/json", "x-waiter-token": waiter?.sessionToken||"" });
+  const getAuthHeaders = ()=>({ "Content-Type":"application/json", "x-waiter-token": waiterRef.current?.sessionToken||"" });
 
   const acknowledge=async(id:string)=>{
     try{
