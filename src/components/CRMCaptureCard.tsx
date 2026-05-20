@@ -1,73 +1,73 @@
 "use client";
+import { useState, useEffect, useRef } from "react";
+import { saveSessionCustomer, clearSessionCustomer } from "@/lib/customerSession";
 
-// ═══════════════════════════════════════════════════════════════
-// CRM CAPTURE CARD — Compulsory OTP Every Visit
-// File: src/components/CRMCaptureCard.tsx
-// Flow: Name+Phone → OTP WhatsApp → Verified → Menu
-// ═══════════════════════════════════════════════════════════════
-
-import { useState, useEffect } from "react";
-import {
-  registerCustomer, getSessionCustomer, clearSessionCustomer,
-  TIER_CONFIG, type CustomerProfile,
-} from "@/lib/CustomerIdentitySystem";
-
-const API = process.env.NEXT_PUBLIC_API_URL || "https://golden-beans-server.onrender.com/api";
+// ═══════════════════════════════════════════════════════════════════
+// CRM CAPTURE — Smart Phone-First Login
+// Flow: Phone → (CRM fetch) → Name auto-fill/new → OTP → Auto-proceed
+// Returning customers: name locked (CRM data protected)
+// New customers: name editable → saved to CRM on verify
+// ═══════════════════════════════════════════════════════════════════
 
 const C = {
-  void:    "#020100", deep:  "#070504", surface: "#0F0D09",
-  raise:   "#1A1712", lift:  "#231F18",
-  gold:    "#C8922A", goldM: "#E8B84B", goldL:   "#F5CC6A",
-  ink:     "#F5EDD8", inkS:  "#C4AA80", inkD:    "#7A6448", inkG: "#352C1C",
-  g08:     "rgba(200,146,42,0.08)",  g15: "rgba(200,146,42,0.15)",
-  g25:     "rgba(200,146,42,0.25)",  g40: "rgba(200,146,42,0.40)",
-  gl1:     "rgba(255,255,255,0.03)", gl2: "rgba(255,255,255,0.06)",
-  glBd:    "rgba(255,255,255,0.08)",
-  green:   "#2E7D52", greenL: "rgba(46,125,82,0.15)",
-  red:     "#C0392B",
+  void:"#030201", deep:"#080604", surface:"#110E09", raise:"#1A160F",
+  gold:"#C8922A", goldM:"#E8B84B", goldL:"#F5CC6A",
+  ink:"#F5EDD8", inkS:"#C4AA80", inkD:"#7A6448",
+  gl1:"rgba(255,255,255,0.03)", glBd:"rgba(255,255,255,0.08)",
+  g08:"rgba(200,146,42,0.08)", g15:"rgba(200,146,42,0.15)",
+  g25:"rgba(200,146,42,0.25)", g40:"rgba(200,146,42,0.40)",
+  green:"#2E7D52", greenL:"rgba(46,125,82,0.15)",
+  red:"#C0392B", redL:"rgba(192,57,43,0.1)",
+  blue:"#60A5FA", blueL:"rgba(96,165,250,0.1)",
 };
 const GG  = `linear-gradient(135deg,${C.gold} 0%,${C.goldM} 52%,${C.goldL} 100%)`;
 const SPR = "cubic-bezier(0.34,1.56,0.64,1)";
 const EA  = "cubic-bezier(0.25,0.46,0.45,0.94)";
+const API = process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
+
+const TIER_CONFIG: Record<string,{label:string;icon:string;color:string}> = {
+  bronze:   {label:"Bronze",   icon:"🥉", color:"#CD7F32"},
+  silver:   {label:"Silver",   icon:"🥈", color:"#C0C0C0"},
+  gold:     {label:"Gold",     icon:"🥇", color:C.gold},
+  platinum: {label:"Platinum", icon:"💎", color:"#E5E4E2"},
+};
+
+interface CustomerProfile {
+  _id:string; name:string; phone:string;
+  totalPoints:number; tier:string; totalOrders:number;
+}
+
+async function registerCustomer(name:string, phone:string, tableId:string): Promise<CustomerProfile|null> {
+  try{
+    const r = await fetch(`${API}/crm-capture/register`,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({name,phone,tableId}),
+    }).then(r=>r.json());
+    if(r.success&&r.data){
+      const p = r.data;
+      saveSessionCustomer({_id:p._id,name:p.name,phone:p.phone,totalPoints:p.totalPoints||0,tier:p.tier||"bronze",totalOrders:p.totalOrders||0});
+      return p;
+    }
+    return null;
+  }catch{ return null; }
+}
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap');
-*{box-sizing:border-box;-webkit-font-smoothing:antialiased;}
-@keyframes crmIn  {from{opacity:0;transform:scale(0.92) translateY(28px)}to{opacity:1;transform:scale(1) translateY(0)}}
-@keyframes fadeUp {from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-@keyframes spin   {to{transform:rotate(360deg)}}
-@keyframes shake  {0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
-@keyframes success{0%{transform:scale(0.5);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
-@keyframes pulse  {0%,100%{opacity:1}50%{opacity:0.5}}
-.crm-inp{
-  width:100%;padding:13px 14px;border-radius:12px;
-  border:1.5px solid rgba(255,255,255,0.08);
-  background:rgba(255,255,255,0.04);
-  color:#F5EDD8;font-size:15px;font-family:'DM Sans',sans-serif;
-  font-weight:500;outline:none;transition:all 0.2s ease;
-}
-.crm-inp:focus{
-  border-color:rgba(200,146,42,0.65)!important;
-  background:rgba(200,146,42,0.05)!important;
-  box-shadow:0 0 0 3px rgba(200,146,42,0.12)!important;
-}
+@keyframes crmIn   {from{opacity:0;transform:scale(0.94) translateY(24px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes fadeUp  {from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shake   {0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+@keyframes success {0%{transform:scale(0.5);opacity:0}60%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}
+@keyframes spin    {to{transform:rotate(360deg)}}
+@keyframes pulse   {0%,100%{opacity:1}50%{opacity:0.5}}
+.crm-inp{width:100%;padding:14px 16px;border-radius:14px;border:1.5px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:#F5EDD8;font-size:16px;font-weight:600;outline:none;box-sizing:border-box;font-family:'DM Sans',sans-serif;transition:border-color 0.2s ease,background 0.2s ease;}
+.crm-inp:focus{border-color:rgba(200,146,42,0.5);background:rgba(200,146,42,0.06);}
 .crm-inp::placeholder{color:rgba(122,100,72,0.6);}
-.otp-inp{
-  width:100%;padding:16px;border-radius:12px;
-  border:1.5px solid rgba(255,255,255,0.08);
-  background:rgba(255,255,255,0.04);
-  color:#F5EDD8;font-size:28px;font-family:'DM Mono',monospace;
-  font-weight:500;outline:none;text-align:center;letter-spacing:12px;
-  transition:all 0.2s ease;
-}
-.otp-inp:focus{
-  border-color:rgba(200,146,42,0.65)!important;
-  background:rgba(200,146,42,0.05)!important;
-  box-shadow:0 0 0 3px rgba(200,146,42,0.12)!important;
-}
+.crm-inp:disabled{opacity:0.7;cursor:not-allowed;}
+.otp-inp{width:100%;padding:16px;border-radius:14px;border:2px solid rgba(200,146,42,0.3);background:rgba(200,146,42,0.05);color:#F5CC6A;font-size:32px;font-weight:900;text-align:center;letter-spacing:14px;outline:none;box-sizing:border-box;font-family:'DM Mono',monospace;transition:all 0.2s ease;}
+.otp-inp:focus{border-color:rgba(200,146,42,0.7);background:rgba(200,146,42,0.1);}
 `;
 
-type Step = "form" | "otp" | "success";
+type Step = "phone" | "name" | "otp" | "success";
 
 interface Props {
   tableId: string;
@@ -75,98 +75,124 @@ interface Props {
 }
 
 export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props) {
-  const [step,        setStep       ] = useState<Step>("form");
-  const [visible,     setVisible    ] = useState(false);
-  const [name,        setName       ] = useState("");
-  const [phone,       setPhone      ] = useState("");
-  const [otp,         setOtp        ] = useState("");
-  const [error,       setError      ] = useState("");
-  const [loading,     setLoading    ] = useState(false);
-  const [resendTimer, setResendTimer] = useState(0);
-  const [profile,     setProfile    ] = useState<CustomerProfile|null>(null);
-  const [shake,       setShake      ] = useState(false);
+  const [step,         setStep        ] = useState<Step>("phone");
+  const [visible,      setVisible     ] = useState(false);
+  const [phone,        setPhone       ] = useState("");
+  const [name,         setName        ] = useState("");
+  const [isReturning,  setIsReturning ] = useState(false); // CRM match found
+  const [nameLocked,   setNameLocked  ] = useState(false); // returning = locked
+  const [otp,          setOtp         ] = useState("");
+  const [error,        setError       ] = useState("");
+  const [loading,      setLoading     ] = useState(false);
+  const [fetchingCRM,  setFetchingCRM ] = useState(false);
+  const [resendTimer,  setResendTimer ] = useState(0);
+  const [profile,      setProfile     ] = useState<CustomerProfile|null>(null);
+  const [shake,        setShake       ] = useState(false);
+  const [otpRequired,  setOtpRequired ] = useState(true);
+  const otpRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
 
-  const [otpRequired, setOtpRequired] = useState(true); // default ON
-
-  // ── ALWAYS clear session on mount — OTP every visit ──
   useEffect(()=>{
     clearSessionCustomer();
     localStorage.removeItem("gb_active_order");
-    // Check if OTP is enabled from server settings
-    fetch(`${API}/security/settings`)
-      .then(r=>r.json())
-      .then(d=>{ 
-        if(d.data?.otpEnabled === false) setOtpRequired(false);
-        else setOtpRequired(true);
-      })
-      .catch(()=>{ setOtpRequired(true); }); // default ON if fetch fails
-    // Show popup after 800ms
-    const t = setTimeout(()=>setVisible(true), 800);
+    fetch(`${API}/security/settings`).then(r=>r.json())
+      .then(d=>{ setOtpRequired(d.data?.otpEnabled !== false); })
+      .catch(()=>{ setOtpRequired(true); });
+    const t=setTimeout(()=>{ setVisible(true); setTimeout(()=>phoneRef.current?.focus(),200); },800);
     return()=>clearTimeout(t);
   },[]);
 
-  // Resend countdown
   useEffect(()=>{
     if(resendTimer<=0) return;
-    const iv = setInterval(()=>setResendTimer(p=>p-1), 1000);
+    const iv=setInterval(()=>setResendTimer(p=>p-1),1000);
     return()=>clearInterval(iv);
   },[resendTimer]);
 
+  // Auto-proceed when OTP is 6 digits
+  useEffect(()=>{
+    if(otp.length===6&&step==="otp") verifyOTP();
+  },[otp]);
+
   const shake_ = ()=>{ setShake(true); setTimeout(()=>setShake(false),500); };
 
-  // ── STEP 1: Send OTP or Direct Register ──
-  const sendOTP = async()=>{
+  // ── STEP 1: Phone entered → fetch CRM ──
+  const handlePhoneNext = async()=>{
     const p = phone.trim().replace(/\D/g,"");
-    if(!name.trim()){ setError("Please enter your name"); shake_(); return; }
-    if(p.length!==10){ setError("Enter a valid 10-digit WhatsApp number"); shake_(); return; }
-    setError(""); setLoading(true);
+    if(p.length!==10){ setError("Enter a valid 10-digit number"); shake_(); return; }
+    setError(""); setFetchingCRM(true);
 
-    // If OTP disabled — direct register
+    try{
+      // Fetch CRM customer by phone
+      const r = await fetch(`${API}/crm-capture/lookup?phone=${p}`).then(r=>r.json());
+      if(r.success && r.data){
+        // Returning customer — name locked
+        setName(r.data.name);
+        setNameLocked(true);
+        setIsReturning(true);
+        setFetchingCRM(false);
+        // Send OTP directly — skip name step
+        await sendOTPDirect(p, r.data.name);
+      } else {
+        // New customer — show name input
+        setNameLocked(false);
+        setIsReturning(false);
+        setFetchingCRM(false);
+        setStep("name");
+      }
+    }catch{
+      setNameLocked(false);
+      setIsReturning(false);
+      setFetchingCRM(false);
+      setStep("name");
+    }
+  };
+
+  // ── STEP 2a: Send OTP (returning customer — direct) ──
+  const sendOTPDirect = async(p:string, n:string)=>{
     if(!otpRequired){
-      try{
-        const result = await registerCustomer(name.trim(), p, tableId);
-        if(result){
-          setProfile(result);
-          setStep("success");
-          onCustomerIdentified?.(result);
-          setTimeout(()=>setVisible(false), 3000);
-        } else { setError("Registration failed. Please try again."); shake_(); }
-      } catch { setError("Connection failed. Please try again."); shake_(); }
-      setLoading(false);
+      // No OTP — direct register
+      const result = await registerCustomer(n, p, tableId);
+      if(result){
+        setProfile(result);
+        setStep("success");
+        onCustomerIdentified?.(result);
+        setTimeout(()=>setVisible(false), 2500);
+      }
       return;
     }
-
-    // OTP required — send via WhatsApp
+    setLoading(true);
     try{
       const r = await fetch(`${API}/crm-capture/send-otp`,{
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ phone:p, name:name.trim() }),
+        body:JSON.stringify({phone:p, name:n}),
       }).then(r=>r.json());
-
       if(r.success){
         setStep("otp");
         setResendTimer(60);
-        if(r._dev_otp) setError(`DEV — OTP: ${r._dev_otp}`);
-      } else {
-        setError("Failed to send OTP. Please try again.");
-        shake_();
-      }
-    } catch {
-      setError("Connection failed. Please check your internet and try again.");
-      shake_();
-    }
+        setTimeout(()=>otpRef.current?.focus(),300);
+      } else { setError("Failed to send OTP. Try again."); shake_(); }
+    }catch{ setError("Connection failed. Try again."); shake_(); }
     setLoading(false);
   };
 
-  // ── STEP 2: Verify OTP ──
+  // ── STEP 2b: New customer — name entered → send OTP ──
+  const handleNameNext = async()=>{
+    if(!name.trim()){ setError("Please enter your name"); shake_(); return; }
+    if(name.trim().length<2){ setError("Please enter a valid name"); shake_(); return; }
+    setError("");
+    const p = phone.trim().replace(/\D/g,"");
+    await sendOTPDirect(p, name.trim());
+  };
+
+  // ── STEP 3: Verify OTP — auto-triggered when 6 digits ──
   const verifyOTP = async()=>{
-    if(otp.length!==6){ setError("Enter the 6-digit OTP"); shake_(); return; }
+    if(otp.length!==6) return;
     setError(""); setLoading(true);
     try{
       const p = phone.trim().replace(/\D/g,"");
       const r = await fetch(`${API}/crm-capture/verify-otp`,{
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ phone:p, otp, name:name.trim(), tableId }),
+        body:JSON.stringify({phone:p, otp, name:name.trim(), tableId}),
       }).then(r=>r.json());
 
       if(r.success){
@@ -176,19 +202,19 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
           setStep("success");
           onCustomerIdentified?.(result);
           // Welcome WhatsApp for new customers
-          if(result.totalOrders<=1){
+          if(!isReturning){
             fetch(`${API}/whatsapp/welcome`,{
               method:"POST", headers:{"Content-Type":"application/json"},
-              body: JSON.stringify({ phone:p, customerName:name.trim(), welcomePoints:result.totalPoints||50, value:Math.floor((result.totalPoints||50)/10) }),
+              body:JSON.stringify({phone:p, customerName:name.trim(), welcomePoints:50, value:5}),
             }).catch(()=>{});
           }
-          setTimeout(()=>setVisible(false), 3500);
+          setTimeout(()=>setVisible(false), 2500);
         }
       } else {
-        setError(r.message || "Incorrect OTP. Please try again.");
+        setError(r.message||"Incorrect OTP. Try again.");
         setOtp(""); shake_();
       }
-    } catch { setError("Verification failed. Please try again."); shake_(); }
+    }catch{ setError("Verification failed. Try again."); shake_(); }
     setLoading(false);
   };
 
@@ -196,9 +222,10 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
     if(resendTimer>0) return;
     setOtp(""); setError(""); setLoading(true);
     try{
+      const p = phone.trim().replace(/\D/g,"");
       await fetch(`${API}/crm-capture/send-otp`,{
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ phone:phone.trim().replace(/\D/g,""), name:name.trim() }),
+        body:JSON.stringify({phone:p, name:name.trim()}),
       });
       setResendTimer(60);
     }catch{}
@@ -207,24 +234,22 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
 
   if(!visible) return <style>{CSS}</style>;
 
-  const tierCfg = profile ? TIER_CONFIG[profile.tier] : null;
+  const tierCfg = profile ? TIER_CONFIG[profile.tier]||TIER_CONFIG.bronze : null;
 
   return(
     <>
       <style>{CSS}</style>
-      {/* Backdrop — no dismiss */}
       <div style={{position:"fixed",inset:0,zIndex:200,
-        background:"rgba(2,1,0,0.95)",
-        backdropFilter:"blur(28px)",WebkitBackdropFilter:"blur(28px)",
+        background:"rgba(2,1,0,0.96)",
+        backdropFilter:"blur(32px)",WebkitBackdropFilter:"blur(32px)",
         display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
 
-        {/* Card */}
         <div style={{
           width:"100%",maxWidth:420,
           background:`linear-gradient(160deg,${C.raise} 0%,${C.surface} 50%,${C.deep} 100%)`,
           borderRadius:24,overflow:"hidden",
           border:`1px solid ${C.glBd}`,
-          boxShadow:`0 40px 80px rgba(0,0,0,0.8),0 0 0 1px rgba(200,146,42,0.1)`,
+          boxShadow:`0 40px 80px rgba(0,0,0,0.8),0 0 0 1px rgba(200,146,42,0.08)`,
           animation:shake?`shake 0.4s ease`:`crmIn 0.45s ${SPR}`,
         }}>
           <div style={{height:3,background:GG}}/>
@@ -235,192 +260,187 @@ export default function CRMCaptureCard({ tableId, onCustomerIdentified }: Props)
               <div style={{width:72,height:72,borderRadius:"50%",
                 background:C.greenL,border:`2px solid ${C.green}`,
                 display:"flex",alignItems:"center",justifyContent:"center",
-                margin:"0 auto 18px",fontSize:30,
+                margin:"0 auto 16px",fontSize:30,
                 boxShadow:`0 0 30px rgba(46,125,82,0.3)`,
                 animation:`success 0.5s ${SPR}`}}>✓</div>
               {tierCfg&&(
                 <div style={{display:"inline-flex",alignItems:"center",gap:7,
-                  padding:"5px 14px",borderRadius:99,marginBottom:12,
+                  padding:"4px 14px",borderRadius:99,marginBottom:12,
                   background:`${tierCfg.color}15`,border:`1px solid ${tierCfg.color}40`}}>
-                  <span style={{fontSize:16}}>{tierCfg.icon}</span>
-                  <span style={{fontSize:11,fontWeight:700,color:tierCfg.color,
-                    fontFamily:"'DM Mono',monospace"}}>{tierCfg.label} Member</span>
+                  <span>{tierCfg.icon}</span>
+                  <span style={{fontSize:11,fontWeight:700,color:tierCfg.color,fontFamily:"'DM Mono',monospace"}}>{tierCfg.label} Member</span>
                 </div>
               )}
-              <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,
-                fontWeight:700,color:C.ink,margin:"0 0 6px"}}>
-                Welcome, {profile.name.split(" ")[0]}! ☕
+              <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:C.ink,margin:"0 0 6px"}}>
+                {isReturning?`Welcome back, ${profile.name.split(" ")[0]}! ☕`:`Welcome, ${profile.name.split(" ")[0]}! ☕`}
               </h2>
-              <p style={{fontSize:13,color:C.inkS,fontFamily:"'DM Sans',sans-serif",
-                margin:"0 0 18px",lineHeight:1.6}}>
-                You're all set! Enjoy your experience<br/>at Golden Beans Café.
+              <p style={{fontSize:13,color:C.inkS,fontFamily:"'DM Sans',sans-serif",margin:"0 0 18px",lineHeight:1.6}}>
+                {isReturning?"Great to see you again! Enjoy your visit.":"You're all set! Enjoy your experience at Golden Beans."}
               </p>
-              <div style={{display:"inline-flex",alignItems:"center",gap:10,
-                padding:"10px 20px",borderRadius:12,
-                background:C.g08,border:`1px solid rgba(200,146,42,0.2)`}}>
+              <div style={{display:"inline-flex",alignItems:"center",gap:10,padding:"10px 20px",borderRadius:12,background:C.g08,border:`1px solid rgba(200,146,42,0.2)`}}>
                 <span style={{fontSize:20}}>🫘</span>
                 <div style={{textAlign:"left"}}>
-                  <p style={{fontFamily:"'DM Mono',monospace",fontSize:18,
-                    fontWeight:500,color:C.goldL,margin:0,lineHeight:1}}>
-                    {profile.totalPoints} pts
-                  </p>
-                  <p style={{fontSize:10,color:C.inkD,margin:0}}>
-                    = ₹{Math.floor(profile.totalPoints/10)} discount available
-                  </p>
+                  <p style={{fontFamily:"'DM Mono',monospace",fontSize:18,fontWeight:500,color:C.goldL,margin:0,lineHeight:1}}>{profile.totalPoints} pts</p>
+                  <p style={{fontSize:10,color:C.inkD,margin:0}}>= ₹{Math.floor(profile.totalPoints/10)} discount available</p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* ── FORM ── */}
-          {step==="form"&&(
-            <div style={{padding:"24px 22px 28px"}}>
-              <div style={{textAlign:"center",marginBottom:22}}>
-                <div style={{fontSize:36,marginBottom:10}}>☕</div>
-                <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,
-                  fontWeight:700,color:C.ink,margin:"0 0 6px",lineHeight:1.2}}>
-                  Welcome to Golden Beans
-                </h2>
-                <p style={{fontSize:13,color:C.inkS,fontFamily:"'DM Sans',sans-serif",
-                  margin:0,lineHeight:1.6}}>
-                  Please verify your identity<br/>
-                  <strong style={{color:C.goldL}}>to start ordering</strong>
-                </p>
-              </div>
-
-              <div style={{display:"flex",flexDirection:"column",gap:12,marginBottom:16}}>
-                <div>
-                  <label style={{fontSize:10,fontWeight:700,color:C.inkD,
-                    letterSpacing:".1em",textTransform:"uppercase",
-                    display:"block",marginBottom:6,fontFamily:"'DM Mono',monospace"}}>
-                    Your Name
-                  </label>
-                  <input className="crm-inp" value={name}
-                    onChange={e=>{setName(e.target.value);setError("");}}
-                    placeholder="e.g. Nirav Patel"
-                    onKeyDown={e=>e.key==="Enter"&&sendOTP()}/>
-                </div>
-                <div>
-                  <label style={{fontSize:10,fontWeight:700,color:C.inkD,
-                    letterSpacing:".1em",textTransform:"uppercase",
-                    display:"block",marginBottom:6,fontFamily:"'DM Mono',monospace"}}>
-                    WhatsApp Number
-                  </label>
-                  <div style={{position:"relative"}}>
-                    <span style={{position:"absolute",left:14,top:"50%",
-                      transform:"translateY(-50%)",fontSize:14,color:C.inkD,
-                      fontFamily:"'DM Sans',sans-serif",fontWeight:600,pointerEvents:"none"}}>
-                      +91
-                    </span>
-                    <input className="crm-inp" value={phone}
-                      onChange={e=>{setPhone(e.target.value.replace(/\D/g,"").slice(0,10));setError("");}}
-                      placeholder="98765 43210" type="tel" inputMode="numeric"
-                      style={{paddingLeft:46}}
-                      onKeyDown={e=>e.key==="Enter"&&sendOTP()}/>
-                  </div>
-                  <p style={{fontSize:11,color:C.inkD,margin:"5px 0 0",
-                    fontFamily:"'DM Sans',sans-serif"}}>
-                    {otpRequired ? "📱 OTP will be sent on WhatsApp" : "✅ No OTP required — enter directly"}
-                  </p>
-                </div>
-              </div>
-
-              {error&&(
-                <div style={{background:"rgba(192,57,43,0.1)",border:"1px solid rgba(192,57,43,0.3)",
-                  borderRadius:10,padding:"9px 12px",marginBottom:12,
-                  fontSize:12.5,color:"#F87171",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>
-                  ⚠ {error}
-                </div>
-              )}
-
-              <button onClick={sendOTP} disabled={loading}
-                style={{width:"100%",padding:"15px",borderRadius:14,border:"none",
-                  background:loading?"rgba(255,255,255,0.05)":GG,
-                  color:loading?C.inkD:"#050301",fontWeight:700,fontSize:15,
-                  cursor:loading?"not-allowed":"pointer",fontFamily:"'DM Sans',sans-serif",
-                  boxShadow:loading?"none":`0 8px 28px ${C.g40}`,
-                  display:"flex",alignItems:"center",justifyContent:"center",gap:8,
-                  transition:`all 0.2s ${EA}`}}>
-                {loading
-                  ?<><div style={{width:18,height:18,borderRadius:"50%",
-                      border:`2.5px solid rgba(0,0,0,0.2)`,borderTopColor:"rgba(0,0,0,0.6)",
-                      animation:"spin .75s linear infinite"}}/>Sending OTP...</>
-                  :<><span>{otpRequired ? "📱" : "✅"}</span>{otpRequired ? "Send OTP" : "Continue"}</>}
-              </button>
-
-              <p style={{textAlign:"center",fontSize:11,color:C.inkG,
-                margin:"12px 0 0",fontFamily:"'DM Sans',sans-serif",lineHeight:1.5}}>
-                🔒 Your details are safe · Earn loyalty points on every visit
-              </p>
-            </div>
-          )}
-
-          {/* ── OTP ── */}
-          {step==="otp"&&(
-            <div style={{padding:"24px 22px 28px",animation:`fadeUp 0.3s ${EA}`}}>
-              <div style={{textAlign:"center",marginBottom:22}}>
-                <div style={{fontSize:36,marginBottom:10}}>📱</div>
-                <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,
-                  fontWeight:700,color:C.ink,margin:"0 0 6px"}}>
-                  Verify Your Number
-                </h2>
-                <p style={{fontSize:13,color:C.inkS,fontFamily:"'DM Sans',sans-serif",
-                  margin:0,lineHeight:1.6}}>
-                  A 6-digit OTP has been sent to<br/>
-                  <strong style={{color:C.goldL}}>+91 {phone}</strong> on WhatsApp
-                </p>
+          {/* ── PHONE STEP ── */}
+          {step==="phone"&&(
+            <div style={{padding:"28px 22px 32px"}}>
+              <div style={{textAlign:"center",marginBottom:24}}>
+                <div style={{fontSize:38,marginBottom:10}}>☕</div>
+                <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,fontWeight:700,color:C.ink,margin:"0 0 6px"}}>Welcome to Golden Beans</h2>
+                <p style={{fontSize:13,color:C.inkS,fontFamily:"'DM Sans',sans-serif",margin:0,lineHeight:1.6}}>Enter your WhatsApp number to continue</p>
               </div>
 
               <div style={{marginBottom:16}}>
-                <label style={{fontSize:10,fontWeight:700,color:C.inkD,
-                  letterSpacing:".1em",textTransform:"uppercase",
-                  display:"block",marginBottom:8,fontFamily:"'DM Mono',monospace"}}>
-                  Enter OTP
-                </label>
-                <input className="otp-inp" value={otp}
-                  onChange={e=>{setOtp(e.target.value.replace(/\D/g,"").slice(0,6));setError("");}}
-                  placeholder="——————" type="tel" inputMode="numeric"
-                  maxLength={6} autoFocus
-                  onKeyDown={e=>e.key==="Enter"&&verifyOTP()}/>
+                <div style={{position:"relative"}}>
+                  <div style={{position:"absolute",left:16,top:"50%",transform:"translateY(-50%)",fontSize:13,color:C.inkD,fontFamily:"'DM Sans',sans-serif",fontWeight:700,pointerEvents:"none"}}>+91</div>
+                  <input
+                    ref={phoneRef}
+                    className="crm-inp"
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="98765 43210"
+                    value={phone}
+                    maxLength={10}
+                    style={{paddingLeft:48}}
+                    onChange={e=>{ setPhone(e.target.value.replace(/\D/g,"")); setError(""); }}
+                    onKeyDown={e=>{ if(e.key==="Enter"&&phone.replace(/\D/g,"").length===10) handlePhoneNext(); }}
+                  />
+                </div>
               </div>
 
-              {error&&(
-                <div style={{background:"rgba(192,57,43,0.1)",border:"1px solid rgba(192,57,43,0.3)",
-                  borderRadius:10,padding:"9px 12px",marginBottom:12,
-                  fontSize:12.5,color:"#F87171",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>
-                  ⚠ {error}
+              {error&&<p style={{fontSize:12,color:"#f87171",textAlign:"center",margin:"0 0 12px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>⚠ {error}</p>}
+
+              <button onClick={handlePhoneNext} disabled={loading||fetchingCRM||phone.replace(/\D/g,"").length!==10}
+                style={{width:"100%",padding:"15px",borderRadius:14,border:"none",
+                  background:phone.replace(/\D/g,"").length===10?GG:"rgba(255,255,255,0.05)",
+                  color:phone.replace(/\D/g,"").length===10?C.void:"rgba(122,100,72,0.5)",
+                  fontWeight:700,fontSize:15,cursor:phone.replace(/\D/g,"").length===10?"pointer":"not-allowed",
+                  fontFamily:"'DM Sans',sans-serif",
+                  boxShadow:phone.replace(/\D/g,"").length===10?`0 8px 24px ${C.g40}`:"none",
+                  display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+                  transition:"all 0.25s ease"}}>
+                {fetchingCRM?(
+                  <><div style={{width:16,height:16,borderRadius:"50%",border:"2px solid rgba(0,0,0,0.3)",borderTopColor:C.void,animation:"spin 0.7s linear infinite"}}/> Checking...</>
+                ):loading?"Sending OTP...":"Continue →"}
+              </button>
+
+              <p style={{textAlign:"center",fontSize:11,color:C.inkD,margin:"14px 0 0",fontFamily:"'DM Sans',sans-serif",lineHeight:1.6}}>
+                We'll send a WhatsApp OTP to verify your number
+              </p>
+            </div>
+          )}
+
+          {/* ── NAME STEP (new customer only) ── */}
+          {step==="name"&&(
+            <div style={{padding:"28px 22px 32px",animation:`fadeUp 0.3s ${EA}`}}>
+              <div style={{textAlign:"center",marginBottom:24}}>
+                <div style={{fontSize:32,marginBottom:10}}>👋</div>
+                <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:C.ink,margin:"0 0 6px"}}>Nice to meet you!</h2>
+                <p style={{fontSize:13,color:C.inkS,fontFamily:"'DM Sans',sans-serif",margin:0,lineHeight:1.6}}>
+                  First time here? What's your name?
+                </p>
+              </div>
+
+              {/* Phone shown as locked */}
+              <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:12,background:C.g08,border:`1px solid ${C.g15}`,marginBottom:14}}>
+                <span style={{fontSize:14}}>📱</span>
+                <span style={{fontSize:13,color:C.inkS,fontFamily:"'DM Mono',monospace",letterSpacing:".05em"}}>+91 {phone}</span>
+                <button onClick={()=>{ setStep("phone"); setName(""); setError(""); }} style={{marginLeft:"auto",background:"none",border:"none",color:C.gold,fontSize:11,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontWeight:700}}>Change</button>
+              </div>
+
+              <div style={{marginBottom:16}}>
+                <input
+                  className="crm-inp"
+                  type="text"
+                  placeholder="Your full name"
+                  value={name}
+                  autoFocus
+                  onChange={e=>{ setName(e.target.value); setError(""); }}
+                  onKeyDown={e=>{ if(e.key==="Enter"&&name.trim().length>=2) handleNameNext(); }}
+                />
+              </div>
+
+              {error&&<p style={{fontSize:12,color:"#f87171",textAlign:"center",margin:"0 0 12px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>⚠ {error}</p>}
+
+              <button onClick={handleNameNext} disabled={loading||name.trim().length<2}
+                style={{width:"100%",padding:"15px",borderRadius:14,border:"none",
+                  background:name.trim().length>=2?GG:"rgba(255,255,255,0.05)",
+                  color:name.trim().length>=2?C.void:"rgba(122,100,72,0.5)",
+                  fontWeight:700,fontSize:15,cursor:name.trim().length>=2?"pointer":"not-allowed",
+                  fontFamily:"'DM Sans',sans-serif",
+                  boxShadow:name.trim().length>=2?`0 8px 24px ${C.g40}`:"none",
+                  transition:"all 0.25s ease"}}>
+                {loading?"Sending OTP...":"Send OTP →"}
+              </button>
+            </div>
+          )}
+
+          {/* ── OTP STEP ── */}
+          {step==="otp"&&(
+            <div style={{padding:"28px 22px 32px",animation:`fadeUp 0.3s ${EA}`}}>
+              <div style={{textAlign:"center",marginBottom:24}}>
+                <div style={{fontSize:32,marginBottom:10}}>💬</div>
+                <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:700,color:C.ink,margin:"0 0 6px"}}>
+                  {isReturning?`Welcome back, ${name.split(" ")[0]}!`:"Check WhatsApp"}
+                </h2>
+                <p style={{fontSize:13,color:C.inkS,fontFamily:"'DM Sans',sans-serif",margin:0,lineHeight:1.6}}>
+                  OTP sent to <strong style={{color:C.goldL}}>+91 {phone}</strong>
+                </p>
+              </div>
+
+              {/* Returning customer — name shown locked */}
+              {isReturning&&(
+                <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:12,background:"rgba(46,125,82,0.1)",border:"1px solid rgba(46,125,82,0.25)",marginBottom:14}}>
+                  <span style={{fontSize:14}}>✓</span>
+                  <span style={{fontSize:13,color:"#4ADE80",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>{name}</span>
+                  <span style={{marginLeft:"auto",fontSize:10,color:"rgba(74,222,128,0.6)",fontFamily:"'DM Mono',monospace"}}>RETURNING</span>
                 </div>
               )}
 
-              <button onClick={verifyOTP} disabled={loading||otp.length!==6}
-                style={{width:"100%",padding:"15px",borderRadius:14,border:"none",
-                  background:otp.length===6&&!loading?GG:"rgba(255,255,255,0.05)",
-                  color:otp.length===6&&!loading?"#050301":C.inkD,
-                  fontWeight:700,fontSize:15,
-                  cursor:otp.length===6&&!loading?"pointer":"not-allowed",
-                  fontFamily:"'DM Sans',sans-serif",
-                  boxShadow:otp.length===6&&!loading?`0 8px 28px ${C.g40}`:"none",
-                  display:"flex",alignItems:"center",justifyContent:"center",gap:8,
-                  marginBottom:12,transition:`all 0.2s ${EA}`}}>
-                {loading
-                  ?<><div style={{width:18,height:18,borderRadius:"50%",
-                      border:`2.5px solid rgba(0,0,0,0.2)`,borderTopColor:"rgba(0,0,0,0.6)",
-                      animation:"spin .75s linear infinite"}}/>Verifying...</>
-                  :<><span>✓</span>Verify OTP</>}
-              </button>
+              <div style={{marginBottom:8}}>
+                <input
+                  ref={otpRef}
+                  className="otp-inp"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="000000"
+                  value={otp}
+                  maxLength={6}
+                  onChange={e=>{ const v=e.target.value.replace(/\D/g,"").slice(0,6); setOtp(v); setError(""); }}
+                />
+              </div>
 
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <button onClick={()=>{setStep("form");setOtp("");setError("");}}
-                  style={{background:"none",border:"none",color:C.inkD,fontSize:12,
-                    cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontWeight:600,padding:0}}>
-                  ← Change Number
-                </button>
+              {loading&&(
+                <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"10px 0",marginBottom:8}}>
+                  <div style={{width:14,height:14,borderRadius:"50%",border:"2px solid rgba(200,146,42,0.3)",borderTopColor:C.gold,animation:"spin 0.7s linear infinite"}}/>
+                  <span style={{fontSize:12,color:C.inkS,fontFamily:"'DM Sans',sans-serif"}}>Verifying...</span>
+                </div>
+              )}
+
+              {error&&<p style={{fontSize:12,color:"#f87171",textAlign:"center",margin:"0 0 10px",fontFamily:"'DM Sans',sans-serif",fontWeight:600}}>⚠ {error}</p>}
+
+              <p style={{textAlign:"center",fontSize:12,color:C.inkD,margin:"8px 0 0",fontFamily:"'DM Sans',sans-serif"}}>
+                OTP enters automatically — no need to press any button
+              </p>
+
+              <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginTop:16}}>
                 <button onClick={resendOTP} disabled={resendTimer>0||loading}
-                  style={{background:"none",border:"none",
-                    color:resendTimer>0?C.inkD:C.goldM,fontSize:12,
+                  style={{background:"none",border:"none",fontSize:12,
+                    color:resendTimer>0?C.inkD:C.gold,
                     cursor:resendTimer>0?"not-allowed":"pointer",
-                    fontFamily:"'DM Sans',sans-serif",fontWeight:600,padding:0}}>
+                    fontFamily:"'DM Sans',sans-serif",fontWeight:700}}>
                   {resendTimer>0?`Resend in ${resendTimer}s`:"Resend OTP"}
+                </button>
+                <span style={{color:C.inkD,fontSize:12}}>·</span>
+                <button onClick={()=>{ setStep("phone"); setOtp(""); setError(""); setName(""); }}
+                  style={{background:"none",border:"none",fontSize:12,color:C.inkD,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>
+                  Change number
                 </button>
               </div>
             </div>
