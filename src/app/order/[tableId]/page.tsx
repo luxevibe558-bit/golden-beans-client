@@ -3524,9 +3524,18 @@ export default function CustomerOrderPage() {
             :"",
         },
         theme:{color:C.gold},
-        method_order:["upi","card","netbanking","wallet"],
+        config:{
+          display:{
+            blocks:{
+              upi:{name:"Pay via UPI",instruments:[{method:"upi"}]},
+              other:{name:"Other Methods",instruments:[{method:"card"},{method:"netbanking"},{method:"wallet"}]},
+            },
+            sequence:["block.upi","block.other"],
+            preferences:{show_default_blocks:false},
+          },
+        },
         handler:async(r:any)=>{try{const v=await fetch(`${API}/payment/verify`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(r)}).then(r=>r.json());if(v.success){await placeOrder(tip,note,r.razorpay_payment_id);resolve();}else reject();}catch(e){reject(e);}},
-        modal:{ondismiss:()=>reject(new Error("cancelled"))}
+        modal:{ondismiss:()=>reject(new Error("cancelled"))},
       }).open();});
     }catch(e:any){if(e?.message!=="cancelled")alert(e?.message||"Payment failed");}
     finally{setIsPlacing(false);}
