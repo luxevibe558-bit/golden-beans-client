@@ -290,7 +290,8 @@ export default function WaiterPage() {
 
       {/* Header */}
       <div style={{background:C.surface,borderBottom:`1px solid ${C.glBd}`,
-        padding:"14px 18px",flexShrink:0,position:"sticky",top:0,zIndex:10}}>
+        padding:"14px 18px",paddingTop:"calc(14px + env(safe-area-inset-top, 44px))",
+        flexShrink:0,position:"sticky",top:0,zIndex:10}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
             <div style={{width:38,height:38,borderRadius:12,
