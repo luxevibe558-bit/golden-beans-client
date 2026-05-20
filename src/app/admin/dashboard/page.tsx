@@ -488,9 +488,17 @@ export default function AdminDashboard() {
   const loadSecuritySettings = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch(`${API}/security/settings`, { headers: authHeaders(token) });
-      const data = await res.json();
-      if (data.success) setSecuritySettings(data.data);
+      const [secRes, pmRes] = await Promise.all([
+        fetch(`${API}/security/settings`, { headers: authHeaders(token) }),
+        fetch(`${API}/settings/payment_mode`),
+      ]);
+      const secData = await secRes.json();
+      const pmData  = await pmRes.json();
+      if (secData.success) {
+        const settings = secData.data;
+        settings.payment_mode = pmData.data || "both";
+        setSecuritySettings(settings);
+      }
     } catch { }
   }, [token]);
 
@@ -761,7 +769,47 @@ export default function AdminDashboard() {
                 </div>
               </div>
               <div style={{ background: T.ivory, borderRadius: "16px", padding: "20px", marginBottom: "16px", border: `1px solid ${T.border}` }}>
-                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: "18px", fontWeight: 800, color: T.emerald, margin: "0 0 14px" }}>☕ Cafe Info</h3>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: "18px", fontWeight: 800, color: T.emerald, margin: "0 0 4px" }}>💳 Payment Method</h3>
+                    <p style={{ fontSize: "12px", color: T.textMuted, margin: 0, fontWeight: 500 }}>
+                      Customer checkout par kaya payment options dikhavva
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
+                  {[
+                    { value: "online",  label: "💳 Online Only",      desc: "UPI/Card only" },
+                    { value: "counter", label: "💵 Cash Counter Only", desc: "Cash only" },
+                    { value: "both",    label: "🔄 Both",             desc: "UPI + Cash" },
+                  ].map(opt => {
+                    const [pmSetting, setPmSetting] = [
+                      securitySettings as any,
+                      (v: string) => setSecuritySettings({ ...securitySettings, payment_mode: v } as any)
+                    ];
+                    const current = (securitySettings as any).payment_mode || "both";
+                    return (
+                      <button key={opt.value}
+                        onClick={async () => {
+                          setSecuritySettings({ ...securitySettings, payment_mode: opt.value } as any);
+                          await fetch(`${API}/settings/payment_mode`, { method: "POST", headers: authHeaders(token), body: JSON.stringify({ value: opt.value }) });
+                        }}
+                        style={{
+                          flex: 1, padding: "12px 8px", borderRadius: "12px", border: "none", cursor: "pointer",
+                          background: current === opt.value ? `linear-gradient(135deg, ${T.emerald}, ${T.emeraldMid})` : T.cream,
+                          color: current === opt.value ? T.gold : T.textMuted,
+                          fontWeight: 800, fontSize: "11px", fontFamily: "inherit",
+                          boxShadow: current === opt.value ? "0 4px 12px rgba(15,61,46,0.25)" : "none",
+                          transition: "all 0.2s",
+                        }}>
+                        <div style={{ fontSize: "16px", marginBottom: "4px" }}>{opt.label.split(" ")[0]}</div>
+                        <div>{opt.label.split(" ").slice(1).join(" ")}</div>
+                        <div style={{ fontSize: "9px", opacity: 0.7, marginTop: "2px" }}>{opt.desc}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                   {[{ label: "WiFi Name", key: "wifiName" }, { label: "Cafe Name", key: "cafeName" }, { label: "Address", key: "cafeAddress" }, { label: "Phone", key: "cafePhone" }].map(field => (
                     <div key={field.key}>

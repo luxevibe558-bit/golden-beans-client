@@ -25,5 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/pos/feedback",          icon: "⭐",  label: "Feedback",    permission: "reports",    permissionAction: "view" },
   { href: "/pos/waiter-performance",icon: "🏆",  label: "Waiters",     permission: "reports",    permissionAction: "view" },
   { href: "/pos/settings",          icon: "⚙️",  label: "Settings",    adminOnly: true },
+  { href: "/pos/home-texts",        icon: "💬",  label: "Home Text",   adminOnly: true },
+  { href: "/pos/LOYALTY-SETTINGS",  icon: "🎁",  label: "Loyalty",     adminOnly: true },
   { href: "/admin/dashboard",       icon: "🔐",  label: "Admin",       adminOnly: true },
 ];
