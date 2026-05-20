@@ -1929,8 +1929,14 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing, redee
   onBack:()=>void;onPay:(method:string,tip:number,note:string)=>void;
   isPlacing:boolean;redeemedPoints?:number;paymentModeSetting?:string;
 }) {
-  const [paymentMode] = useState<string>(paymentModeSetting);
+  const [paymentMode, setPaymentMode] = useState<string>(paymentModeSetting);
   const [method, setMethod] = useState(paymentModeSetting==="counter" ? "cash" : "upi");
+
+  // Sync when prop loads from server
+  useEffect(()=>{
+    setPaymentMode(paymentModeSetting);
+    setMethod(paymentModeSetting==="counter" ? "cash" : "upi");
+  },[paymentModeSetting]);
 
   const [tip,       setTip      ]=useState<number>(0);
   const [note,      setNote     ]=useState("");
