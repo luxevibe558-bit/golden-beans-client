@@ -3423,12 +3423,17 @@ export default function CustomerOrderPage() {
       sock.on("order:ready",    onOrderReady);
       sock.on("order:new",      onOrderNew);
       sock.on("table:cleared",  onTableCleared);
+      // Badge update when waiter completes request
+      sock.on("request:completed",(data:any)=>{
+        if(waiterSheetRef.current) waiterSheetRef.current.markDone(data.type);
+      });
 
       socketCleanup=()=>{
         sock.off("order:update",  onOrderUpdate);
         sock.off("order:ready",   onOrderReady);
         sock.off("order:new",     onOrderNew);
         sock.off("table:cleared", onTableCleared);
+        sock.off("request:completed", ()=>{});
       };
     }catch{}
 
