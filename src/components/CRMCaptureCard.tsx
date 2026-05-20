@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { saveSessionCustomer, clearSessionCustomer } from "@/lib/customerSession";
+import { setSessionCustomer, clearSessionCustomer } from "@/lib/CustomerIdentitySystem";
 
 // ═══════════════════════════════════════════════════════════════════
 // CRM CAPTURE — Smart Phone-First Login
@@ -45,7 +45,7 @@ async function registerCustomer(name:string, phone:string, tableId:string): Prom
     }).then(r=>r.json());
     if(r.success&&r.data){
       const p = r.data;
-      saveSessionCustomer({_id:p._id,name:p.name,phone:p.phone,totalPoints:p.totalPoints||0,tier:p.tier||"bronze",totalOrders:p.totalOrders||0});
+      setSessionCustomer({_id:p._id,name:p.name,phone:p.phone,totalPoints:p.totalPoints||0,tier:p.tier||"bronze",totalOrders:p.totalOrders||0, totalSpent:0, visits:p.visitCount||0, lastVisit:new Date().toISOString()});
       return p;
     }
     return null;
