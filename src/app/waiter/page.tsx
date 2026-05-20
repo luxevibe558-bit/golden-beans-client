@@ -86,6 +86,7 @@ interface WaiterInfo {
   name: string;
   username: string;
   role: string;
+  sessionToken?: string;
 }
 
 export default function WaiterPage() {
@@ -111,15 +112,18 @@ export default function WaiterPage() {
 
   const loadData = useCallback(async()=>{
     if(!waiter) return;
+    const token = waiter.sessionToken||"";
+    const headers: Record<string,string> = { "Content-Type":"application/json", "x-waiter-token": token };
     try{
       const [rRes, oRes] = await Promise.all([
-        fetch(`${API}/waiter/requests`),
-        fetch(`${API}/orders?status=ready`),
+        fetch(`${API}/waiter/my-requests`, { headers }),
+        fetch(`${API}/waiter/ready-orders`, { headers }),
       ]);
       const rData = await rRes.json();
       const oData = await oRes.json();
       if(rData.requests) setRequests(rData.requests);
       if(oData.success && oData.data) setReadyOrders(oData.data);
+      else if(Array.isArray(oData)) setReadyOrders(oData);
     }catch{}
     setLoading(false);
   },[waiter]);
@@ -144,8 +148,9 @@ export default function WaiterPage() {
       });
       const data=await res.json();
       if(data.success&&data.waiter){
-        setWaiter(data.waiter);
-        localStorage.setItem("gb_waiter",JSON.stringify(data.waiter));
+        const waiterData = { ...data.waiter, sessionToken: data.sessionToken };
+        setWaiter(waiterData);
+        localStorage.setItem("gb_waiter",JSON.stringify(waiterData));
       } else {
         setLoginErr(data.error||"Invalid username or PIN. Try again.");
         setLoginPin("");
@@ -160,9 +165,11 @@ export default function WaiterPage() {
     if(saved){ try{ setWaiter(JSON.parse(saved)); }catch{} }
   },[]);
 
+  const getAuthHeaders = ()=>({ "Content-Type":"application/json", "x-waiter-token": waiter?.sessionToken||"" });
+
   const acknowledge=async(id:string)=>{
     try{
-      await fetch(`${API}/waiter/requests/${id}/acknowledge`,{method:"PATCH"});
+      await fetch(`${API}/waiter/requests/${id}/accept`,{method:"PATCH",headers:getAuthHeaders()});
       setRequests(p=>p.map(r=>r._id===id?{...r,status:"acknowledged",acknowledgedAt:new Date().toISOString()}:r));
     }catch{}
   };
@@ -170,7 +177,7 @@ export default function WaiterPage() {
   const completeRequest=async(id:string)=>{
     setCompleting(id);
     try{
-      await fetch(`${API}/waiter/requests/${id}/complete`,{method:"PATCH"});
+      await fetch(`${API}/waiter/requests/${id}/complete`,{method:"PATCH",headers:getAuthHeaders()});
       setJustDone(p=>new Set([...p,id]));
       setTimeout(()=>{
         setRequests(p=>p.filter(r=>r._id!==id));
@@ -183,7 +190,7 @@ export default function WaiterPage() {
   const deliverOrder=async(orderId:string)=>{
     setCompleting(orderId);
     try{
-      await fetch(`${API}/waiter/requests/complete-order/${orderId}`,{method:"PATCH"});
+      await fetch(`${API}/waiter/deliver-order/${orderId}`,{method:"PATCH",headers:getAuthHeaders()});
       setJustDone(p=>new Set([...p,orderId]));
       setTimeout(()=>{
         setReadyOrders(p=>p.filter(o=>o._id!==orderId));
