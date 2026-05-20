@@ -40,8 +40,8 @@ function getSettleReadiness(order: Order): {
   paidOnline: boolean;
   onlinePaymentId: string | null;
 } {
-  const paidOnline    = !!(order as any).paidOnline || !!(order as any).razorpayPaymentId;
-  const onlinePaymentId = (order as any).razorpayPaymentId || null;
+  const paidOnline      = !!(order as any)?.paidOnline || !!(order as any)?.razorpayPaymentId;
+  const onlinePaymentId = (order as any)?.razorpayPaymentId || null;
 
   if (!order || !order.items || order.items.length === 0) {
     return { canSettle: false, reason: "No items in order", deliveredCount: 0, totalCount: 0, pendingItems: [], inKitchenItems: [], readyItems: [], paidOnline, onlinePaymentId };
@@ -269,7 +269,7 @@ function TableCard({ table, order, onSelect, waiterRequests }: { table: Table; o
   const [hovered,   setHovered  ] = useState(false);
   const [pulse,     setPulse    ] = useState(false);
 
-  const settle = getSettleReadiness(order as Order);
+  const settle    = order ? getSettleReadiness(order as Order) : { canSettle:false, reason:"", deliveredCount:0, totalCount:0, pendingItems:[], inKitchenItems:[], readyItems:[], paidOnline:false, onlinePaymentId:null };
   const canSettle = hasOrder && settle.canSettle;
 
   useEffect(() => {
