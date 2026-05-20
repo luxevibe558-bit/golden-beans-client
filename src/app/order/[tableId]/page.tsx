@@ -2810,8 +2810,8 @@ function ProfileTab({ table, customer }:{table:Table|null;customer:{name:string;
     setLoading(true);
     const API_URL = process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
     Promise.all([
-      fetch(`${API_URL}/customers/${session._id}/profile`).then(r=>r.json()),
-      fetch(`${API_URL}/customers/${session._id}/history`).then(r=>r.json()),
+      fetch(`${API_URL}/crm-capture/profile/${session._id}`).then(r=>r.json()),
+      fetch(`${API_URL}/crm-capture/history/${session._id}`).then(r=>r.json()),
     ]).then(([p,h])=>{
       if(p.success) setProfile(p.data);
       if(h.success) setHistory(h.data||[]);
@@ -3042,10 +3042,14 @@ function ProfileTab({ table, customer }:{table:Table|null;customer:{name:string;
       {/* ── HISTORY TAB ── */}
       {activeTab==="history"&&(
         <div style={{padding:"16px 18px"}}>
+          <p style={{fontSize:9,color:C.gold,fontFamily:"'DM Mono',monospace",
+            letterSpacing:".18em",textTransform:"uppercase",margin:"0 0 14px"}}>
+            ✦ LAST 3 VISITS
+          </p>
           {loading ? (
             <div style={{display:"flex",flexDirection:"column",gap:9}}>
-              {[1,2,3,4].map(i=>(
-                <div key={i} className="sk" style={{height:64,borderRadius:14}}/>
+              {[1,2,3].map(i=>(
+                <div key={i} className="sk" style={{height:120,borderRadius:16}}/>
               ))}
             </div>
           ) : history.length===0 ? (
@@ -3053,52 +3057,102 @@ function ProfileTab({ table, customer }:{table:Table|null;customer:{name:string;
               <div style={{fontSize:44,marginBottom:12,opacity:.35,
                 animation:"floatY 3s ease-in-out infinite"}}>🫘</div>
               <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:20,
-                fontWeight:500,color:C.inkSub,margin:"0 0 6px"}}>No history yet</h3>
+                fontWeight:500,color:C.inkSub,margin:"0 0 6px"}}>No orders yet</h3>
               <p style={{fontSize:12.5,color:C.inkDim,fontFamily:"'DM Sans',sans-serif"}}>
-                Place your first order to start earning points!
+                Place your first order to see history here!
               </p>
             </div>
           ) : (
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {history.map((tx:any,i:number)=>{
-                const isEarn = tx.points > 0;
-                const isBonus= tx.type==="bonus";
-                return(
-                  <div key={tx._id||i}
-                    style={{background:`linear-gradient(135deg,${C.surface},${C.raise})`,
-                      borderRadius:13,padding:"12px 14px",
-                      border:`1px solid ${C.glBd}`,
-                      display:"flex",alignItems:"center",gap:12,
-                      animation:`stgIn 0.4s ${i*.05}s ${EASE} both`}}>
-                    <div style={{width:40,height:40,borderRadius:11,flexShrink:0,
-                      background:isEarn?`rgba(46,125,82,0.15)`:"rgba(192,57,43,0.1)",
-                      border:`1px solid ${isEarn?"rgba(46,125,82,0.3)":"rgba(192,57,43,0.25)"}`,
-                      display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>
-                      {isBonus?"🎉":isEarn?"🫘":"🔓"}
-                    </div>
-                    <div style={{flex:1,minWidth:0}}>
-                      <p style={{fontSize:13,fontWeight:600,color:C.ink,
-                        fontFamily:"'DM Sans',sans-serif",margin:"0 0 2px",
-                        whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
-                        {tx.description}
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              {history.map((order:any,i:number)=>(
+                <div key={order._id||i}
+                  style={{background:`linear-gradient(135deg,${C.surface},${C.raise})`,
+                    borderRadius:16,overflow:"hidden",
+                    border:`1px solid ${C.glBd}`,
+                    animation:`stgIn 0.4s ${i*.08}s ${EASE} both`}}>
+                  {/* Order header */}
+                  <div style={{padding:"12px 14px 10px",borderBottom:`1px solid ${C.gl1}`,
+                    display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <div>
+                      <p style={{fontSize:13,fontWeight:700,color:C.goldL,
+                        fontFamily:"'Cormorant Garamond',serif",margin:"0 0 2px"}}>
+                        Order #{order.orderNumber}
                       </p>
-                      <p style={{fontSize:10.5,color:C.inkDim,
+                      <p style={{fontSize:10,color:C.inkDim,
                         fontFamily:"'DM Mono',monospace",margin:0}}>
-                        {new Date(tx.createdAt).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}
-                        {" · "}Balance: {tx.balance} pts
+                        {new Date(order.createdAt).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}
+                        {" · "}Table {order.tableNumber}
                       </p>
                     </div>
-                    <div style={{textAlign:"right",flexShrink:0}}>
-                      <p style={{fontFamily:"'DM Mono',monospace",fontSize:16,fontWeight:600,
-                        color:isEarn?C.emerald:C.ruby,margin:0}}>
-                        {isEarn?"+":""}{tx.points}
+                    <div style={{textAlign:"right"}}>
+                      <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,
+                        fontWeight:700,color:C.ink,margin:"0 0 2px"}}>
+                        ₹{order.totalAmount}
                       </p>
-                      <p style={{fontSize:9.5,color:C.inkDim,margin:"1px 0 0",
-                        fontFamily:"'DM Mono',monospace"}}>pts</p>
+                      <div style={{background:"rgba(46,125,82,0.15)",border:"1px solid rgba(46,125,82,0.3)",
+                        borderRadius:99,padding:"1px 8px"}}>
+                        <span style={{fontSize:9,color:"#4ADE80",fontFamily:"'DM Mono',monospace"}}>
+                          ✓ {order.status?.toUpperCase()}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                );
-              })}
+
+                  {/* Items list */}
+                  <div style={{padding:"10px 14px 12px"}}>
+                    {order.items?.slice(0,4).map((item:any,j:number)=>(
+                      <div key={j} style={{display:"flex",alignItems:"center",
+                        justifyContent:"space-between",padding:"4px 0",
+                        borderBottom:j<Math.min(order.items.length,4)-1?`1px solid ${C.gl1}`:"none"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span style={{width:20,height:20,borderRadius:6,
+                            background:C.g08,border:`1px solid ${C.g15}`,
+                            display:"flex",alignItems:"center",justifyContent:"center",
+                            fontSize:9,color:C.gold,fontWeight:800,flexShrink:0}}>
+                            {item.quantity}
+                          </span>
+                          <span style={{fontSize:12,color:C.ink,fontFamily:"'DM Sans',sans-serif"}}>
+                            {item.name}
+                          </span>
+                        </div>
+                        <span style={{fontSize:11,color:C.inkDim,
+                          fontFamily:"'DM Mono',monospace"}}>
+                          ₹{item.price*item.quantity}
+                        </span>
+                      </div>
+                    ))}
+                    {order.items?.length>4&&(
+                      <p style={{fontSize:10,color:C.inkDim,fontFamily:"'DM Sans',sans-serif",
+                        margin:"6px 0 0",textAlign:"center"}}>
+                        +{order.items.length-4} more items
+                      </p>
+                    )}
+
+                    {/* Reorder button */}
+                    <button onClick={()=>{
+                      order.items?.forEach((item:any)=>{
+                        const menuItem = allItems.find((m:any)=>
+                          m._id===item.menuItemId?.toString()||
+                          m._id===item.menuItemId
+                        );
+                        if(menuItem){
+                            addToCart(menuItem, item.quantity||1, [], 0);
+                          }
+                      });
+                      setActiveTab("cart");
+                    }} style={{
+                      width:"100%",marginTop:10,padding:"10px",borderRadius:11,
+                      border:`1px solid ${C.g25}`,background:C.g08,
+                      color:C.goldL,fontSize:12,fontWeight:700,cursor:"pointer",
+                      fontFamily:"'DM Sans',sans-serif",
+                      display:"flex",alignItems:"center",justifyContent:"center",gap:7,
+                      transition:"all 0.2s ease",
+                    }}>
+                      🔄 Reorder
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
