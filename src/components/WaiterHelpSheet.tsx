@@ -98,9 +98,10 @@ export default function WaiterHelpSheet({tableId,tableNumber,orderStatus="",orde
   const [subSelected,   setSubSelected  ] = useState<string|null>(null);
   const [prevRequests,  setPrevRequests ] = useState<string[]>([]);
   // requestId → track waiter completion for badge
-  const [sentRequests,  setSentRequests ] = useState<{id:string;reqId:string;subLabel?:string}[]>([]);
+  const [sentRequests,  setSentRequests ] = useState<{uid:string;id:string;reqId:string;subLabel?:string}[]>([]);
   const [activeCategory,setActiveCategory]=useState("all");
   const [btnPulse,      setBtnPulse     ] = useState(false);
+  const closeTimer = useRef<NodeJS.Timeout|null>(null);
 
   const minutesElapsed = orderTime ? Math.floor((Date.now()-new Date(orderTime).getTime())/60000) : 0;
   const selectedReq    = ALL_REQUESTS.find(r=>r.id===selected);
@@ -116,13 +117,28 @@ export default function WaiterHelpSheet({tableId,tableNumber,orderStatus="",orde
     return()=>clearInterval(iv);
   },[]);
 
-  // ── INSTANT SEND — no countdown ──
+  // Socket: listen for request:completed to remove from badge
+  useEffect(()=>{
+    try{
+      const { getSocket } = require("@/lib/socket");
+      const sock = getSocket();
+      if(!sock) return;
+      const handler=(data:any)=>{
+        setSentRequests(p=>p.filter(r=>r.reqId!==data.requestId&&r.id!==data.type));
+      };
+      sock.on("request:completed", handler);
+      return()=>{ sock.off("request:completed", handler); };
+    }catch{}
+  },[]);
+
+  // ── INSTANT SEND — no countdown, auto-close in 3s ──
   const sendRequest=async(reqId:string, subId?:string)=>{
     setPhase("sending");
     const req=ALL_REQUESTS.find(r=>r.id===reqId);
     const sub=req?.subOptions?.find(s=>s.id===subId);
     const noteText=sub?`${sub.label} — ${sub.detail}`:(req?.desc||"");
     let serverReqId="";
+    const uid=`${reqId}_${subId||""}_${Date.now()}`;
     try{
       const res=await fetch(`${API}/waiter/request`,{
         method:"POST",
@@ -142,8 +158,15 @@ export default function WaiterHelpSheet({tableId,tableNumber,orderStatus="",orde
       if(data.request?._id) serverReqId=data.request._id;
     }catch{}
     setPrevRequests(p=>[...p,reqId]);
-    setSentRequests(p=>[...p,{id:reqId,reqId:serverReqId,subLabel:sub?.label}]);
+    setSentRequests(p=>[...p,{uid,id:reqId,reqId:serverReqId,subLabel:sub?.label}]);
     setPhase("sent");
+
+    // Auto-close after 3 seconds
+    if(closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current=setTimeout(()=>{
+      setOpen(false);
+      setTimeout(()=>{ setPhase("select");setSelected(null);setSubSelected(null); },350);
+    },3000);
   };
 
   const handleSelectRequest=(id:string)=>{
@@ -344,7 +367,7 @@ export default function WaiterHelpSheet({tableId,tableNumber,orderStatus="",orde
                       {sentRequests.map(r=>{
                         const req=ALL_REQUESTS.find(x=>x.id===r.id);
                         return(
-                          <div key={r.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid rgba(74,222,128,0.1)`}}>
+                          <div key={r.uid} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"6px 0",borderBottom:`1px solid rgba(74,222,128,0.1)`}}>
                             <div style={{display:"flex",alignItems:"center",gap:8}}>
                               <span style={{fontSize:16}}>{req?.icon||"🙋"}</span>
                               <div>
