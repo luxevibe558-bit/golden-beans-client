@@ -3218,6 +3218,21 @@ export default function CustomerOrderPage() {
         setPlacedOrder(existingOrder); setScreen("ready"); return;
       }
       if(o.status==="cancelled"){localStorage.removeItem("gb_active_order");setExistingOrder(null);return;}
+
+      // ── Delivered — show served screen then redirect to menu ──
+      if(o.status==="delivered"&&prevStatus.current!=="delivered"){
+        prevStatus.current=o.status;
+        setExistingOrder(o);
+        // Show "Order Served!" for 3 seconds then go to home/menu
+        setTimeout(()=>{
+          localStorage.removeItem("gb_active_order");
+          setExistingOrder(null);
+          setScreen("home");
+          setActiveTab("home");
+        }, 3000);
+        return;
+      }
+
       if(o.status==="ready"&&prevStatus.current!=="ready"&&prevStatus.current!==null){
         const session=getSessionCustomer();
         if(session?.phone){
