@@ -37,9 +37,14 @@ function getSettleReadiness(order: Order): {
   pendingItems: string[];
   inKitchenItems: string[];
   readyItems: string[];
+  paidOnline: boolean;
+  onlinePaymentId: string | null;
 } {
+  const paidOnline    = !!(order as any).paidOnline || !!(order as any).razorpayPaymentId;
+  const onlinePaymentId = (order as any).razorpayPaymentId || null;
+
   if (!order || !order.items || order.items.length === 0) {
-    return { canSettle: false, reason: "No items in order", deliveredCount: 0, totalCount: 0, pendingItems: [], inKitchenItems: [], readyItems: [] };
+    return { canSettle: false, reason: "No items in order", deliveredCount: 0, totalCount: 0, pendingItems: [], inKitchenItems: [], readyItems: [], paidOnline, onlinePaymentId };
   }
 
   const delivered   = order.items.filter(i => i.status === "served");
@@ -47,12 +52,9 @@ function getSettleReadiness(order: Order): {
   const ready       = order.items.filter(i => i.status === "ready");
   const total       = order.items.length;
 
-  // Order status based settle check
   const orderDelivered = (order.status as string) === "delivered";
-  const orderReady     = order.status === "ready";
   const allServed      = delivered.length === total;
-
-  const canSettle = orderDelivered || allServed;
+  const canSettle      = orderDelivered || allServed;
 
   let reason = "";
   if (!canSettle) {
@@ -63,13 +65,12 @@ function getSettleReadiness(order: Order): {
   }
 
   return {
-    canSettle,
-    reason,
-    deliveredCount: delivered.length,
-    totalCount: total,
+    canSettle, reason,
+    deliveredCount: delivered.length, totalCount: total,
     pendingItems: inKitchen.map(i => i.name),
     inKitchenItems: inKitchen.map(i => i.name),
     readyItems: ready.map(i => i.name),
+    paidOnline, onlinePaymentId,
   };
 }
 
@@ -416,9 +417,27 @@ function TableCard({ table, order, onSelect, waiterRequests }: { table: Table; o
           <div style={{ background: "rgba(34,197,94,0.1)", borderRadius: "10px", padding: "8px 12px", marginBottom: "10px", border: "1.5px solid rgba(34,197,94,0.4)", display: "flex", alignItems: "center", gap: "8px" }}>
             <span style={{ fontSize: "16px" }}>✅</span>
             <div>
-              <p style={{ fontSize: "11px", fontWeight: 800, color: '#16A34A', margin: 0 }}>All items delivered!</p>
-              <p style={{ fontSize: "10px", color: '#166534', margin: 0 }}>Ready to settle — tap to proceed</p>
+              <p style={{ fontSize: "11px", fontWeight: 800, color: '#16A34A', margin: 0 }}>
+                {settle.paidOnline ? "💳 Paid Online — Ready to close!" : "All items delivered!"}
+              </p>
+              <p style={{ fontSize: "10px", color: '#166534', margin: 0 }}>
+                {settle.paidOnline ? "Payment received — just close the table" : "Ready to settle — tap to proceed"}
+              </p>
             </div>
+          </div>
+        )}
+
+        {/* 💳 Online payment indicator (even before settle ready) */}
+        {!canSettle && settle.paidOnline && (
+          <div style={{ background: "rgba(59,130,246,0.1)", borderRadius: "10px", padding: "7px 11px", marginBottom: "10px", border: "1px solid rgba(59,130,246,0.3)", display: "flex", alignItems: "center", gap: "7px" }}>
+            <span style={{ fontSize: "14px" }}>💳</span>
+            <div>
+              <p style={{ fontSize: "10px", fontWeight: 800, color: '#1D4ED8', margin: 0 }}>Online Payment Done</p>
+              <p style={{ fontSize: "9px", color: '#3B82F6', margin: 0, fontFamily: "'DM Mono', monospace" }}>
+                {settle.onlinePaymentId?.slice(-8).toUpperCase()}
+              </p>
+            </div>
+            <div style={{ marginLeft: "auto", background: "#DBEAFE", borderRadius: "6px", padding: "2px 7px", fontSize: "9px", fontWeight: 800, color: '#1D4ED8' }}>PAID</div>
           </div>
         )}
 
@@ -836,10 +855,32 @@ export default function POSPage() {
 
                 {/* Smart settle button — only when all delivered */}
                 {currentOrder && canSettle && (
-                  <button onClick={() => setSettleModalOrder(currentOrder)}
-                    style={{ width: "100%", background: `linear-gradient(135deg, #16A34A, #22C55E)`, color: "white", border: "none", borderRadius: "12px", padding: "14px", fontWeight: 900, fontSize: "15px", cursor: "pointer", boxShadow: "0 6px 24px rgba(34,197,94,0.4)", animation: "settleGlow 2s ease-in-out infinite", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-                    ✅ Settle Bill — ₹{currentOrder.totalAmount.toFixed(0)}
-                  </button>
+                  <>
+                    {/* Online payment — special close button */}
+                    {settleStatus?.paidOnline ? (
+                      <div>
+                        <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.25)", borderRadius: "12px", padding: "10px 14px", marginBottom: "8px", display: "flex", alignItems: "center", gap: "10px" }}>
+                          <span style={{ fontSize: "20px" }}>💳</span>
+                          <div>
+                            <p style={{ fontSize: "12px", fontWeight: 800, color: '#1D4ED8', margin: 0 }}>Payment Already Received!</p>
+                            <p style={{ fontSize: "10px", color: '#3B82F6', margin: 0, fontFamily: "'DM Mono', monospace" }}>
+                              ID: {settleStatus.onlinePaymentId?.slice(-10).toUpperCase()} · ₹{currentOrder.totalAmount.toFixed(0)}
+                            </p>
+                          </div>
+                          <div style={{ marginLeft: "auto", background: "#DBEAFE", borderRadius: "8px", padding: "3px 10px", fontSize: "10px", fontWeight: 800, color: '#1D4ED8' }}>PAID ✓</div>
+                        </div>
+                        <button onClick={() => setSettleModalOrder(currentOrder)}
+                          style={{ width: "100%", background: `linear-gradient(135deg, #1D4ED8, #3B82F6)`, color: "white", border: "none", borderRadius: "12px", padding: "14px", fontWeight: 900, fontSize: "15px", cursor: "pointer", boxShadow: "0 6px 24px rgba(59,130,246,0.4)", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                          🔒 Close Table — Already Paid
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setSettleModalOrder(currentOrder)}
+                        style={{ width: "100%", background: `linear-gradient(135deg, #16A34A, #22C55E)`, color: "white", border: "none", borderRadius: "12px", padding: "14px", fontWeight: 900, fontSize: "15px", cursor: "pointer", boxShadow: "0 6px 24px rgba(34,197,94,0.4)", animation: "settleGlow 2s ease-in-out infinite", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                        ✅ Settle Bill — ₹{currentOrder.totalAmount.toFixed(0)}
+                      </button>
+                    )}
+                  </>
                 )}
 
                 {/* Settle blocked — show reason */}
