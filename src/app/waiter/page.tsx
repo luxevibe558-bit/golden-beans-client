@@ -24,10 +24,12 @@ const EASE = "cubic-bezier(0.25,0.46,0.45,0.94)";
 const API  = process.env.NEXT_PUBLIC_API_URL||"https://golden-beans-server.onrender.com/api";
 
 // ── Priority config ──
-const PRIORITY_CONFIG = {
+const PRIORITY_CONFIG: Record<string,{color:string;bg:string;bd:string;label:string;ring:boolean}> = {
   high:   { color:C.red,    bg:C.redDim,   bd:C.redBd,   label:"URGENT",  ring:true  },
   normal: { color:C.gold,   bg:C.g08,      bd:C.g25,     label:"REQUEST", ring:false },
+  order_ready: { color:C.green, bg:C.greenDim, bd:C.greenBd, label:"ORDER READY", ring:true },
 };
+const getPriorityCfg = (p?: string) => PRIORITY_CONFIG[p||"normal"] || PRIORITY_CONFIG.normal;
 
 // ── Request type config ──
 const REQ_CONFIG: Record<string,{icon:string;color:string;label:string}> = {
@@ -41,7 +43,9 @@ const REQ_CONFIG: Record<string,{icon:string;color:string;label:string}> = {
   ac:        {icon:"❄️", color:C.blue,   label:"AC Comfort"},
   order:     {icon:"➕", color:C.goldL,  label:"Add to Order"},
   other:     {icon:"💬", color:C.inkSub, label:"Other Request"},
+  order_ready:{icon:"🍽️",color:C.green,  label:"Order Ready"},
 };
+const getReqCfg = (t?: string) => REQ_CONFIG[t||"other"] || REQ_CONFIG.other;
 
 function timeAgo(ts: string) {
   const secs = Math.floor((Date.now()-new Date(ts).getTime())/1000);
@@ -478,8 +482,8 @@ function RequestCard({req,onAck,onComplete,completing,justDone}:{
   completing:string|null;
   justDone:Set<string>;
 }) {
-  const cfg     = REQ_CONFIG[req.type]||REQ_CONFIG.other;
-  const priCfg  = PRIORITY_CONFIG[req.priority];
+  const cfg     = getReqCfg(req.type);
+  const priCfg  = getPriorityCfg(req.priority);
   const mins    = elapsedMins(req.createdAt);
   const isUrgent= req.priority==="high";
   const isPending= req.status==="pending";
