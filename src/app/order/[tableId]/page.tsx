@@ -3517,7 +3517,12 @@ export default function CustomerOrderPage() {
         name:"Golden Beans Café",
         description:"Table Order",
         order_id:orderData.data?.orderId,
-        prefill:{name:customer?.name||"",contact:`91${customer?.phone||""}`},
+        prefill:{
+          name:customer?.name||"",
+          contact:customer?.phone&&customer.phone.replace(/\D/g,"").length>=10
+            ?`+91${customer.phone.replace(/\D/g,"").slice(-10)}`
+            :"",
+        },
         theme:{color:C.gold},
         method_order:["upi","card","netbanking","wallet"],
         handler:async(r:any)=>{try{const v=await fetch(`${API}/payment/verify`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(r)}).then(r=>r.json());if(v.success){await placeOrder(tip,note,r.razorpay_payment_id);resolve();}else reject();}catch(e){reject(e);}},
