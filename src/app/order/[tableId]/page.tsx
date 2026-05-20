@@ -2220,157 +2220,307 @@ function OrderPlacedScreen({ order, onTrack, onHome }:{order:Order;onTrack:()=>v
 // ORDER TRACKING — Cinematic live timeline
 // ═══════════════════════════════════════════════════
 function OrderTrackingScreen({ order, onReady, onBack, queuePos=0 }:{order:Order;onReady:()=>void;onBack:()=>void;queuePos?:number}) {
+  const status = (order.status as string);
+
+  // ── Stage definitions with premium quotes ──
   const stages=[
-    {id:"open",      icon:"📝",label:"Order Confirmed",  sub:"Kitchen has received your order"},
-    {id:"kotSent",   icon:"👨‍🍳",label:"Being Prepared",   sub:"Our chef is crafting your items"},
-    {id:"ready",     icon:"✅",label:"Ready to Serve",    sub:"Your order is ready"},
-    {id:"delivered", icon:"🍽️",label:"Served",            sub:"Enjoy your meal!"},
+    {
+      id:"open",
+      icon:"📋",
+      emoji:"✨",
+      label:"Order Confirmed",
+      sub:"Your order is in the queue",
+      quote:"\"Every great meal begins with a single order. Yours is on its way!\"",
+      color:"#C8922A",
+    },
+    {
+      id:"kotSent",
+      icon:"👨‍🍳",
+      emoji:"🔥",
+      label:"Being Crafted",
+      sub:"Our chef is working on your order",
+      quote:"\"Good food takes time — and our chef is giving yours the love it deserves.\"",
+      color:"#E8A030",
+    },
+    {
+      id:"partially_ready",
+      icon:"⏳",
+      emoji:"🌟",
+      label:"Almost Ready",
+      sub:"Some items are ready, preparing rest",
+      quote:"\"Almost there! The best is yet to come.\"",
+      color:"#D4A030",
+    },
+    {
+      id:"ready",
+      icon:"✅",
+      emoji:"🎉",
+      label:"Ready to Serve",
+      sub:"Your order is ready — waiter is on the way",
+      quote:"\"Your food is ready! Sit back and let us bring it to you.\"",
+      color:"#4ADE80",
+    },
+    {
+      id:"delivered",
+      icon:"🍽️",
+      emoji:"❤️",
+      label:"Served with Love",
+      sub:"Enjoy your meal!",
+      quote:"\"Bon Appétit! Every bite crafted with passion, just for you.\"",
+      color:"#6EE7B7",
+    },
   ];
-  const stageIdx = stages.findIndex(s=>s.id===order.status);
-  const curIdx   = stageIdx>=0?stageIdx:0;
 
-  // ── Wait time calculation ──
-  // Avg 3-4 mins per item in queue + 2 mins base per order ahead
-  const itemsInOrder  = order.items?.length || 1;
-  const baseMinsPerOrder = 3;
-  const minsPerItem      = 2;
-  const queueWait = queuePos * baseMinsPerOrder;
-  const prepTime  = Math.max(2, itemsInOrder * minsPerItem);
-  const totalWait = queueWait + prepTime;
+  const displayStages = stages.filter(s=>!["partially_ready"].includes(s.id));
+  const curStage = stages.find(s=>s.id===status) || stages[0];
+  const curIdx   = displayStages.findIndex(s=>s.id===status);
+  const adjustedIdx = curIdx>=0 ? curIdx : (status==="partially_ready" ? 1 : 0);
 
-  // Elapsed time since order placed
-  const elapsedMins = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000);
-  const remainingMins = Math.max(0, totalWait - elapsedMins);
+  // Wait time
+  const itemsInOrder = order.items?.length || 1;
+  const elapsedMins  = Math.floor((Date.now()-new Date(order.createdAt).getTime())/60000);
+  const prepTime     = Math.max(3, itemsInOrder*3);
+  const queueWait    = queuePos*3;
+  const remainingMins= Math.max(0, prepTime+queueWait-elapsedMins);
+  const isDelivered  = status==="delivered";
+  const isReady      = status==="ready";
 
-  const showWaitTime = ["open","kotSent"].includes(order.status);
+  // Auto-redirect on settled
+  useEffect(()=>{ if(status==="settled") onReady(); },[status,onReady]);
 
-  useEffect(()=>{if(order.status==="settled")onReady();},[order.status,onReady]);
+  const C2 = {
+    void:"#030201", gold:"#C8922A", goldL:"#F5CC6A", goldM:"#E8B84B",
+    ink:"#F5EDD8", inkSub:"rgba(245,237,216,0.65)", inkDim:"rgba(245,237,216,0.35)",
+    gl1:"rgba(255,255,255,0.04)", glBd:"rgba(255,255,255,0.08)",
+    g08:"rgba(200,146,42,0.08)", g25:"rgba(200,146,42,0.25)",
+    green:"#4ADE80", greenDim:"rgba(74,222,128,0.15)",
+  };
 
   return(
-    <div style={{minHeight:"100dvh",background:C.void,display:"flex",flexDirection:"column"}}>
-      {/* Hero */}
-      <div style={{position:"relative",height:220,overflow:"hidden"}}>
-        <div style={{position:"absolute",inset:0,background:`radial-gradient(ellipse 100% 100% at 50% 0%,#3D2010 0%,${C.void} 70%)`}}/>
-        {[0,1,2,3].map(i=><div key={i} style={{position:"absolute",bottom:"30%",left:`${38+i*8}%`,width:5,height:24,borderRadius:99,background:`linear-gradient(to top,${C.g60},transparent)`,animation:`smokeUp ${2.4+i*.55}s ${i*.7}s ease-out infinite`,filter:"blur(1.5px)",opacity:0}}/>)}
+    <div style={{minHeight:"100dvh",background:C2.void,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+
+      {/* ── HERO STATUS AREA ── */}
+      <div style={{position:"relative",padding:"52px 24px 32px",textAlign:"center",
+        background:`radial-gradient(ellipse 120% 80% at 50% 0%, ${isDelivered?"rgba(74,222,128,0.12)":isReady?"rgba(74,222,128,0.08)":"rgba(200,146,42,0.1)"} 0%, transparent 70%)`}}>
+
         {/* Back button */}
-        <button onClick={onBack} style={{position:"absolute",top:16,left:16,zIndex:10,width:38,height:38,borderRadius:12,background:"rgba(2,1,0,0.65)",backdropFilter:"blur(12px)",border:`1px solid ${C.glBd}`,color:C.ink,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <svg width={18} height={18} viewBox="0 0 18 18" fill="none"><path d="M11 4l-5 5 5 5" stroke={C.ink} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/></svg>
+        <button onClick={onBack} style={{position:"absolute",top:16,left:16,width:38,height:38,borderRadius:12,
+          background:"rgba(2,1,0,0.6)",backdropFilter:"blur(12px)",
+          border:`1px solid ${C2.glBd}`,color:C2.ink,cursor:"pointer",
+          display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <svg width={18} height={18} viewBox="0 0 18 18" fill="none">
+            <path d="M11 4l-5 5 5 5" stroke={C2.ink} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </button>
-        <div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
-          <div style={{fontSize:52,marginBottom:10,animation:"floatY 3s ease-in-out infinite"}}>☕</div>
-          <div style={{background:`${C.gold}18`,border:`1px solid ${C.g25}`,borderRadius:99,padding:"6px 18px",marginBottom:6}}>
-            <p style={{fontSize:11,color:C.goldM,fontFamily:"'DM Mono',monospace",fontWeight:600,letterSpacing:".1em",textTransform:"uppercase",margin:0}}>{stages[curIdx]?.label||"Processing"}</p>
-          </div>
-          <p style={{fontSize:12,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",margin:0}}>{stages[curIdx]?.sub}</p>
+
+        {/* Order number */}
+        <div style={{display:"inline-flex",alignItems:"center",gap:6,
+          background:C2.gl1,border:`1px solid ${C2.glBd}`,
+          borderRadius:99,padding:"4px 14px",marginBottom:20}}>
+          <div style={{width:6,height:6,borderRadius:"50%",
+            background:isDelivered?C2.green:C2.gold,
+            animation:"pulseRg 1.5s ease-in-out infinite"}}/>
+          <span style={{fontSize:10,color:isDelivered?C2.green:C2.gold,
+            fontFamily:"'DM Mono',monospace",letterSpacing:".12em"}}>
+            ORDER #{String(order.orderNumber||"").padStart(4,"0")} · LIVE
+          </span>
         </div>
-        <div style={{position:"absolute",bottom:0,inset:"auto 0 0 0",height:60,background:`linear-gradient(to top,${C.void},transparent)`}}/>
+
+        {/* Big emoji */}
+        <div style={{fontSize:64,marginBottom:14,
+          animation:isDelivered?"none":"floatY 3s ease-in-out infinite",
+          filter:isDelivered?"drop-shadow(0 0 20px rgba(74,222,128,0.5))":"drop-shadow(0 0 20px rgba(200,146,42,0.4))"}}>
+          {curStage.emoji}
+        </div>
+
+        {/* Status label */}
+        <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:600,
+          color:isDelivered?C2.green:C2.goldL,margin:"0 0 6px",lineHeight:1.1}}>
+          {curStage.label}
+        </h2>
+        <p style={{fontSize:13,color:C2.inkSub,fontFamily:"'DM Sans',sans-serif",
+          margin:"0 0 16px",lineHeight:1.5}}>
+          {curStage.sub}
+        </p>
+
+        {/* Premium quote */}
+        <div style={{background:C2.gl1,border:`1px solid ${C2.glBd}`,
+          borderRadius:14,padding:"12px 16px",maxWidth:320,margin:"0 auto"}}>
+          <p style={{fontSize:12,color:C2.inkSub,fontFamily:"'Cormorant Garamond',serif",
+            fontStyle:"italic",fontWeight:500,lineHeight:1.6,margin:0}}>
+            {curStage.quote}
+          </p>
+        </div>
       </div>
 
-      {/* ── WAIT TIME CARD ── */}
-      {showWaitTime&&(
-        <div style={{margin:"16px 20px 0",
-          background:remainingMins<=2
-            ?`linear-gradient(135deg,rgba(46,125,82,0.15),rgba(46,125,82,0.08))`
-            :`linear-gradient(135deg,${C.g15},${C.g08})`,
-          border:`1px solid ${remainingMins<=2?"rgba(46,125,82,0.4)":"rgba(200,146,42,0.3)"}`,
-          borderRadius:16,padding:"14px 16px",
-          display:"flex",alignItems:"center",gap:14,
-          boxShadow:remainingMins<=2?`0 0 20px rgba(46,125,82,0.1)`:`0 0 20px ${C.g08}`}}>
-          {/* Clock icon */}
-          <div style={{width:48,height:48,borderRadius:14,flexShrink:0,
-            background:remainingMins<=2?"rgba(46,125,82,0.15)":C.g08,
-            border:`1px solid ${remainingMins<=2?"rgba(46,125,82,0.35)":C.g25}`,
-            display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>
-            {remainingMins<=2?"🎉":"⏱️"}
-          </div>
+      {/* ── WAIT TIME (only when preparing) ── */}
+      {["open","kotSent","partially_ready"].includes(status)&&(
+        <div style={{margin:"0 20px 16px",
+          background:remainingMins<=2?C2.greenDim:C2.g08,
+          border:`1px solid ${remainingMins<=2?"rgba(74,222,128,0.3)":C2.g25}`,
+          borderRadius:16,padding:"14px 18px",
+          display:"flex",alignItems:"center",gap:14}}>
+          <div style={{fontSize:28}}>{remainingMins<=2?"🎉":"⏱️"}</div>
           <div style={{flex:1}}>
-            {remainingMins<=2 ? (
-              <>
-                <p style={{fontSize:15,fontWeight:700,color:"#4ADE80",
-                  fontFamily:"'DM Sans',sans-serif",margin:"0 0 2px"}}>
-                  Almost ready!
-                </p>
-                <p style={{fontSize:12,color:C.inkSub,
-                  fontFamily:"'DM Sans',sans-serif",margin:0}}>
-                  Your order will be served very soon
-                </p>
-              </>
-            ) : (
-              <>
-                <p style={{fontSize:12,color:C.inkSub,
-                  fontFamily:"'DM Mono',monospace",margin:"0 0 3px",
-                  letterSpacing:".06em",textTransform:"uppercase"}}>
-                  Estimated Wait Time
-                </p>
-                <div style={{display:"flex",alignItems:"baseline",gap:5}}>
-                  <span style={{fontFamily:"'Cormorant Garamond',serif",
-                    fontSize:32,fontWeight:700,color:C.goldL,lineHeight:1}}>
-                    {remainingMins}
-                  </span>
-                  <span style={{fontSize:13,color:C.inkSub,
-                    fontFamily:"'DM Sans',sans-serif"}}>min</span>
-                </div>
-                {queuePos>0&&(
-                  <p style={{fontSize:11,color:C.inkDim,
-                    fontFamily:"'DM Mono',monospace",margin:"2px 0 0"}}>
-                    {queuePos} order{queuePos>1?"s":""} ahead · {itemsInOrder} item{itemsInOrder>1?"s":""} in your order
-                  </p>
-                )}
-              </>
+            <p style={{fontSize:10,color:remainingMins<=2?C2.green:C2.gold,
+              fontFamily:"'DM Mono',monospace",letterSpacing:".1em",
+              textTransform:"uppercase",margin:"0 0 2px"}}>
+              {remainingMins<=2?"Almost Ready!":"Estimated Wait"}
+            </p>
+            {remainingMins>2?(
+              <div style={{display:"flex",alignItems:"baseline",gap:4}}>
+                <span style={{fontFamily:"'Cormorant Garamond',serif",
+                  fontSize:28,fontWeight:700,color:C2.goldL,lineHeight:1}}>
+                  {remainingMins}
+                </span>
+                <span style={{fontSize:12,color:C2.inkSub,fontFamily:"'DM Sans',sans-serif"}}>min</span>
+              </div>
+            ):(
+              <p style={{fontSize:13,color:C2.green,fontFamily:"'DM Sans',sans-serif",
+                margin:0,fontWeight:600}}>Your order will arrive very soon!</p>
             )}
-          </div>
-          {/* Live indicator */}
-          <div style={{display:"flex",alignItems:"center",gap:5,flexShrink:0}}>
-            <div style={{width:7,height:7,borderRadius:"50%",
-              background:remainingMins<=2?"#4ADE80":C.gold,
-              animation:"pulseRg 1.5s ease-in-out infinite"}}/>
-            <span style={{fontSize:9.5,color:remainingMins<=2?"#4ADE80":C.gold,
-              fontFamily:"'DM Mono',monospace",letterSpacing:".06em"}}>LIVE</span>
           </div>
         </div>
       )}
 
-      {/* Timeline */}
-      <div style={{padding:"20px 24px",flex:1}}>
-        <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 18px"}}>Order Progress</p>
-        {stages.map((stage,i)=>{
-          const done=i<curIdx;const active=i===curIdx;const future=i>curIdx;
+      {/* ── PROGRESS TIMELINE ── */}
+      <div style={{padding:"0 24px",flex:1}}>
+        <p style={{fontSize:9,color:C2.gold,fontFamily:"'DM Mono',monospace",
+          letterSpacing:".18em",textTransform:"uppercase",margin:"0 0 16px"}}>
+          ORDER JOURNEY
+        </p>
+
+        {displayStages.map((stage,i)=>{
+          const done   = i<adjustedIdx;
+          const active = i===adjustedIdx;
+          const future = i>adjustedIdx;
+          const stColor= active?(stage.color||C2.gold):(done?C2.gold:C2.inkDim);
+
           return(
-            <div key={stage.id} style={{display:"flex",gap:14}}>
-              <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:22,flexShrink:0}}>
-                <div style={{width:22,height:22,borderRadius:"50%",
-                  background:done?GG:active?`linear-gradient(135deg,${C.g25},${C.g15})`:`${C.gl1}`,
-                  border:`2px solid ${done?C.gold:active?"rgba(200,146,42,0.55)":C.glBd}`,
+            <div key={stage.id} style={{display:"flex",gap:16,opacity:future?0.3:1,
+              transition:`opacity 0.5s ease`}}>
+              {/* Timeline dot + line */}
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:24,flexShrink:0}}>
+                <div style={{width:24,height:24,borderRadius:"50%",flexShrink:0,
+                  background:done?`linear-gradient(135deg,${C2.gold},${C2.goldM})`:active?`radial-gradient(circle,${C2.g25},${C2.g08})`:"transparent",
+                  border:`2px solid ${done?C2.gold:active?stColor:C2.glBd}`,
                   display:"flex",alignItems:"center",justifyContent:"center",
-                  fontSize:11,flexShrink:0,
-                  boxShadow:active?`0 0 0 4px ${C.g15},0 0 16px ${C.g25}`:"none",
-                  transition:`all 0.5s ${EASE}`,
+                  fontSize:11,
+                  boxShadow:active?`0 0 0 4px ${C2.g08}, 0 0 16px ${C2.g25}`:"none",
                   animation:active?"pulseRg 2s ease-in-out infinite":"none",
+                  transition:`all 0.5s ease`,
                 }}>
-                  {done?<span style={{color:C.void,fontSize:10}}>✓</span>:<span style={{fontSize:12}}>{stage.icon}</span>}
+                  {done
+                    ? <span style={{color:C2.void,fontSize:11,fontWeight:900}}>✓</span>
+                    : <span style={{fontSize:13}}>{stage.icon}</span>
+                  }
                 </div>
-                {i<stages.length-1&&<div style={{width:2,flex:1,minHeight:28,background:done?`linear-gradient(to bottom,${C.gold},${C.g40})`:`${C.gl2}`,margin:"3px 0",borderRadius:1,transition:`background 0.5s ${EASE}`}}/>}
+                {i<displayStages.length-1&&(
+                  <div style={{width:2,flex:1,minHeight:24,margin:"4px 0",borderRadius:1,
+                    background:done?`linear-gradient(to bottom,${C2.gold},${C2.g25})`:C2.gl1,
+                    transition:`background 0.5s ease`}}/>
+                )}
               </div>
-              <div style={{paddingBottom:i<stages.length-1?18:0,flex:1,opacity:future?0.35:1,transition:`opacity 0.4s ${EASE}`}}>
-                <p style={{fontSize:14.5,fontWeight:active?700:500,color:active?C.goldL:done?C.ink:C.inkDim,fontFamily:"'DM Sans',sans-serif",margin:"0 0 2px",transition:`color 0.3s ${EASE}`}}>{stage.label}</p>
-                <p style={{fontSize:11.5,color:active?C.inkSub:C.inkDim,fontFamily:"'DM Sans',sans-serif",margin:0}}>{stage.sub}</p>
-                {active&&<div style={{marginTop:7,display:"flex",alignItems:"center",gap:6}}>
-                  <div style={{width:6,height:6,borderRadius:"50%",background:C.gold,animation:"pulseRg 1.5s ease-in-out infinite"}}/>
-                  <span style={{fontSize:11,color:C.gold,fontFamily:"'DM Mono',monospace"}}>In progress...</span>
-                </div>}
+
+              {/* Content */}
+              <div style={{paddingBottom:i<displayStages.length-1?20:0,flex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
+                  <p style={{fontSize:14,fontWeight:active?700:500,margin:0,
+                    color:active?stColor:done?C2.ink:C2.inkDim,
+                    fontFamily:"'DM Sans',sans-serif",
+                    transition:`color 0.3s ease`}}>
+                    {stage.label}
+                  </p>
+                  {done&&<span style={{fontSize:10,color:C2.gold}}>✓</span>}
+                </div>
+                <p style={{fontSize:11,color:active?C2.inkSub:C2.inkDim,
+                  fontFamily:"'DM Sans',sans-serif",margin:0}}>
+                  {stage.sub}
+                </p>
+                {active&&!isDelivered&&(
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
+                    <div style={{width:5,height:5,borderRadius:"50%",background:stColor,
+                      animation:"pulseRg 1.2s ease-in-out infinite"}}/>
+                    <span style={{fontSize:10,color:stColor,
+                      fontFamily:"'DM Mono',monospace",letterSpacing:".08em"}}>
+                      {status==="ready"?"Waiter is on the way...":"In progress..."}
+                    </span>
+                  </div>
+                )}
+                {active&&isDelivered&&(
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
+                    <span style={{fontSize:10,color:C2.green,
+                      fontFamily:"'DM Mono',monospace",letterSpacing:".08em"}}>
+                      ✓ Delivered successfully
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Notification note */}
-      <div style={{margin:"0 20px 24px",padding:"13px 16px",background:C.gl1,border:`1px solid ${C.glBd}`,borderRadius:14,display:"flex",gap:11,alignItems:"center"}}>
-        <span style={{fontSize:18}}>🔔</span>
-        <p style={{fontSize:12,color:C.inkSub,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,margin:0}}>
-          We'll notify you when your order is ready to be served at your table.
-        </p>
-      </div>
+      {/* ── DELIVERED: Special celebration card ── */}
+      {isDelivered&&(
+        <div style={{margin:"16px 20px 24px",
+          background:"linear-gradient(135deg,rgba(74,222,128,0.12),rgba(74,222,128,0.06))",
+          border:"1px solid rgba(74,222,128,0.3)",
+          borderRadius:18,padding:"20px",textAlign:"center"}}>
+          <p style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:600,
+            color:C2.green,margin:"0 0 6px"}}>Enjoy your meal! 🍽️</p>
+          <p style={{fontSize:12,color:C2.inkSub,fontFamily:"'DM Sans',sans-serif",
+            margin:"0 0 12px",lineHeight:1.5}}>
+            Redirecting to menu in a moment...
+          </p>
+          <div style={{display:"flex",justifyContent:"center"}}>
+            <div style={{width:120,height:3,borderRadius:99,background:"rgba(74,222,128,0.2)"}}>
+              <div style={{height:"100%",borderRadius:99,background:C2.green,
+                animation:"progressBar 3s linear forwards"}}/>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── READY: Waiter notification ── */}
+      {isReady&&(
+        <div style={{margin:"0 20px 24px",
+          background:"linear-gradient(135deg,rgba(74,222,128,0.1),rgba(74,222,128,0.05))",
+          border:"1px solid rgba(74,222,128,0.25)",
+          borderRadius:16,padding:"16px",
+          display:"flex",gap:12,alignItems:"center"}}>
+          <div style={{fontSize:28,animation:"floatY 2s ease-in-out infinite"}}>🛎️</div>
+          <div>
+            <p style={{fontSize:13,fontWeight:700,color:C2.green,
+              fontFamily:"'DM Sans',sans-serif",margin:"0 0 2px"}}>
+              Your order is ready!
+            </p>
+            <p style={{fontSize:11,color:C2.inkSub,
+              fontFamily:"'DM Sans',sans-serif",margin:0}}>
+              Our waiter is bringing it to your table right now
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── PREPARING: Notification note ── */}
+      {!isReady&&!isDelivered&&(
+        <div style={{margin:"0 20px 24px",padding:"13px 16px",
+          background:C2.gl1,border:`1px solid ${C2.glBd}`,
+          borderRadius:14,display:"flex",gap:11,alignItems:"center"}}>
+          <span style={{fontSize:18}}>🔔</span>
+          <p style={{fontSize:12,color:C2.inkSub,fontFamily:"'DM Sans',sans-serif",
+            lineHeight:1.5,margin:0}}>
+            We'll update you here as your order progresses. Sit back and relax!
+          </p>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes progressBar { from{width:0%} to{width:100%} }
+        @keyframes floatY { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+        @keyframes pulseRg { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(1.15)} }
+      `}</style>
     </div>
   );
 }
