@@ -236,7 +236,7 @@ function CRMLogin({onDone}:{onDone:(name:string,phone:string,id?:string)=>void})
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 14px",borderRadius:12,background:C.g08,border:`1px solid ${C.g15}`,marginBottom:14}}>
               <span style={{fontSize:14}}>📱</span>
-              <span style={{fontSize:13,color:C.inkSubfontFamily:"'DM Mono',monospace"}}>+91 {phone}</span>
+              <span style={{fontSize:13,color:C.inkSub,fontFamily:"'DM Mono',monospace"}}>+91 {phone}</span>
               <button onClick={()=>{setStep("phone");setName("");setError("");}} style={{marginLeft:"auto",background:"none",border:"none",color:C.gold,fontSize:11,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",fontWeight:700}}>Change</button>
             </div>
             <input type="text" placeholder="Your full name" value={name} autoFocus
@@ -502,7 +502,7 @@ export default function ParcelPage(){
       {screen==="cart"&&(
         <div style={{display:"flex",flexDirection:"column",minHeight:"100dvh"}}>
           <div style={{background:C.surface,borderBottom:`1px solid ${C.glBd}`,padding:"16px 18px",display:"flex",alignItems:"center",gap:14}}>
-            <button onClick={()=>setScreen("menu")} style={{background:"none",border:"none",color:C.inkSubfontSize:20,cursor:"pointer",padding:0}}>←</button>
+            <button onClick={()=>setScreen("menu")} style={{background:"none",border:"none",color:C.inkSub,fontSize:20,cursor:"pointer",padding:0}}>←</button>
             <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:C.goldL,margin:0}}>Your Parcel Order</h2>
           </div>
           <div style={{flex:1,overflowY:"auto",padding:"16px 16px 140px",scrollbarWidth:"none"}}>
@@ -582,7 +582,7 @@ export default function ParcelPage(){
                   </div>
                   <div style={{paddingTop:8}}>
                     <p style={{fontSize:14,fontWeight:isCurrent?700:600,color:isCurrent?C.goldL:isDone?"#4ADE80":C.inkD,margin:"0 0 2px"}}>{step.label}</p>
-                    {isCurrent&&<p style={{fontSize:12,color:C.inkSubmargin:0,animation:"pPulse 2s ease-in-out infinite"}}>{step.desc}</p>}
+                    {isCurrent&&<p style={{fontSize:12,color:C.inkSub,margin:0,animation:"pPulse 2s ease-in-out infinite"}}>{step.desc}</p>}
                   </div>
                 </div>
               );
@@ -620,7 +620,7 @@ export default function ParcelPage(){
             <div style={{background:"rgba(74,222,128,0.12)",border:`2px solid ${C.greenBd}`,borderRadius:16,padding:"16px",textAlign:"center",animation:`pPop 0.5s ${SPR}`}}>
               <div style={{fontSize:40,marginBottom:8,animation:"pFloat 2s ease-in-out infinite"}}>🔔</div>
               <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:"#4ADE80",margin:"0 0 6px"}}>Your order is ready!</h3>
-              <p style={{fontSize:13,color:C.inkSubmargin:0}}>Please come to the counter and show your token</p>
+              <p style={{fontSize:13,color:C.inkSub,margin:0}}>Please come to the counter and show your token</p>
               <div style={{background:C.g08,borderRadius:10,padding:"8px 16px",display:"inline-block",marginTop:10}}>
                 <p style={{fontFamily:"'DM Mono',monospace",fontSize:22,fontWeight:900,color:C.goldL,margin:0,letterSpacing:2}}>{parcelData.token}</p>
               </div>
