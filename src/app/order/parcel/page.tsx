@@ -486,7 +486,7 @@ function CartScreen({cart,token,pmSetting,onUpdateQty,onPlaceOrder,placing,error
     </div>
   );
   return(
-    <div style={{padding:"20px 18px 120px"}}>
+    <div style={{padding:"20px 18px 200px"}}>
       <p style={{fontSize:10,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".15em",textTransform:"uppercase",margin:"0 0 4px"}}>✦ Review</p>
       <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:600,color:C.ink,margin:"0 0 16px"}}>Your Cart</h2>
 
@@ -533,14 +533,6 @@ function CartScreen({cart,token,pmSetting,onUpdateQty,onPlaceOrder,placing,error
       {pmSetting==="online"&&<div style={{background:C.blueL,border:"1px solid rgba(59,130,246,0.25)",borderRadius:12,padding:"10px 14px",marginTop:12,display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:16}}>💳</span><p style={{fontSize:12,color:C.blue,fontWeight:700,margin:0}}>Online payment required</p></div>}
       {pmSetting==="counter"&&<div style={{background:C.g08,border:`1px solid ${C.g15}`,borderRadius:12,padding:"10px 14px",marginTop:12,display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:16}}>💵</span><p style={{fontSize:12,color:C.gold,fontWeight:700,margin:0}}>Pay at counter when collecting</p></div>}
       {error&&<p style={{fontSize:12,color:"#f87171",textAlign:"center",margin:"12px 0 0",fontWeight:700}}>⚠ {error}</p>}
-
-      {/* Place order button - fixed bottom */}
-      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"12px 16px",background:C.surface,borderTop:`1px solid ${C.glBd}`,zIndex:20}}>
-        <button onClick={onPlaceOrder} disabled={placing}
-          style={{width:"100%",padding:"15px",borderRadius:14,border:"none",background:GG,color:C.void,fontWeight:800,fontSize:15,cursor:placing?"not-allowed":"pointer",boxShadow:`0 8px 24px ${C.g40}`,display:"flex",alignItems:"center",justifyContent:"center",gap:8,fontFamily:"'DM Sans',sans-serif",opacity:placing?0.7:1}}>
-          {placing?"Placing order...":`${pmSetting==="online"?"💳 Pay & Place Order":"✅ Place Parcel Order"} — ₹${total}`}
-        </button>
-      </div>
     </div>
   );
 }
@@ -887,8 +879,27 @@ export default function ParcelPage(){
             )}
           </div>
 
-          {/* Bottom nav */}
-          <BottomNav active={activeTab} onChange={setActiveTab} hasOrder={!!parcelData&&parcelData.status!=="delivered"} cartCount={cartCount}/>
+          {/* Bottom nav - hide on cart tab */}
+          {activeTab!=="cart"&&<BottomNav active={activeTab} onChange={setActiveTab} hasOrder={!!parcelData&&parcelData.status!=="delivered"} cartCount={cartCount}/>}
+          {/* Cart tab - show cart button */}
+          {activeTab==="cart"&&(
+            <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:C.surface,borderTop:`1px solid ${C.glBd}`,zIndex:50}}>
+              <div style={{display:"flex",borderTop:`1px solid ${C.gl2}`,padding:"4px 0"}}>
+                {(["home","menu","orders","cart","profile"] as ParcelTab[]).map(t=>(
+                  <button key={t} onClick={()=>setActiveTab(t)} style={{flex:1,padding:"6px 0",background:"none",border:"none",cursor:"pointer",color:activeTab===t?C.gold:C.inkDim,fontSize:9.5,fontWeight:activeTab===t?700:400,fontFamily:"'DM Sans',sans-serif",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                    <span style={{fontSize:18}}>{t==="home"?"🏠":t==="menu"?"📋":t==="orders"?"📦":t==="cart"?"🛒":"👤"}</span>
+                    {t==="home"?"Home":t==="menu"?"Menu":t==="orders"?"Parcel":t==="cart"?"Cart":"You"}
+                  </button>
+                ))}
+              </div>
+              <div style={{padding:"8px 16px 12px"}}>
+                <button onClick={handlePlaceOrder} disabled={placing||cart.length===0}
+                  style={{width:"100%",padding:"15px",borderRadius:14,border:"none",background:cart.length>0?GG:"rgba(255,255,255,0.05)",color:cart.length>0?C.void:C.inkDim,fontWeight:800,fontSize:15,cursor:placing||cart.length===0?"not-allowed":"pointer",boxShadow:cart.length>0?`0 8px 24px ${C.g40}`:"none",display:"flex",alignItems:"center",justifyContent:"center",gap:8,fontFamily:"'DM Sans',sans-serif",opacity:placing?0.7:1}}>
+                  {placing?"Placing order...":cart.length===0?"Add items to cart":`${pmSetting==="online"?"💳 Pay & Place":"✅ Place Order"} — ₹${total}`}
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>
