@@ -3573,6 +3573,11 @@ export default function CustomerOrderPage() {
       const orderData=await fetch(`${API}/payment/create-order`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({amount:total,tableNumber:table?.tableNumber})}).then(r=>r.json());
       if(!orderData.success)throw new Error(orderData.message);
       await new Promise<void>((resolve,reject)=>{if((window as any).Razorpay){resolve();return;}const s=document.createElement("script");s.src="https://checkout.razorpay.com/v1/checkout.js";s.onload=()=>resolve();s.onerror=()=>reject();document.body.appendChild(s);});
+      // ── Safari detection — UPI Intent nathi chalaatu Safari ma ──
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const isIOS    = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const safariNoUPI = isSafari && isIOS;
+
       await new Promise<void>((resolve,reject)=>{new (window as any).Razorpay({
         key:orderData.data?.keyId,
         amount:total*100,
@@ -3585,18 +3590,33 @@ export default function CustomerOrderPage() {
           contact:customer?.phone&&customer.phone.replace(/\D/g,"").length>=10
             ?`+91${customer.phone.replace(/\D/g,"").slice(-10)}`
             :"",
+          method: safariNoUPI ? undefined : "upi",
         },
         theme:{color:C.gold},
-        config:{
-          display:{
-            blocks:{
-              upi:{name:"Pay via UPI",instruments:[{method:"upi"}]},
-              other:{name:"Other Methods",instruments:[{method:"card"},{method:"netbanking"},{method:"wallet"}]},
+        // Safari ma default blocks use karish — UPI QR dikhase
+        // Chrome/Android ma custom UPI first flow
+        ...(safariNoUPI ? {
+          config:{
+            display:{
+              blocks:{
+                other:{name:"Pay Now",instruments:[{method:"upi"},{method:"card"},{method:"netbanking"},{method:"wallet"}]},
+              },
+              sequence:["block.other"],
+              preferences:{show_default_blocks:false},
             },
-            sequence:["block.upi","block.other"],
-            preferences:{show_default_blocks:false},
           },
-        },
+        } : {
+          config:{
+            display:{
+              blocks:{
+                upi:{name:"Pay via UPI",instruments:[{method:"upi"}]},
+                other:{name:"Other Methods",instruments:[{method:"card"},{method:"netbanking"},{method:"wallet"}]},
+              },
+              sequence:["block.upi","block.other"],
+              preferences:{show_default_blocks:false},
+            },
+          },
+        }),
         handler:async(r:any)=>{try{const v=await fetch(`${API}/payment/verify`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(r)}).then(r=>r.json());if(v.success){await placeOrder(tip,note,r.razorpay_payment_id);resolve();}else reject();}catch(e){reject(e);}},
         modal:{ondismiss:()=>reject(new Error("cancelled"))},
       }).open();});
