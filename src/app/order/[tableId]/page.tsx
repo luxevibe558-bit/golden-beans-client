@@ -1932,11 +1932,25 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing, redee
   const [paymentMode, setPaymentMode] = useState<string>(paymentModeSetting);
   const [method, setMethod] = useState(paymentModeSetting==="counter" ? "cash" : "upi");
 
-  // Sync when prop loads from server
+  // ── Safari/iOS detection for UPI warning ──
+  const [isSafariBrowser, setIsSafariBrowser] = useState(false);
   useEffect(()=>{
-    setPaymentMode(paymentModeSetting);
-    setMethod(paymentModeSetting==="counter" ? "cash" : "upi");
-  },[paymentModeSetting]);
+    const ua = navigator.userAgent;
+    const safari = /^((?!chrome|android).)*safari/i.test(ua);
+    const ios    = /iPad|iPhone|iPod/.test(ua);
+    setIsSafariBrowser(safari && ios);
+  },[]);
+
+  const openInChrome = ()=>{
+    const url = window.location.href;
+    // Try to open in Chrome on iOS
+    const chromeUrl = url.replace(/^https?:\/\//,'googlechrome://');
+    window.location.href = chromeUrl;
+    // Fallback after 500ms
+    setTimeout(()=>{
+      window.location.href = `https://www.google.com/search?q=open+chrome+and+go+to+${encodeURIComponent(url)}`;
+    },500);
+  };
 
   const [tip,       setTip      ]=useState<number>(0);
   const [note,      setNote     ]=useState("");
@@ -2066,6 +2080,23 @@ function CheckoutScreen({ cart, table, discount, onBack, onPay, isPlacing, redee
         {/* Payment method */}
         <div style={{marginBottom:14}}>
           <p style={{fontSize:11,fontWeight:700,color:C.inkDim,letterSpacing:".08em",textTransform:"uppercase",margin:"0 0 10px",fontFamily:"'DM Sans',sans-serif"}}>Payment Method</p>
+
+          {/* Safari UPI Warning + Chrome redirect */}
+          {isSafariBrowser && method==="upi" && (
+            <div style={{background:"rgba(59,130,246,0.08)",border:"1.5px solid rgba(59,130,246,0.25)",borderRadius:14,padding:"12px 14px",marginBottom:12,animation:`fadeUp 0.3s ease`}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                <span style={{fontSize:20}}>⚠️</span>
+                <div>
+                  <p style={{fontSize:13,fontWeight:700,color:"#60A5FA",margin:0}}>Safari ma UPI limited chhe</p>
+                  <p style={{fontSize:11,color:"rgba(96,165,250,0.7)",margin:0}}>Better UPI experience mate Chrome use karo</p>
+                </div>
+              </div>
+              <button onClick={openInChrome}
+                style={{width:"100%",padding:"11px",borderRadius:11,border:"none",background:"linear-gradient(135deg,#1D4ED8,#3B82F6)",color:"white",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                🌐 Open in Chrome for UPI
+              </button>
+            </div>
+          )}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
             {PAY_METHODS.map(pm=>{
               const isSel=method===pm.id;
