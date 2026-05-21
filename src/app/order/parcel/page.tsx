@@ -263,11 +263,11 @@ function CRMLogin({onDone}:{onDone:(name:string,phone:string,id?:string)=>void})
               onChange={e=>{ const v=e.target.value.replace(/\D/g,"").slice(0,6); setOtp(v); setError(""); }}/>
             {loading&&<div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"8px 0"}}><div style={{width:14,height:14,borderRadius:"50%",border:"2px solid rgba(200,146,42,0.3)",borderTopColor:C.gold,animation:"spin 0.7s linear infinite"}}/><span style={{fontSize:12,color:C.inkSub}}>Verifying...</span></div>}
             {error&&<p style={{fontSize:12,color:"#f87171",textAlign:"center",margin:"0 0 10px",fontWeight:600}}>⚠ {error}</p>}
-            <p style={{textAlign:"center",fontSize:12,color:C.inkD,fontFamily:"'DM Sans',sans-serif",margin:"8px 0 0"}}>OTP enters automatically — no button needed</p>
+            <p style={{textAlign:"center",fontSize:12,color:C.inkDim,fontFamily:"'DM Sans',sans-serif",margin:"8px 0 0"}}>OTP enters automatically — no button needed</p>
             <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginTop:14}}>
-              <button onClick={async()=>{ if(resendTimer>0)return; setOtp("");setError("");const p=phone.replace(/\D/g,""); await sendOTP(p,name.trim()); }} disabled={resendTimer>0||loading} style={{background:"none",border:"none",fontSize:12,color:resendTimer>0?C.inkD:C.gold,cursor:resendTimer>0?"not-allowed":"pointer",fontFamily:"'DM Sans',sans-serif",fontWeight:700}}>{resendTimer>0?`Resend in ${resendTimer}s`:"Resend OTP"}</button>
-              <span style={{color:C.inkD}}>·</span>
-              <button onClick={()=>{setStep("phone");setOtp("");setError("");setName("");}} style={{background:"none",border:"none",fontSize:12,color:C.inkD,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>Change number</button>
+              <button onClick={async()=>{ if(resendTimer>0)return; setOtp("");setError("");const p=phone.replace(/\D/g,""); await sendOTP(p,name.trim()); }} disabled={resendTimer>0||loading} style={{background:"none",border:"none",fontSize:12,color:resendTimer>0?C.inkDim:C.gold,cursor:resendTimer>0?"not-allowed":"pointer",fontFamily:"'DM Sans',sans-serif",fontWeight:700}}>{resendTimer>0?`Resend in ${resendTimer}s`:"Resend OTP"}</button>
+              <span style={{color:C.inkDim}>·</span>
+              <button onClick={()=>{setStep("phone");setOtp("");setError("");setName("");}} style={{background:"none",border:"none",fontSize:12,color:C.inkDim,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>Change number</button>
             </div>
           </>}
         </div>
@@ -435,7 +435,7 @@ export default function ParcelPage(){
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
               <div>
                 <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:C.goldL,margin:0}}>📦 Parcel Order</h2>
-                <p style={{fontSize:11,color:C.inkD,margin:0,fontFamily:"'DM Mono',monospace"}}>Token: <span style={{color:C.gold,fontWeight:700}}>{parcelToken||"..."}</span>{customerInfo&&<span style={{color:C.inkD}}> · {customerInfo.name}</span>}</p>
+                <p style={{fontSize:11,color:C.inkDim,margin:0,fontFamily:"'DM Mono',monospace"}}>Token: <span style={{color:C.gold,fontWeight:700}}>{parcelToken||"..."}</span>{customerInfo&&<span style={{color:C.inkDim}> · {customerInfo.name}</span>}</p>
               </div>
               {cartCount>0&&(
                 <button onClick={()=>setScreen("cart")} style={{background:GG,border:"none",borderRadius:12,padding:"8px 16px",color:C.void,fontWeight:800,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
@@ -447,7 +447,7 @@ export default function ParcelPage(){
             {!searchQuery&&(
               <div style={{display:"flex",gap:8,overflowX:"auto",scrollbarWidth:"none",paddingBottom:2}}>
                 {menu.map(cat=>(
-                  <button key={cat._id} onClick={()=>setActiveCategory(cat._id)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontSize:11,fontWeight:700,border:`1.5px solid ${activeCategory===cat._id?C.g25:C.glBd}`,background:activeCategory===cat._id?C.g08:"transparent",color:activeCategory===cat._id?C.goldL:C.inkD,cursor:"pointer",whiteSpace:"nowrap"}}>
+                  <button key={cat._id} onClick={()=>setActiveCategory(cat._id)} style={{flexShrink:0,padding:"5px 12px",borderRadius:99,fontSize:11,fontWeight:700,border:`1.5px solid ${activeCategory===cat._id?C.g25:C.glBd}`,background:activeCategory===cat._id?C.g08:"transparent",color:activeCategory===cat._id?C.goldL:C.inkDim,cursor:"pointer",whiteSpace:"nowrap"}}>
                     {cat.icon} {cat.name}
                   </button>
                 ))}
@@ -510,7 +510,7 @@ export default function ParcelPage(){
             <div style={{background:C.g08,border:`1px solid ${C.g15}`,borderRadius:14,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
               <span style={{fontSize:28}}>📦</span>
               <div>
-                <p style={{fontSize:12,color:C.inkD,margin:"0 0 2px",fontFamily:"'DM Mono',monospace"}}>YOUR PARCEL TOKEN</p>
+                <p style={{fontSize:12,color:C.inkDim,margin:"0 0 2px",fontFamily:"'DM Mono',monospace"}}>YOUR PARCEL TOKEN</p>
                 <p style={{fontFamily:"'DM Mono',monospace",fontSize:22,fontWeight:900,color:C.goldL,margin:0,letterSpacing:2}}>{parcelToken}</p>
               </div>
             </div>
@@ -520,7 +520,7 @@ export default function ParcelPage(){
               <div key={item.menuItemId} style={{background:C.surface,borderRadius:12,padding:"12px 14px",marginBottom:8,border:`1px solid ${C.glBd}`,display:"flex",alignItems:"center",gap:12}}>
                 <div style={{flex:1}}>
                   <p style={{fontSize:13,fontWeight:600,color:C.ink,margin:"0 0 3px"}}>{item.name}</p>
-                  <p style={{fontSize:11,color:C.inkD,margin:0}}>₹{item.price} × {item.quantity}</p>
+                  <p style={{fontSize:11,color:C.inkDim,margin:0}}>₹{item.price} × {item.quantity}</p>
                 </div>
                 <div style={{display:"flex",alignItems:"center",background:C.g08,borderRadius:8,overflow:"hidden"}}>
                   <button onClick={()=>removeFromCart(item.menuItemId)} style={{width:28,height:28,background:"none",border:"none",color:C.goldL,cursor:"pointer",fontSize:16,fontWeight:900}}>−</button>
@@ -550,7 +550,7 @@ export default function ParcelPage(){
           </div>
           <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"12px 16px",background:C.surface,borderTop:`1px solid ${C.glBd}`,zIndex:20}}>
             <button onClick={handlePlaceOrder} disabled={placing||cart.length===0}
-              style={{width:"100%",padding:"15px",borderRadius:14,border:"none",background:cart.length>0?GG:"rgba(255,255,255,0.05)",color:cart.length>0?C.void:C.inkD,fontWeight:800,fontSize:15,cursor:cart.length>0?"pointer":"not-allowed",boxShadow:cart.length>0?`0 8px 24px ${C.g40}`:"none",display:"flex",alignItems:"center",justifyContent:"center",gap:8,fontFamily:"'DM Sans',sans-serif"}}>
+              style={{width:"100%",padding:"15px",borderRadius:14,border:"none",background:cart.length>0?GG:"rgba(255,255,255,0.05)",color:cart.length>0?C.void:C.inkDim,fontWeight:800,fontSize:15,cursor:cart.length>0?"pointer":"not-allowed",boxShadow:cart.length>0?`0 8px 24px ${C.g40}`:"none",display:"flex",alignItems:"center",justifyContent:"center",gap:8,fontFamily:"'DM Sans',sans-serif"}}>
               {placing?"Placing order...":`${pmSetting==="online"?"💳 Pay & Place Order":"✅ Place Parcel Order"} — ₹${total}`}
             </button>
           </div>
@@ -567,7 +567,7 @@ export default function ParcelPage(){
             <div style={{background:C.g08,border:`1px solid ${C.g25}`,borderRadius:14,padding:"12px 24px",display:"inline-block",marginBottom:8}}>
               <p style={{fontFamily:"'DM Mono',monospace",fontSize:26,fontWeight:900,color:C.goldL,margin:0,letterSpacing:3}}>{parcelData.token}</p>
             </div>
-            <p style={{fontSize:12,color:C.inkD,margin:0,fontFamily:"'DM Mono',monospace"}}>Show this token when collecting</p>
+            <p style={{fontSize:12,color:C.inkDim,margin:0,fontFamily:"'DM Mono',monospace"}}>Show this token when collecting</p>
           </div>
 
           {/* Status steps */}
@@ -581,7 +581,7 @@ export default function ParcelPage(){
                     {isDone&&!isCurrent?"✓":step.icon}
                   </div>
                   <div style={{paddingTop:8}}>
-                    <p style={{fontSize:14,fontWeight:isCurrent?700:600,color:isCurrent?C.goldL:isDone?"#4ADE80":C.inkD,margin:"0 0 2px"}}>{step.label}</p>
+                    <p style={{fontSize:14,fontWeight:isCurrent?700:600,color:isCurrent?C.goldL:isDone?"#4ADE80":C.inkDim,margin:"0 0 2px"}}>{step.label}</p>
                     {isCurrent&&<p style={{fontSize:12,color:C.inkSub,margin:0,animation:"pPulse 2s ease-in-out infinite"}}>{step.desc}</p>}
                   </div>
                 </div>
