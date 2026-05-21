@@ -266,7 +266,7 @@ function CRMLogin({onDone}:{onDone:(name:string,phone:string,id?:string)=>void})
             <p style={{textAlign:"center",fontSize:12,color:C.inkDim,fontFamily:"'DM Sans',sans-serif",margin:"8px 0 0"}}>OTP enters automatically — no button needed</p>
             <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginTop:14}}>
               <button onClick={async()=>{ if(resendTimer>0)return; setOtp("");setError("");const p=phone.replace(/\D/g,""); await sendOTP(p,name.trim()); }} disabled={resendTimer>0||loading} style={{background:"none",border:"none",fontSize:12,color:resendTimer>0?C.inkDim:C.gold,cursor:resendTimer>0?"not-allowed":"pointer",fontFamily:"'DM Sans',sans-serif",fontWeight:700}}>{resendTimer>0?`Resend in ${resendTimer}s`:"Resend OTP"}</button>
-              <span style={{color:C.inkDim}>·</span>
+              <span style={{color:C.inkDim}}>·</span>
               <button onClick={()=>{setStep("phone");setOtp("");setError("");setName("");}} style={{background:"none",border:"none",fontSize:12,color:C.inkDim,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>Change number</button>
             </div>
           </>}
@@ -435,7 +435,7 @@ export default function ParcelPage(){
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
               <div>
                 <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:22,fontWeight:700,color:C.goldL,margin:0}}>📦 Parcel Order</h2>
-                <p style={{fontSize:11,color:C.inkDim,margin:0,fontFamily:"'DM Mono',monospace"}}>Token: <span style={{color:C.gold,fontWeight:700}}>{parcelToken||"..."}</span>{customerInfo&&<span style={{color:C.inkDim}> · {customerInfo.name}</span>}</p>
+                <p style={{fontSize:11,color:C.inkDim,margin:0,fontFamily:"'DM Mono',monospace"}}>Token: <span style={{color:C.gold,fontWeight:700}}>{parcelToken||"..."}</span>{customerInfo&&<span style={{color:C.inkDim}}> · {customerInfo.name}</span>}</p>
               </div>
               {cartCount>0&&(
                 <button onClick={()=>setScreen("cart")} style={{background:GG,border:"none",borderRadius:12,padding:"8px 16px",color:C.void,fontWeight:800,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}>
