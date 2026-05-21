@@ -534,7 +534,7 @@ export default function ParcelPage(){
             <div style={{background:C.surface,borderRadius:14,padding:"14px 16px",marginTop:12,border:`1px solid ${C.glBd}`}}>
               {[{l:"Subtotal",v:`₹${subtotal}`},{l:"GST (5%)",v:`₹${tax}`},{l:"📦 Packaging",v:`₹${packaging}`}].map(({l,v})=>(
                 <div key={l} style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                  <span style={{fontSize:12,color:C.inkSub}>{l}</span>
+                  <span style={{fontSize:12,color:C.inkSub}}>{l}</span>
                   <span style={{fontSize:12,color:C.ink,fontWeight:600}}>{v}</span>
                 </div>
               ))}
@@ -594,7 +594,7 @@ export default function ParcelPage(){
             <p style={{fontSize:9,color:C.gold,fontFamily:"'DM Mono',monospace",letterSpacing:".18em",textTransform:"uppercase",margin:"0 0 10px"}}>ORDER SUMMARY</p>
             {parcelData.items.map((item:any,i:number)=>(
               <div key={i} style={{display:"flex",justifyContent:"space-between",marginBottom:6}}>
-                <span style={{fontSize:12,color:C.inkSub}>{item.name} × {item.quantity}</span>
+                <span style={{fontSize:12,color:C.inkSub}}>{item.name} × {item.quantity}</span>
                 <span style={{fontSize:12,color:C.ink,fontWeight:600}}>₹{item.price*item.quantity}</span>
               </div>
             ))}
