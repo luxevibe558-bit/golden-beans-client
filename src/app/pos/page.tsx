@@ -74,7 +74,7 @@ function getSettleReadiness(order: Order): {
   };
 }
 
-// ── Daily Revenue Goal Widget ──
+// ── Compact Revenue Ring Widget ──
 function RevenueGoalWidget({ goal = 10000 }: { goal?: number }) {
   const [stats, setStats] = useState<{ revenue: number; count: number; topItems: any[] } | null>(null);
 
@@ -93,36 +93,68 @@ function RevenueGoalWidget({ goal = 10000 }: { goal?: number }) {
 
   if (!stats) return null;
 
-  const pct = Math.min(100, Math.round((stats.revenue / goal) * 100));
-  const color = pct >= 100 ? T.success : pct >= 60 ? T.gold : T.emerald;
+  const pct    = Math.min(100, Math.round((stats.revenue / goal) * 100));
+  const R      = 20; // circle radius
+  const CIRC   = 2 * Math.PI * R; // ~125.7
+  const filled = (pct / 100) * CIRC;
+  const revColor  = pct >= 100 ? "#16A34A" : pct >= 60 ? "#D97706" : T.emerald;
 
   return (
-    <div style={{ background: T.ivory, borderRadius: "16px", padding: "14px 18px", border: `1px solid ${T.border}`, marginBottom: "20px", boxShadow: "0 2px 8px rgba(15,61,46,0.06)" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
+    <div style={{ display:"flex", alignItems:"center", gap:12, flexWrap:"wrap", marginBottom:20 }}>
+
+      {/* Revenue ring */}
+      <div style={{ display:"flex", alignItems:"center", gap:12, background:T.ivory, border:`1px solid ${T.border}`, borderRadius:16, padding:"10px 16px 10px 12px", flexShrink:0 }}>
+        <svg width="52" height="52" viewBox="0 0 52 52">
+          <circle cx="26" cy="26" r={R} fill="none" stroke={T.creamDark} strokeWidth="5"/>
+          <circle cx="26" cy="26" r={R} fill="none" stroke={revColor} strokeWidth="5"
+            strokeDasharray={`${filled} ${CIRC}`} strokeDashoffset={CIRC*0.25}
+            strokeLinecap="round" style={{transition:"stroke-dasharray 0.6s ease"}}/>
+          <text x="26" y="30" textAnchor="middle" fontSize="12" fontWeight="700" fill={revColor}>{pct}%</text>
+        </svg>
         <div>
-          <p style={{ fontSize: "11px", color: T.textMuted, fontWeight: 800, margin: 0, textTransform: "uppercase", letterSpacing: "0.5px" }}>Today's Revenue</p>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "6px", marginTop: "2px" }}>
-            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "26px", fontWeight: 900, color: T.emerald }}>₹{stats.revenue.toFixed(0)}</span>
-            <span style={{ fontSize: "12px", color: T.textMuted, fontWeight: 600 }}>/ ₹{goal.toLocaleString()}</span>
-          </div>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <p style={{ fontSize: "22px", fontWeight: 900, color, margin: 0 }}>{pct}%</p>
-          <p style={{ fontSize: "10px", color: T.textMuted, margin: 0, fontWeight: 700 }}>{stats.count} orders</p>
+          <p style={{ fontSize:11, color:T.textMuted, margin:"0 0 1px", fontWeight:700 }}>Today's Revenue</p>
+          <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:18, fontWeight:900, margin:0, color:T.emerald }}>₹{stats.revenue.toFixed(0)}</p>
+          <p style={{ fontSize:10, color:T.textDim, margin:0 }}>of ₹{goal.toLocaleString()}</p>
         </div>
       </div>
-      <div style={{ background: T.creamDark, borderRadius: "99px", height: "8px", overflow: "hidden", marginBottom: "12px" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: pct >= 100 ? `linear-gradient(90deg, ${T.success}, #22C55E)` : `linear-gradient(90deg, ${T.emerald}, ${T.gold})`, borderRadius: "99px", transition: "width 0.6s ease" }} />
+
+      {/* Orders ring */}
+      <div style={{ display:"flex", alignItems:"center", gap:12, background:T.ivory, border:`1px solid ${T.border}`, borderRadius:16, padding:"10px 16px 10px 12px", flexShrink:0 }}>
+        <svg width="52" height="52" viewBox="0 0 52 52">
+          <circle cx="26" cy="26" r={R} fill="none" stroke={T.creamDark} strokeWidth="5"/>
+          <circle cx="26" cy="26" r={R} fill="none" stroke="#185FA5" strokeWidth="5"
+            strokeDasharray={`${Math.min(CIRC, (stats.count/50)*CIRC)} ${CIRC}`}
+            strokeDashoffset={CIRC*0.25} strokeLinecap="round"/>
+          <text x="26" y="30" textAnchor="middle" fontSize="13" fontWeight="700" fill="#185FA5">{stats.count}</text>
+        </svg>
+        <div>
+          <p style={{ fontSize:11, color:T.textMuted, margin:"0 0 1px", fontWeight:700 }}>Orders</p>
+          <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:18, fontWeight:900, margin:0, color:T.text }}>{stats.count}</p>
+          <p style={{ fontSize:10, color:T.textDim, margin:0 }}>today</p>
+        </div>
       </div>
+
+      {/* Top items compact bar */}
       {stats.topItems.length > 0 && (
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          {stats.topItems.map((item, i) => (
-            <div key={i} style={{ background: T.cream, borderRadius: "8px", padding: "4px 10px", border: `1px solid ${T.creamDark}`, display: "flex", alignItems: "center", gap: "5px" }}>
-              <span style={{ fontSize: "10px" }}>{i === 0 ? "🏆" : i === 1 ? "🥈" : "🥉"}</span>
-              <span style={{ fontSize: "10px", fontWeight: 800, color: T.text }}>{item.name}</span>
-              <span style={{ fontSize: "10px", color: T.textMuted, fontWeight: 600 }}>×{item.qty}</span>
-            </div>
-          ))}
+        <div style={{ background:T.ivory, border:`1px solid ${T.border}`, borderRadius:16, padding:"10px 14px", flex:1, minWidth:180 }}>
+          <p style={{ fontSize:11, color:T.textMuted, fontWeight:700, margin:"0 0 7px", textTransform:"uppercase", letterSpacing:"0.5px" }}>Top Items</p>
+          <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+            {stats.topItems.slice(0,3).map((item,i)=>{
+              const barColor = i===0?T.emerald:i===1?"#185FA5":"#D97706";
+              const maxQty   = stats.topItems[0]?.qty||1;
+              const barW     = Math.round((item.qty/maxQty)*100);
+              return(
+                <div key={i} style={{ display:"flex", alignItems:"center", gap:8 }}>
+                  <span style={{ fontSize:10, color:T.textDim, fontWeight:700, width:12 }}>{i+1}.</span>
+                  <div style={{ flex:1, height:4, background:T.creamDark, borderRadius:99, overflow:"hidden" }}>
+                    <div style={{ width:`${barW}%`, height:"100%", background:barColor, borderRadius:99, transition:"width 0.5s ease" }}/>
+                  </div>
+                  <span style={{ fontSize:11, fontWeight:700, color:T.text, minWidth:70, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{item.name}</span>
+                  <span style={{ fontSize:10, color:T.textMuted, fontWeight:600 }}>×{item.qty}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
