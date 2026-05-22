@@ -779,6 +779,61 @@ function ParcelSettleModal({ parcel, isOpen, onClose, onSettled }:{ parcel:any; 
   );
 }
 
+// ── Compact Revenue Ring for Header ──
+function RevenueRing({ goal = 10000 }: { goal?: number }) {
+  const [stats, setStats] = useState<{ revenue: number; count: number } | null>(null);
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const API = process.env.NEXT_PUBLIC_API_URL || 'https://golden-beans-server.onrender.com/api';
+        const res = await fetch(`${API}/orders/today-stats`).then(r => r.json());
+        if (res.success) setStats(res.data);
+      } catch { }
+    };
+    load();
+    const iv = setInterval(load, 30000);
+    return () => clearInterval(iv);
+  }, []);
+
+  if (!stats) return null;
+
+  const revPct   = Math.min(100, Math.round((stats.revenue / goal) * 100));
+  const ordPct   = Math.min(100, Math.round((stats.count / 50) * 100));
+  const R = 14; const CIRC = 2 * Math.PI * R;
+  const revColor = revPct >= 100 ? "#16A34A" : revPct >= 60 ? "#D97706" : T.emerald;
+
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+      {/* Revenue ring */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, background:T.cream, border:`1px solid ${T.creamDark}`, borderRadius:12, padding:"7px 12px" }}>
+        <svg width="36" height="36" viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r={R} fill="none" stroke={T.creamDark} strokeWidth="4"/>
+          <circle cx="18" cy="18" r={R} fill="none" stroke={revColor} strokeWidth="4"
+            strokeDasharray={`${(revPct/100)*CIRC} ${CIRC}`} strokeDashoffset={CIRC*0.25} strokeLinecap="round"/>
+          <text x="18" y="22" textAnchor="middle" fontSize="9" fontWeight="700" fill={revColor}>{revPct}%</text>
+        </svg>
+        <div>
+          <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:900, color:T.emerald, margin:0, lineHeight:1 }}>₹{stats.revenue.toFixed(0)}</p>
+          <p style={{ fontSize:9, color:T.textMuted, margin:0, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.4px" }}>Revenue</p>
+        </div>
+      </div>
+      {/* Orders ring */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, background:T.cream, border:`1px solid ${T.creamDark}`, borderRadius:12, padding:"7px 12px" }}>
+        <svg width="36" height="36" viewBox="0 0 36 36">
+          <circle cx="18" cy="18" r={R} fill="none" stroke={T.creamDark} strokeWidth="4"/>
+          <circle cx="18" cy="18" r={R} fill="none" stroke={T.goldDark} strokeWidth="4"
+            strokeDasharray={`${(ordPct/100)*CIRC} ${CIRC}`} strokeDashoffset={CIRC*0.25} strokeLinecap="round"/>
+          <text x="18" y="22" textAnchor="middle" fontSize="10" fontWeight="700" fill={T.goldDark}>{stats.count}</text>
+        </svg>
+        <div>
+          <p style={{ fontSize:14, fontWeight:900, color:T.text, margin:0, lineHeight:1 }}>{stats.count}</p>
+          <p style={{ fontSize:9, color:T.textMuted, margin:0, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.4px" }}>Orders</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function POSPage() {
   const [view,           setView          ] = useState<"tables"|"order">("tables");
   const [tables,         setTables        ] = useState<Table[]>([]);
@@ -937,56 +992,16 @@ export default function POSPage() {
             </p>
           </div>
 
-          {/* Right: Compact ring stats */}
-          <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+          {/* Right: Revenue + Orders rings only */}
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
 
-            {/* Tables ring */}
-            {(()=>{
-              const occ = tables.filter(t=>t.status==="occupied").length;
-              const total = tables.length||1;
-              const pct = Math.round((occ/total)*100);
-              const R=14; const CIRC=2*Math.PI*R;
-              return(
-                <div style={{ display:"flex", alignItems:"center", gap:8, background:T.cream, border:`1px solid ${T.creamDark}`, borderRadius:12, padding:"7px 12px" }}>
-                  <svg width="36" height="36" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" r={R} fill="none" stroke={T.creamDark} strokeWidth="4"/>
-                    <circle cx="18" cy="18" r={R} fill="none" stroke={T.emerald} strokeWidth="4"
-                      strokeDasharray={`${(pct/100)*CIRC} ${CIRC}`} strokeDashoffset={CIRC*0.25} strokeLinecap="round"/>
-                    <text x="18" y="22" textAnchor="middle" fontSize="10" fontWeight="700" fill={T.emerald}>{occ}</text>
-                  </svg>
-                  <div>
-                    <p style={{ fontSize:12, fontWeight:800, color:T.text, margin:0, lineHeight:1 }}>{occ}<span style={{ color:T.textMuted, fontWeight:600 }}>/{total}</span></p>
-                    <p style={{ fontSize:9, color:T.textMuted, margin:0, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.4px" }}>Tables</p>
-                  </div>
-                </div>
-              );
-            })()}
+            {/* Revenue ring — from RevenueGoalWidget data */}
+            <RevenueRing goal={10000}/>
 
-            {/* Orders ring */}
-            {(()=>{
-              const orders = Object.keys(tableOrders).length;
-              const R=14; const CIRC=2*Math.PI*R;
-              const pct = Math.min(100,Math.round((orders/(tables.length||1))*100));
-              return(
-                <div style={{ display:"flex", alignItems:"center", gap:8, background:T.cream, border:`1px solid ${T.creamDark}`, borderRadius:12, padding:"7px 12px" }}>
-                  <svg width="36" height="36" viewBox="0 0 36 36">
-                    <circle cx="18" cy="18" r={R} fill="none" stroke={T.creamDark} strokeWidth="4"/>
-                    <circle cx="18" cy="18" r={R} fill="none" stroke={T.goldDark} strokeWidth="4"
-                      strokeDasharray={`${(pct/100)*CIRC} ${CIRC}`} strokeDashoffset={CIRC*0.25} strokeLinecap="round"/>
-                    <text x="18" y="22" textAnchor="middle" fontSize="10" fontWeight="700" fill={T.goldDark}>{orders}</text>
-                  </svg>
-                  <div>
-                    <p style={{ fontSize:12, fontWeight:800, color:T.text, margin:0, lineHeight:1 }}>{orders}</p>
-                    <p style={{ fontSize:9, color:T.textMuted, margin:0, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.4px" }}>Orders</p>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {/* Settle now — only when has */}
+            {/* Settle now alert */}
             {Object.values(tableOrders).filter(o => getSettleReadiness(o).canSettle).length > 0 && (
-              <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(34,197,94,0.1)", border:"1.5px solid rgba(34,197,94,0.4)", borderRadius:12, padding:"7px 12px", animation:"settleGlow 2s ease-in-out infinite", cursor:"default" }}>
-                <div style={{ width:36, height:36, borderRadius:"50%", background:"rgba(34,197,94,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>✅</div>
+              <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(34,197,94,0.1)", border:"1.5px solid rgba(34,197,94,0.4)", borderRadius:12, padding:"7px 12px", animation:"settleGlow 2s ease-in-out infinite" }}>
+                <div style={{ width:32, height:32, borderRadius:"50%", background:"rgba(34,197,94,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>✅</div>
                 <div>
                   <p style={{ fontSize:14, fontWeight:900, color:"#16A34A", margin:0, lineHeight:1 }}>{Object.values(tableOrders).filter(o=>getSettleReadiness(o).canSettle).length}</p>
                   <p style={{ fontSize:9, color:"#16A34A", margin:0, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.4px" }}>Settle</p>
@@ -997,7 +1012,7 @@ export default function POSPage() {
             {/* Parcel ready */}
             {parcels.filter(p=>p.status==="ready").length>0&&(
               <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(34,197,94,0.1)", border:"1.5px solid rgba(34,197,94,0.4)", borderRadius:12, padding:"7px 12px", cursor:"pointer" }} onClick={()=>setPosTab("parcels")}>
-                <div style={{ width:36, height:36, borderRadius:"50%", background:"rgba(34,197,94,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>📦</div>
+                <div style={{ width:32, height:32, borderRadius:"50%", background:"rgba(34,197,94,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>📦</div>
                 <div>
                   <p style={{ fontSize:14, fontWeight:900, color:"#16A34A", margin:0, lineHeight:1 }}>{parcels.filter(p=>p.status==="ready").length}</p>
                   <p style={{ fontSize:9, color:"#16A34A", margin:0, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.4px" }}>Parcel</p>
@@ -1008,7 +1023,7 @@ export default function POSPage() {
             {/* Low stock */}
             {lowStockItems.length > 0 && (
               <div style={{ display:"flex", alignItems:"center", gap:8, background:"#FEF2F2", border:"1px solid #FECACA", borderRadius:12, padding:"7px 12px" }}>
-                <div style={{ width:36, height:36, borderRadius:"50%", background:"rgba(192,57,43,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>⚠️</div>
+                <div style={{ width:32, height:32, borderRadius:"50%", background:"rgba(192,57,43,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>⚠️</div>
                 <div>
                   <p style={{ fontSize:14, fontWeight:900, color:T.danger, margin:0, lineHeight:1 }}>{lowStockItems.length}</p>
                   <p style={{ fontSize:9, color:T.danger, margin:0, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.4px" }}>Stock</p>
