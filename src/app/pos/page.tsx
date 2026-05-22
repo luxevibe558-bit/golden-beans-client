@@ -527,17 +527,16 @@ function printKOT(order: Order) {
 }
 
 // ── Parcel Status Config ──
-const PARCEL_STATUS: Record<string,{label:string;color:string;bg:string;icon:string}> = {
-  confirmed: { label:"Order Received", color:"#D97706", bg:"#FFFBEB", icon:"✅" },
-  preparing: { label:"In Kitchen 👨‍🍳",  color:"#2563EB", bg:"#EFF6FF", icon:"👨‍🍳" },
-  ready:     { label:"Ready! 🔔",       color:"#16A34A", bg:"#F0FDF4", icon:"🔔" },
-  delivered: { label:"Picked Up",       color:"#6B7280", bg:"#F9FAFB", icon:"✓"  },
+const PARCEL_STATUS: Record<string,{label:string;color:string;bg:string;icon:string;nextLabel:string}> = {
+  confirmed: { label:"Order Received",  color:"#D97706", bg:"#FFFBEB", icon:"📋", nextLabel:"👨‍🍳 Start Preparing" },
+  preparing: { label:"In Kitchen 👨‍🍳",  color:"#2563EB", bg:"#EFF6FF", icon:"🔥", nextLabel:"🔔 Mark Ready"       },
+  ready:     { label:"Ready! 🔔",       color:"#16A34A", bg:"#F0FDF4", icon:"✅", nextLabel:"💰 Collect & Close"   },
+  delivered: { label:"Handed Over ✓",  color:"#6B7280", bg:"#F9FAFB", icon:"✓",  nextLabel:""                     },
 };
 
 // ── Parcel Card ──
 function ParcelCard({ parcel, onSettle, onStatusChange }: { parcel:any; onSettle:(p:any)=>void; onStatusChange:(id:string,status:string)=>void }) {
   const [elapsed, setElapsed] = useState(0);
-  const [hovered, setHovered] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(()=>{
@@ -547,123 +546,118 @@ function ParcelCard({ parcel, onSettle, onStatusChange }: { parcel:any; onSettle
 
   const formatTime=(s:number)=>{ const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60; return h>0?`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`:`${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`; };
 
-  const sc = PARCEL_STATUS[parcel.status] || PARCEL_STATUS.confirmed;
+  const sc          = PARCEL_STATUS[parcel.status] || PARCEL_STATUS.confirmed;
   const isReady     = parcel.status === "ready";
+  const isDelivered = parcel.status === "delivered";
   const isPaidOnline= parcel.paidOnline;
   const timerColor  = elapsed>1800?T.danger:elapsed>900?"#D97706":T.success;
+  const timerBg     = elapsed>1800?"#FEF2F2":elapsed>900?"#FFFBEB":"#F0FDF4";
 
-  const nextStatus: Record<string,string> = { confirmed:"preparing", preparing:"ready", ready:"delivered" };
-
-  const handleNextStatus = async()=>{
-    const next = nextStatus[parcel.status];
+  const handleAction = async()=>{
+    if(parcel.status === "ready") { onSettle(parcel); return; }
+    const next = ({confirmed:"preparing", preparing:"ready"} as Record<string,string>)[parcel.status];
     if(!next) return;
     setLoading(true);
     try{
       const API = process.env.NEXT_PUBLIC_API_URL||'https://golden-beans-server.onrender.com/api';
-      await fetch(`${API}/parcel/${parcel._id}/status`,{
-        method:"PATCH", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ status:next }),
-      });
+      await fetch(`${API}/parcel/${parcel._id}/status`,{ method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ status:next }) });
       onStatusChange(parcel._id, next);
     }catch{}
     setLoading(false);
   };
 
   return(
-    <div onMouseEnter={()=>setHovered(true)} onMouseLeave={()=>setHovered(false)}
-      style={{ background:T.ivory, borderRadius:"18px", overflow:"hidden",
-        border:`2px solid ${isReady?"#22C55E":isPaidOnline?"#3B82F6":T.border}`,
-        boxShadow:isReady?`0 8px 24px rgba(34,197,94,0.2)`:hovered?`0 12px 32px rgba(15,61,46,0.15)`:`0 2px 8px rgba(0,0,0,0.04)`,
-        transition:"all 0.25s ease" }}>
-      {/* Top bar */}
-      <div style={{ height:3, background:isReady?`linear-gradient(90deg,#16A34A,#22C55E)`:isPaidOnline?`linear-gradient(90deg,#1D4ED8,#3B82F6)`:`linear-gradient(90deg,${T.gold},${T.goldLight})` }}/>
+    <div style={{ background:T.ivory, borderRadius:"20px", overflow:"hidden",
+      border:`2px solid ${isReady?"#22C55E":isPaidOnline&&!isDelivered?"#3B82F6":T.border}`,
+      boxShadow:isReady?`0 8px 28px rgba(34,197,94,0.25)`:isDelivered?"none":`0 4px 16px rgba(15,61,46,0.08)`,
+      opacity:isDelivered?0.65:1, transition:"all 0.25s ease" }}>
+
+      {/* Top status bar */}
+      <div style={{ height:4, background:
+        isReady?`linear-gradient(90deg,#16A34A,#22C55E)`:
+        isPaidOnline?`linear-gradient(90deg,#1D4ED8,#3B82F6)`:
+        parcel.status==="preparing"?`linear-gradient(90deg,#2563EB,#60A5FA)`:
+        `linear-gradient(90deg,${T.gold},${T.goldLight})` }}/>
 
       <div style={{ padding:"14px 16px" }}>
-        {/* Header */}
-        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:10 }}>
+        {/* Row 1: Token + Timer */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
           <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-            <div style={{ width:40, height:40, borderRadius:12, flexShrink:0,
-              background:isReady?"rgba(34,197,94,0.12)":isPaidOnline?"rgba(59,130,246,0.1)":"rgba(212,165,116,0.12)",
-              display:"flex", alignItems:"center", justifyContent:"center", fontSize:20 }}>
-              📦
+            <div style={{ background:isReady?"rgba(34,197,94,0.1)":isPaidOnline?"rgba(59,130,246,0.1)":T.cream, border:`1.5px solid ${isReady?"rgba(34,197,94,0.3)":isPaidOnline?"rgba(59,130,246,0.3)":T.creamDark}`, borderRadius:12, padding:"6px 12px" }}>
+              <p style={{ fontFamily:"'DM Mono',monospace", fontWeight:900, fontSize:15, color:isReady?"#16A34A":isPaidOnline?"#1D4ED8":T.emerald, margin:0, letterSpacing:1 }}>{parcel.token}</p>
             </div>
             <div>
-              <p style={{ fontFamily:"'Playfair Display',serif", fontSize:"15px", fontWeight:800, color:T.emerald, margin:0 }}>{parcel.token}</p>
-              <p style={{ fontSize:"11px", color:T.textMuted, margin:"2px 0 0", fontWeight:600 }}>{parcel.customerName} · {parcel.customerPhone}</p>
+              <p style={{ fontSize:13, fontWeight:700, color:T.text, margin:0 }}>{parcel.customerName}</p>
+              <p style={{ fontSize:10, color:T.textMuted, margin:0 }}>{parcel.customerPhone}</p>
             </div>
           </div>
-          {/* Timer */}
-          <div style={{ background:T.cream, borderRadius:8, padding:"4px 8px", textAlign:"center" }}>
-            <p style={{ fontFamily:"'DM Mono',monospace", fontSize:13, fontWeight:700, color:timerColor, margin:0 }}>{formatTime(elapsed)}</p>
+          <div style={{ background:timerBg, borderRadius:10, padding:"5px 10px", textAlign:"center", border:`1px solid ${timerColor}20` }}>
+            <p style={{ fontFamily:"'DM Mono',monospace", fontSize:14, fontWeight:900, color:timerColor, margin:0 }}>{formatTime(elapsed)}</p>
             <p style={{ fontSize:8, color:T.textDim, margin:0, fontWeight:700 }}>WAITING</p>
           </div>
         </div>
 
-        {/* Online paid badge */}
-        {isPaidOnline&&(
-          <div style={{ background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.2)", borderRadius:8, padding:"5px 10px", marginBottom:8, display:"flex", alignItems:"center", gap:6 }}>
-            <span style={{ fontSize:12 }}>💳</span>
-            <span style={{ fontSize:11, fontWeight:700, color:"#1D4ED8" }}>Paid Online — No cash needed</span>
-            <span style={{ marginLeft:"auto", fontSize:9, background:"#DBEAFE", borderRadius:4, padding:"1px 6px", color:"#1D4ED8", fontWeight:800 }}>PAID ✓</span>
+        {/* Row 2: Status badges */}
+        <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
+          <div style={{ background:sc.bg, borderRadius:8, padding:"4px 10px", display:"flex", alignItems:"center", gap:6 }}>
+            <span style={{ fontSize:11 }}>{sc.icon}</span>
+            <span style={{ fontSize:11, fontWeight:800, color:sc.color }}>{sc.label}</span>
           </div>
-        )}
+          {isPaidOnline
+            ?<div style={{ background:"rgba(59,130,246,0.1)", border:"1px solid rgba(59,130,246,0.25)", borderRadius:8, padding:"4px 10px" }}><span style={{ fontSize:10, fontWeight:800, color:"#1D4ED8" }}>💳 PAID ONLINE</span></div>
+            :!isDelivered&&<div style={{ background:"rgba(212,165,116,0.1)", border:`1px solid rgba(212,165,116,0.2)`, borderRadius:8, padding:"4px 10px" }}><span style={{ fontSize:10, fontWeight:700, color:T.goldDark }}>💵 COLLECT CASH</span></div>
+          }
+        </div>
 
-        {/* Items */}
-        <div style={{ background:T.cream, borderRadius:10, padding:"8px 10px", marginBottom:10, border:`1px solid ${T.creamDark}` }}>
-          <p style={{ fontSize:9, color:T.textMuted, fontWeight:800, letterSpacing:"0.5px", textTransform:"uppercase", margin:"0 0 6px" }}>ITEMS · VERIFY BEFORE HANDOVER</p>
+        {/* Row 3: Items */}
+        <div style={{ background:T.cream, borderRadius:10, padding:"8px 12px", marginBottom:10, border:`1px solid ${T.creamDark}` }}>
+          <p style={{ fontSize:9, color:T.textMuted, fontWeight:800, letterSpacing:"0.5px", textTransform:"uppercase", margin:"0 0 6px" }}>
+            {isReady?"✓ VERIFY BEFORE HANDOVER":"ITEMS TO PREPARE"}
+          </p>
           {parcel.items.map((item:any,i:number)=>(
-            <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"3px 0", borderBottom:i<parcel.items.length-1?`1px solid ${T.creamDark}`:"none" }}>
-              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <span style={{ width:18, height:18, borderRadius:4, background:T.emerald, color:T.gold, fontSize:9, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>{item.quantity}</span>
+            <div key={i} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"3px 0", borderBottom:i<parcel.items.length-1?`1px solid ${T.creamDark}`:"none" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <span style={{ width:20, height:20, borderRadius:5, background:isReady?"rgba(34,197,94,0.15)":T.emerald, color:isReady?"#16A34A":T.gold, fontSize:9, fontWeight:900, display:"flex", alignItems:"center", justifyContent:"center" }}>{item.quantity}</span>
                 <span style={{ fontSize:12, color:T.text, fontWeight:600 }}>{item.name}</span>
               </div>
               <span style={{ fontSize:11, color:T.emerald, fontWeight:700 }}>₹{item.price*item.quantity}</span>
             </div>
           ))}
           <div style={{ display:"flex", justifyContent:"space-between", marginTop:6, paddingTop:6, borderTop:`1px dashed ${T.creamDark}` }}>
-            <span style={{ fontSize:10, color:T.textMuted }}>📦 Packaging</span>
-            <span style={{ fontSize:10, color:T.textMuted, fontWeight:700 }}>+₹{parcel.packagingCharge||10}</span>
+            <span style={{ fontSize:10, color:T.textMuted }}>📦 Pkg ₹{parcel.packagingCharge||10} · {parcel.items.length} items</span>
+            <span style={{ fontSize:14, fontWeight:900, color:isReady?"#16A34A":T.emerald }}>₹{parcel.totalAmount}</span>
           </div>
         </div>
 
-        {/* Status + Amount */}
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
-          <div style={{ background:sc.bg, borderRadius:7, padding:"3px 9px", display:"flex", alignItems:"center", gap:5 }}>
-            <span style={{ fontSize:10 }}>{sc.icon}</span>
-            <span style={{ fontSize:10, fontWeight:800, color:sc.color }}>{sc.label}</span>
+        {/* Ready callout */}
+        {isReady&&(
+          <div style={{ background:"rgba(34,197,94,0.08)", border:"1.5px solid rgba(34,197,94,0.3)", borderRadius:10, padding:"8px 12px", marginBottom:10, display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ fontSize:18 }}>🔔</span>
+            <div>
+              <p style={{ fontSize:12, fontWeight:800, color:"#16A34A", margin:0 }}>Call Customer to Counter!</p>
+              <p style={{ fontSize:10, color:"rgba(22,163,74,0.7)", margin:0, fontFamily:"'DM Mono',monospace" }}>{parcel.customerName.split(" ")[0].toUpperCase()} · {parcel.token}</p>
+            </div>
           </div>
-          <div style={{ textAlign:"right" }}>
-            <p style={{ fontSize:9, color:T.textDim, margin:0 }}>TOTAL</p>
-            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:20, fontWeight:900, color:isReady?"#16A34A":T.emerald, margin:0 }}>₹{parcel.totalAmount}</p>
-          </div>
-        </div>
+        )}
 
-        {/* Action buttons */}
-        <div style={{ display:"flex", gap:8 }}>
-          {/* Next status button */}
-          {parcel.status!=="delivered"&&(
-            <button onClick={handleNextStatus} disabled={loading}
-              style={{ flex:parcel.status==="ready"?1:2, padding:"10px", borderRadius:10, border:"none",
-                background:parcel.status==="ready"?`linear-gradient(135deg,#16A34A,#22C55E)`:parcel.status==="preparing"?`linear-gradient(135deg,#1D4ED8,#3B82F6)`:`linear-gradient(135deg,${T.emerald},${T.emeraldMid})`,
-                color:"white", fontWeight:800, fontSize:12, cursor:"pointer",
-                boxShadow:parcel.status==="ready"?`0 4px 12px rgba(34,197,94,0.4)`:"none" }}>
-              {loading?"...":parcel.status==="confirmed"?"👨‍🍳 Start Preparing":parcel.status==="preparing"?"🔔 Mark Ready":"✓ Handed Over"}
-            </button>
-          )}
-          {/* Settle — only when ready */}
-          {parcel.status==="ready"&&(
-            <button onClick={()=>onSettle(parcel)}
-              style={{ flex:1, padding:"10px", borderRadius:10, border:`1.5px solid ${isPaidOnline?"#3B82F6":T.gold}`,
-                background:isPaidOnline?"rgba(59,130,246,0.1)":"rgba(212,165,116,0.1)",
-                color:isPaidOnline?"#1D4ED8":T.goldDark, fontWeight:800, fontSize:12, cursor:"pointer" }}>
-              {isPaidOnline?"🔒 Close":"💰 Collect"}
-            </button>
-          )}
-        </div>
+        {/* Action button */}
+        {!isDelivered&&(
+          <button onClick={handleAction} disabled={loading}
+            style={{ width:"100%", padding:"11px", borderRadius:11, border:"none",
+              background:isReady?isPaidOnline?`linear-gradient(135deg,#1D4ED8,#3B82F6)`:`linear-gradient(135deg,#16A34A,#22C55E)`:parcel.status==="preparing"?`linear-gradient(135deg,#2563EB,#3B82F6)`:`linear-gradient(135deg,${T.emerald},${T.emeraldMid})`,
+              color:"white", fontWeight:800, fontSize:13, cursor:"pointer",
+              boxShadow:isReady?`0 4px 16px rgba(34,197,94,0.4)`:"none",
+              display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+              fontFamily:"'DM Sans',sans-serif", opacity:loading?0.7:1 }}>
+            {loading?"Updating...":sc.nextLabel}
+          </button>
+        )}
+        {isDelivered&&<div style={{ textAlign:"center", padding:"6px 0" }}><span style={{ fontSize:11, color:T.textDim, fontWeight:700 }}>✓ Completed & Handed Over</span></div>}
       </div>
     </div>
   );
 }
+
 
 // ── Parcel Settle Modal ──
 function ParcelSettleModal({ parcel, isOpen, onClose, onSettled }:{ parcel:any; isOpen:boolean; onClose:()=>void; onSettled:()=>void }) {

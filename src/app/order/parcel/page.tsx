@@ -807,7 +807,9 @@ export default function ParcelPage(){
       if(res.success){
         // WhatsApp confirmation
         fetch(`${A}/parcel/whatsapp/confirmation`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({phone:customerInfo?.phone,customerName:customerInfo?.name,token:parcelToken,items:cart.map(i=>`${i.name} x${i.quantity}`).join(", "),totalAmount:total})}).catch(()=>{});
-        setParcelData(res.parcel);
+        // Fresh fetch parcel data
+        const fresh=await fetch(`${A}/parcel/${parcelId}`).then(r=>r.json()).catch(()=>null);
+        setParcelData(fresh?.success?fresh.data:res.parcel);
         setCart([]);
         setActiveTab("orders");
       }else{setPlaceError(res.message||"Failed to place order. Try again.");}
