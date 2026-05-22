@@ -1033,7 +1033,6 @@ export default function POSPage() {
           </div>
         </header>
         <main style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
-          <RevenueGoalWidget goal={10000} />
 
           {/* Tab switcher */}
           <div style={{ display:"flex", gap:8, marginBottom:20 }}>
