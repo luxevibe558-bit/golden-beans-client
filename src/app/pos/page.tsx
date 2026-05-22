@@ -928,43 +928,91 @@ export default function POSPage() {
       <PendingApprovalBell orders={pendingOrders} onAccept={handleAcceptApproval} onReject={handleRejectApproval} />
       <div style={{ flex: 1, marginLeft: "64px", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <LowStockBanner items={lowStockItems} />
-        <header style={{ background: T.ivory, borderBottom: `1px solid ${T.border}`, padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 2px 8px rgba(15,61,46,0.05)" }}>
-          <div>
-            <h1 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: "24px", color: T.emerald, margin: 0 }}>Golden Beans POS</h1>
-            <p style={{ fontSize: "11px", color: T.textMuted, margin: "2px 0 0", fontWeight: 600 }}>
-              {currentTime.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} • {currentTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
+        <header style={{ background: T.ivory, borderBottom: `1px solid ${T.border}`, padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 2px 8px rgba(15,61,46,0.05)", gap:16 }}>
+          {/* Left: Title + Time */}
+          <div style={{ flexShrink:0 }}>
+            <h1 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: "22px", color: T.emerald, margin: 0, lineHeight:1 }}>Golden Beans POS</h1>
+            <p style={{ fontSize: "11px", color: T.textMuted, margin: "3px 0 0", fontWeight: 600 }}>
+              {currentTime.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} • {currentTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
             </p>
           </div>
-          <div style={{ display: "flex", gap: "10px" }}>
-            {[
-              { label: "Available", count: tables.filter(t => t.status === "available").length, color: T.success },
-              { label: "Occupied",  count: tables.filter(t => t.status === "occupied").length,  color: T.danger },
-              { label: "Orders",    count: Object.keys(tableOrders).length,                     color: T.gold },
-            ].map(({ label, count, color }) => (
-              <div key={label} style={{ background: T.cream, borderRadius: "12px", padding: "8px 16px", textAlign: "center", border: `1px solid ${T.creamDark}` }}>
-                <p style={{ fontWeight: 900, fontSize: "22px", color, margin: 0 }}>{count}</p>
-                <p style={{ fontSize: "9px", color: T.textMuted, margin: 0, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</p>
-              </div>
-            ))}
-            {/* Parcel ready counter */}
-            {parcels.filter(p=>p.status==="ready").length>0&&(
-              <div style={{ background:"rgba(34,197,94,0.1)", borderRadius:"12px", padding:"8px 16px", textAlign:"center", border:"1.5px solid rgba(34,197,94,0.4)", cursor:"pointer" }} onClick={()=>setPosTab("parcels")}>
-                <p style={{ fontWeight:900, fontSize:"22px", color:"#16A34A", margin:0 }}>{parcels.filter(p=>p.status==="ready").length}</p>
-                <p style={{ fontSize:"9px", color:"#16A34A", margin:0, fontWeight:800, textTransform:"uppercase" }}>📦 Ready</p>
-              </div>
-            )}
+
+          {/* Right: Compact ring stats */}
+          <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+
+            {/* Tables ring */}
+            {(()=>{
+              const occ = tables.filter(t=>t.status==="occupied").length;
+              const total = tables.length||1;
+              const pct = Math.round((occ/total)*100);
+              const R=14; const CIRC=2*Math.PI*R;
+              return(
+                <div style={{ display:"flex", alignItems:"center", gap:8, background:T.cream, border:`1px solid ${T.creamDark}`, borderRadius:12, padding:"7px 12px" }}>
+                  <svg width="36" height="36" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r={R} fill="none" stroke={T.creamDark} strokeWidth="4"/>
+                    <circle cx="18" cy="18" r={R} fill="none" stroke={T.emerald} strokeWidth="4"
+                      strokeDasharray={`${(pct/100)*CIRC} ${CIRC}`} strokeDashoffset={CIRC*0.25} strokeLinecap="round"/>
+                    <text x="18" y="22" textAnchor="middle" fontSize="10" fontWeight="700" fill={T.emerald}>{occ}</text>
+                  </svg>
+                  <div>
+                    <p style={{ fontSize:12, fontWeight:800, color:T.text, margin:0, lineHeight:1 }}>{occ}<span style={{ color:T.textMuted, fontWeight:600 }}>/{total}</span></p>
+                    <p style={{ fontSize:9, color:T.textMuted, margin:0, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.4px" }}>Tables</p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Orders ring */}
+            {(()=>{
+              const orders = Object.keys(tableOrders).length;
+              const R=14; const CIRC=2*Math.PI*R;
+              const pct = Math.min(100,Math.round((orders/(tables.length||1))*100));
+              return(
+                <div style={{ display:"flex", alignItems:"center", gap:8, background:T.cream, border:`1px solid ${T.creamDark}`, borderRadius:12, padding:"7px 12px" }}>
+                  <svg width="36" height="36" viewBox="0 0 36 36">
+                    <circle cx="18" cy="18" r={R} fill="none" stroke={T.creamDark} strokeWidth="4"/>
+                    <circle cx="18" cy="18" r={R} fill="none" stroke={T.goldDark} strokeWidth="4"
+                      strokeDasharray={`${(pct/100)*CIRC} ${CIRC}`} strokeDashoffset={CIRC*0.25} strokeLinecap="round"/>
+                    <text x="18" y="22" textAnchor="middle" fontSize="10" fontWeight="700" fill={T.goldDark}>{orders}</text>
+                  </svg>
+                  <div>
+                    <p style={{ fontSize:12, fontWeight:800, color:T.text, margin:0, lineHeight:1 }}>{orders}</p>
+                    <p style={{ fontSize:9, color:T.textMuted, margin:0, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.4px" }}>Orders</p>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Settle now — only when has */}
             {Object.values(tableOrders).filter(o => getSettleReadiness(o).canSettle).length > 0 && (
-              <div style={{ background: "rgba(34,197,94,0.1)", borderRadius: "12px", padding: "8px 16px", textAlign: "center", border: "1.5px solid rgba(34,197,94,0.4)", animation: "settleGlow 2s ease-in-out infinite" }}>
-                <p style={{ fontWeight: 900, fontSize: "22px", color: '#16A34A', margin: 0 }}>
-                  {Object.values(tableOrders).filter(o => getSettleReadiness(o).canSettle).length}
-                </p>
-                <p style={{ fontSize: "9px", color: '#16A34A', margin: 0, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.5px" }}>Settle Now</p>
+              <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(34,197,94,0.1)", border:"1.5px solid rgba(34,197,94,0.4)", borderRadius:12, padding:"7px 12px", animation:"settleGlow 2s ease-in-out infinite", cursor:"default" }}>
+                <div style={{ width:36, height:36, borderRadius:"50%", background:"rgba(34,197,94,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>✅</div>
+                <div>
+                  <p style={{ fontSize:14, fontWeight:900, color:"#16A34A", margin:0, lineHeight:1 }}>{Object.values(tableOrders).filter(o=>getSettleReadiness(o).canSettle).length}</p>
+                  <p style={{ fontSize:9, color:"#16A34A", margin:0, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.4px" }}>Settle</p>
+                </div>
               </div>
             )}
+
+            {/* Parcel ready */}
+            {parcels.filter(p=>p.status==="ready").length>0&&(
+              <div style={{ display:"flex", alignItems:"center", gap:8, background:"rgba(34,197,94,0.1)", border:"1.5px solid rgba(34,197,94,0.4)", borderRadius:12, padding:"7px 12px", cursor:"pointer" }} onClick={()=>setPosTab("parcels")}>
+                <div style={{ width:36, height:36, borderRadius:"50%", background:"rgba(34,197,94,0.15)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>📦</div>
+                <div>
+                  <p style={{ fontSize:14, fontWeight:900, color:"#16A34A", margin:0, lineHeight:1 }}>{parcels.filter(p=>p.status==="ready").length}</p>
+                  <p style={{ fontSize:9, color:"#16A34A", margin:0, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.4px" }}>Parcel</p>
+                </div>
+              </div>
+            )}
+
+            {/* Low stock */}
             {lowStockItems.length > 0 && (
-              <div style={{ background: "#FEF2F2", borderRadius: "12px", padding: "8px 16px", textAlign: "center", border: "1px solid #FECACA" }}>
-                <p style={{ fontWeight: 900, fontSize: "22px", color: T.danger, margin: 0 }}>{lowStockItems.length}</p>
-                <p style={{ fontSize: "9px", color: T.danger, margin: 0, fontWeight: 800, textTransform: "uppercase" }}>Low Stock</p>
+              <div style={{ display:"flex", alignItems:"center", gap:8, background:"#FEF2F2", border:"1px solid #FECACA", borderRadius:12, padding:"7px 12px" }}>
+                <div style={{ width:36, height:36, borderRadius:"50%", background:"rgba(192,57,43,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>⚠️</div>
+                <div>
+                  <p style={{ fontSize:14, fontWeight:900, color:T.danger, margin:0, lineHeight:1 }}>{lowStockItems.length}</p>
+                  <p style={{ fontSize:9, color:T.danger, margin:0, fontWeight:700, textTransform:"uppercase", letterSpacing:"0.4px" }}>Stock</p>
+                </div>
               </div>
             )}
           </div>
